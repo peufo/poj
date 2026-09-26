@@ -1,0 +1,2 @@
+// `//` démarre un commentaire en xcconfig : `$()` évite que l'URL soit tronquée.
+API_BASE_URL = http:/$()/localhost:5173

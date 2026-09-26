@@ -1,0 +1,7 @@
+# Le document openapi.json est un lien symbolique vers packages/api-contract/openapi.json,
+# exporté par le serveur (`bun run api:export`). Ne pas l'éditer ici.
+generate:
+  - types
+  - client
+accessModifier: public
+namingStrategy: idiomatic

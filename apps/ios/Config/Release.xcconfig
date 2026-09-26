@@ -1,0 +1,4 @@
+#include "Base.xcconfig"
+
+// À remplacer par l'URL de production.
+API_BASE_URL = https:/$()/poj.example.com

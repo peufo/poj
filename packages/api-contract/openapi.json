@@ -1,0 +1,881 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "poj API",
+		"version": "1.0.0"
+	},
+	"servers": [
+		{
+			"url": "/",
+			"description": "Origine de l’app"
+		}
+	],
+	"components": {
+		"securitySchemes": {
+			"Bearer": {
+				"type": "http",
+				"scheme": "bearer",
+				"description": "Token renvoyé dans le header `set-auth-token` par `POST /api/auth/sign-in/email`."
+			},
+			"Cookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "better-auth.session_token"
+			}
+		},
+		"schemas": {
+			"Note": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"title": {
+						"type": "string"
+					},
+					"content": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"title",
+					"content",
+					"createdAt",
+					"updatedAt"
+				]
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "string",
+						"example": "not_found"
+					},
+					"message": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"error"
+				]
+			},
+			"ValidationError": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "string",
+						"enum": [
+							"validation_error"
+						]
+					},
+					"issues": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"message": {
+									"type": "string"
+								},
+								"path": {
+									"type": "array",
+									"items": {}
+								}
+							},
+							"required": [
+								"message",
+								"path"
+							],
+							"additionalProperties": {}
+						}
+					}
+				},
+				"required": [
+					"error",
+					"issues"
+				]
+			},
+			"CreateNote": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid",
+						"description": "Identifiant généré par le client. Rejouer la requête avec le même id est sans effet."
+					},
+					"title": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 200
+					},
+					"content": {
+						"type": "string",
+						"maxLength": 100000
+					}
+				},
+				"required": [
+					"title"
+				]
+			},
+			"NoteInput": {
+				"type": "object",
+				"properties": {
+					"title": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 200
+					},
+					"content": {
+						"type": "string",
+						"maxLength": 100000
+					}
+				},
+				"required": [
+					"title"
+				]
+			},
+			"NotePatch": {
+				"type": "object",
+				"properties": {
+					"title": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 200
+					},
+					"content": {
+						"type": "string",
+						"maxLength": 100000
+					}
+				}
+			},
+			"AuthResponse": {
+				"type": "object",
+				"properties": {
+					"token": {
+						"type": [
+							"string",
+							"null"
+						]
+					},
+					"user": {
+						"$ref": "#/components/schemas/AuthUser"
+					}
+				},
+				"required": [
+					"user"
+				]
+			},
+			"AuthUser": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"emailVerified": {
+						"type": "boolean"
+					},
+					"image": {
+						"type": [
+							"string",
+							"null"
+						]
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"email",
+					"emailVerified",
+					"createdAt",
+					"updatedAt"
+				]
+			},
+			"AuthError": {
+				"type": "object",
+				"properties": {
+					"code": {
+						"type": "string"
+					},
+					"message": {
+						"type": "string"
+					}
+				}
+			},
+			"SignInEmail": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"password": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"email",
+					"password"
+				]
+			},
+			"SignUpEmail": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"password": {
+						"type": "string",
+						"minLength": 8
+					}
+				},
+				"required": [
+					"name",
+					"email",
+					"password"
+				]
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/api/v1/notes": {
+			"get": {
+				"operationId": "listNotes",
+				"tags": [
+					"Notes"
+				],
+				"security": [
+					{
+						"Bearer": []
+					},
+					{
+						"Cookie": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Notes de l’utilisateur",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Note"
+											}
+										}
+									},
+									"required": [
+										"data"
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Requête invalide",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"operationId": "createNote",
+				"tags": [
+					"Notes"
+				],
+				"security": [
+					{
+						"Bearer": []
+					},
+					{
+						"Cookie": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateNote"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Note déjà existante (requête rejouée)",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Note"
+								}
+							}
+						}
+					},
+					"201": {
+						"description": "Note créée",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Note"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"409": {
+						"description": "Identifiant déjà utilisé",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Requête invalide",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/notes/{id}": {
+			"get": {
+				"operationId": "getNote",
+				"tags": [
+					"Notes"
+				],
+				"security": [
+					{
+						"Bearer": []
+					},
+					{
+						"Cookie": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Note",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Note"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Note introuvable",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Requête invalide",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					}
+				}
+			},
+			"put": {
+				"operationId": "putNote",
+				"tags": [
+					"Notes"
+				],
+				"security": [
+					{
+						"Bearer": []
+					},
+					{
+						"Cookie": []
+					}
+				],
+				"summary": "Crée ou remplace une note (idempotent)",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NoteInput"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Note remplacée",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Note"
+								}
+							}
+						}
+					},
+					"201": {
+						"description": "Note créée",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Note"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"409": {
+						"description": "Identifiant déjà utilisé",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Requête invalide",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"operationId": "updateNote",
+				"tags": [
+					"Notes"
+				],
+				"security": [
+					{
+						"Bearer": []
+					},
+					{
+						"Cookie": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NotePatch"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Note modifiée",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Note"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Note introuvable",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Requête invalide",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"operationId": "deleteNote",
+				"tags": [
+					"Notes"
+				],
+				"security": [
+					{
+						"Bearer": []
+					},
+					{
+						"Cookie": []
+					}
+				],
+				"summary": "Suppression logique (idempotente)",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Note supprimée"
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Note introuvable",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Requête invalide",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/sign-in/email": {
+			"post": {
+				"operationId": "signInEmail",
+				"tags": [
+					"Auth"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignInEmail"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Connecté",
+						"headers": {
+							"set-auth-token": {
+								"description": "Token à envoyer ensuite dans `Authorization: Bearer <token>`.",
+								"schema": {
+									"type": "string"
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Requête refusée",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Identifiants invalides",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthError"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Données invalides",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthError"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/sign-up/email": {
+			"post": {
+				"operationId": "signUpEmail",
+				"tags": [
+					"Auth"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignUpEmail"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Compte créé et connecté",
+						"headers": {
+							"set-auth-token": {
+								"description": "Token à envoyer ensuite dans `Authorization: Bearer <token>`.",
+								"schema": {
+									"type": "string"
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Requête refusée",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Identifiants invalides",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthError"
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Données invalides",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthError"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/sign-out": {
+			"post": {
+				"operationId": "signOut",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"Bearer": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Déconnecté",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"success"
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Non authentifié",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"webhooks": {}
+}

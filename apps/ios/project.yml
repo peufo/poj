@@ -1,0 +1,43 @@
+name: Poj
+options:
+  bundleIdPrefix: dev.poj
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  developmentLanguage: fr
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  PojAPI:
+    path: Packages/PojAPI
+
+targets:
+  Poj:
+    type: application
+    platform: iOS
+    sources: [Poj]
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    dependencies:
+      - package: PojAPI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.poj.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: Poj/Info.plist
+      properties:
+        CFBundleDisplayName: poj
+        API_BASE_URL: $(API_BASE_URL)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSAppTransportSecurity:
+          # Autorise http:// vers localhost / le réseau local (serveur de dev).
+          NSAllowsLocalNetworking: true

@@ -1,6 +1,7 @@
 import { Scalar } from '@scalar/hono-api-reference';
 import { HTTPException } from 'hono/http-exception';
 import { ConflictError, NotFoundError } from '#lib/server/domain/index.js';
+import { registerAuthDocs } from './auth-docs';
 import { createApp } from './factory';
 import { v1 } from './v1';
 
@@ -19,10 +20,15 @@ api.openAPIRegistry.registerComponent('securitySchemes', 'Cookie', {
 
 api.route('/v1', v1);
 
-api.doc31('/openapi.json', {
+registerAuthDocs(api.openAPIRegistry);
+
+export const openApiConfig = {
 	openapi: '3.1.0',
-	info: { title: 'poj API', version: '1.0.0' }
-});
+	info: { title: 'poj API', version: '1.0.0' },
+	servers: [{ url: '/', description: 'Origine de l’app' }]
+};
+
+api.doc31('/openapi.json', openApiConfig);
 api.get('/docs', Scalar({ url: '/api/openapi.json', pageTitle: 'poj API' }));
 
 api.notFound((c) => c.json({ error: 'not_found' }, 404));

@@ -1,28 +1,12 @@
 node_modules
-
-# Output
-.output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
-/build
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Env
-.env
-.env.*
-!.env.example
-!.env.test
-
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-# Playwright
-test-results
-
-# Prisma
-/src/lib/server/db/generated
+# iOS / Swift
+apps/ios/*.xcodeproj
+apps/ios/*.xcworkspace
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+apps/ios/Poj/Info.plist

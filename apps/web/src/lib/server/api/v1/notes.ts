@@ -15,21 +15,26 @@ const NoteSchema = z
 	})
 	.openapi('Note');
 
-const NoteInputSchema = z
+// Schémas plats (pas de `.extend()` sur un schéma nommé, exporté en `allOf`) pour
+// des types simples côté clients générés.
+const noteInputShape = {
+	title: z.string().trim().min(1).max(200),
+	content: z.string().max(100_000).optional()
+};
+
+const NoteInputSchema = z.object(noteInputShape).openapi('NoteInput');
+
+const CreateNoteSchema = z
 	.object({
-		title: z.string().trim().min(1).max(200),
-		content: z.string().max(100_000).optional()
+		id: z.uuid().optional().openapi({
+			description:
+				'Identifiant généré par le client. Rejouer la requête avec le même id est sans effet.'
+		}),
+		...noteInputShape
 	})
-	.openapi('NoteInput');
+	.openapi('CreateNote');
 
-const CreateNoteSchema = NoteInputSchema.extend({
-	id: z.uuid().optional().openapi({
-		description:
-			'Identifiant généré par le client. Rejouer la requête avec le même id est sans effet.'
-	})
-}).openapi('CreateNote');
-
-const NotePatchSchema = NoteInputSchema.partial().openapi('NotePatch');
+const NotePatchSchema = z.object(noteInputShape).partial().openapi('NotePatch');
 
 const IdParams = z.object({
 	id: z.uuid().openapi({ param: { name: 'id', in: 'path' } })
@@ -55,6 +60,7 @@ notesApp.use('*', requireAuth);
 notesApp.openapi(
 	createRoute({
 		method: 'get',
+		operationId: 'listNotes',
 		path: '/notes',
 		tags: ['Notes'],
 		security,
@@ -72,6 +78,7 @@ notesApp.openapi(
 notesApp.openapi(
 	createRoute({
 		method: 'post',
+		operationId: 'createNote',
 		path: '/notes',
 		tags: ['Notes'],
 		security,
@@ -94,6 +101,7 @@ notesApp.openapi(
 notesApp.openapi(
 	createRoute({
 		method: 'get',
+		operationId: 'getNote',
 		path: '/notes/{id}',
 		tags: ['Notes'],
 		security,
@@ -109,6 +117,7 @@ notesApp.openapi(
 notesApp.openapi(
 	createRoute({
 		method: 'put',
+		operationId: 'putNote',
 		path: '/notes/{id}',
 		tags: ['Notes'],
 		security,
@@ -137,6 +146,7 @@ notesApp.openapi(
 notesApp.openapi(
 	createRoute({
 		method: 'patch',
+		operationId: 'updateNote',
 		path: '/notes/{id}',
 		tags: ['Notes'],
 		security,
@@ -155,6 +165,7 @@ notesApp.openapi(
 notesApp.openapi(
 	createRoute({
 		method: 'delete',
+		operationId: 'deleteNote',
 		path: '/notes/{id}',
 		tags: ['Notes'],
 		security,
