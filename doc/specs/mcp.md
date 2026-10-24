@@ -16,7 +16,7 @@ Le serveur MCP permet à Claude de capturer et de réviser des cartes : [stories
   - L'enregistrement dynamique des clients (DCR) est activé : c'est ainsi que Claude s'enregistre.
   - L'URL de redirection `https://claude.ai/api/mcp/auth_callback` est autorisée.
   - Le rafraîchissement des jetons est supporté : Claude renouvelle ses jetons quand ils expirent.
-  - La connexion réutilise la page de connexion du web. Il faut ajouter une page de consentement (« Claude demande l'accès à vos cartes »).
+  - La connexion réutilise la page de connexion du web. Il faut ajouter une page de consentement (« Claude demande l'accès à vos cartes ») : elle ne s'affiche qu'à l'ajout du connecteur, et elle protège contre un client qui se ferait passer pour Claude. Pas d'approbation automatique.
 - **Exposition :** l'enregistrement est ouvert à tout client, mais n'importe qui ne peut pas utiliser mes cartes pour autant : il faut ensuite se connecter avec **mon** compte, le seul existant ([WEB-1](../stories/web.md#web-1--accès-réservé)).
 - **À vérifier à l'implémentation :** le plugin `@better-auth/mcp` est récent. Il faudra tester le parcours complet avec le MCP Inspector, puis avec claude.ai.
 

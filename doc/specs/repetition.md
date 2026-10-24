@@ -7,7 +7,9 @@
   - `fr_to_en` : on voit le français, on produit l'anglais ;
   - `en_to_fr` : on voit l'anglais, on produit le français.
 - Chaque révision a son propre état FSRS (stabilité, difficulté, échéance…). Réussir dans un sens ne fait pas progresser l'autre.
-- **Chaque réponse est conservée** dans un historique : révision, date, note, et origine (Claude ou web). Cet historique sert aux statistiques, au diagnostic, et plus tard à optimiser les paramètres FSRS sur mes propres données.
+- **Chaque réponse est conservée** dans un historique : révision, date, note, origine (Claude ou web), et **état FSRS d'avant la réponse**. Cet historique sert aux statistiques, au diagnostic, à corriger la dernière note (voir plus bas), et plus tard à optimiser les paramètres FSRS sur mes propres données.
+- Chaque carte porte aussi son origine (Claude ou web).
+- **Indice :** chaque révision mémorise si un indice a été demandé depuis sa dernière réponse. C'est le domaine qui applique le plafond *Hard*, pour le web comme pour Claude.
 
 ## Algorithme
 
@@ -28,6 +30,12 @@
 - **Avec Claude :** Claude propose *Again*, *Hard* ou *Good* d'après la conversation, en tolérant synonymes, variantes et approximations. Il ne propose **jamais** *Easy*, qui ne s'applique que si je le demande (« trop facile »). Je peux contester la note avant de passer à la carte suivante. Seule la note finale est enregistrée.
 - **Sur le web :** la réponse est affichée, puis je choisis l'une des quatre notes.
 - **Indice :** demander le contexte d'origine pendant une révision entraîne au mieux la note *Hard*.
+
+## Corriger la dernière note
+
+- La **dernière** réponse d'une révision peut être corrigée dans l'heure qui suit : la note est remplacée, et l'état FSRS est recalculé à partir de l'état antérieur conservé dans l'historique.
+- Le plafond *Hard* lié à l'indice s'applique toujours.
+- Avec Claude, la note est enregistrée d'office et je conteste ensuite ([specs/mcp.md](mcp.md#déroulé-dune-révision-vocale)). Sur le web, c'est un bouton pendant la révision ([WEB-7](../stories/web.md#web-7--réviser)).
 
 ## Sessions
 

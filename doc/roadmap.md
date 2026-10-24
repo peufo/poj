@@ -10,7 +10,7 @@ Objectif : pouvoir tout faire sans Claude, et **voir que tout est en ordre** (ca
 
 ## Jalon 2 — Claude : capturer et réviser en conversation
 
-Objectif : capturer une carte sur le vif, et réviser à la voix dans la voiture.
+Objectif : capturer une carte sur le vif, et réviser à la voix dans la voiture. Spec : [specs/mcp.md](specs/mcp.md).
 
 - Connecter Claude à Poj (MCP distant et OAuth) : [CL-1](stories/connecteur-claude.md#cl-1--connecter-claude-à-poj)
 - Capturer une carte en langage naturel, avec vérification : [CL-2](stories/connecteur-claude.md#cl-2--capturer-une-carte), [CL-3](stories/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)

@@ -2,6 +2,24 @@
 
 Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut.
 
+## 2026-10-24 — Page de consentement OAuth conservée
+
+**Décision :** l'ajout du connecteur Claude passe par une page de consentement explicite. Voir [specs/mcp.md](specs/mcp.md#transport-et-authentification).
+
+**Rejeté :** l'approbation automatique, même avec un seul utilisateur. La page ne s'affiche qu'une fois, et elle protège contre un client qui se ferait passer pour Claude.
+
+## 2026-10-24 — Note enregistrée d'office, corrigeable ensuite
+
+**Décision :** en révision vocale, Claude annonce la note, l'enregistre et enchaîne sans attendre mon accord. Si je conteste, il corrige la note précédente. Sur le web, un bouton permet aussi de corriger la dernière note. Seule la dernière réponse d'une révision est corrigeable, et seulement dans l'heure. Voir [specs/repetition.md](specs/repetition.md#corriger-la-dernière-note).
+
+**Rejeté :** attendre ma validation avant d'enregistrer chaque note. Au volant, ça fait deux échanges par carte.
+
+**Conséquence :** l'historique conserve l'état FSRS d'avant chaque réponse.
+
+## 2026-10-24 — Les outils MCP appliquent eux-mêmes les règles qu'ils peuvent garantir
+
+**Décision :** le serveur applique lui-même le plafond *Hard* après un indice (le contexte ne sort que par `get_hint`), la mise de côté du sens inverse, et le rejeu sans effet des créations et des notes. Seules les règles qui dépendent du comportement de Claude reposent sur la description des outils : relire la carte avant de la créer, ne pas proposer *Easy*. Voir [specs/mcp.md](specs/mcp.md).
+
 ## 2026-10-24 — Modifier le texte d'une carte réinitialise sa progression
 
 **Décision :** si le français ou l'anglais d'une carte change, ses deux sens repartent de zéro (l'historique est conservé). Une modification du contexte seul ne touche pas à la progression. Voir [stories/web.md](stories/web.md#web-5--modifier-une-carte).

@@ -61,6 +61,7 @@ Je veux réviser mes cartes dues dans le navigateur, pour apprendre sans Claude.
 - **Indice :** une action « Voir le contexte » est disponible si la carte en a un. Une fois le contexte affiché, seules les notes *Again* et *Hard* restent possibles.
 - « Afficher la réponse » révèle l'autre face et le contexte, puis propose les quatre notes : *Again*, *Hard*, *Good*, *Easy*.
 - Chaque note est enregistrée immédiatement (origine : web). Je peux quitter la page à tout moment sans rien perdre.
+- **Corriger la dernière note :** après un clic malheureux, je peux changer la note de la carte précédente, selon les règles de la spec (dernière réponse uniquement, dans l'heure).
 
 ## WEB-8 — Rien à réviser
 

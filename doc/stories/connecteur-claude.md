@@ -1,6 +1,6 @@
 # User stories : Claude (jalon 2)
 
-Règles de répétition : voir [specs/repetition.md](../specs/repetition.md). La liste des outils MCP fera l'objet d'une spec dédiée.
+Règles de répétition : voir [specs/repetition.md](../specs/repetition.md). Outils MCP et authentification : voir [specs/mcp.md](../specs/mcp.md).
 
 ## CL-1 — Connecter Claude à Poj
 
@@ -36,8 +36,8 @@ Je veux réviser mes cartes dues en parlant avec Claude, pour valoriser un traje
 - « On révise » lance la session. Claude présente les révisions dues une à une, selon l'ordre et la mise de côté de la spec.
 - `fr_to_en` : Claude dit le français, je réponds en anglais. `en_to_fr` : Claude dit l'anglais, je réponds en français.
 - Après ma réponse, Claude donne la réponse attendue et propose une note (*Again*, *Hard* ou *Good*) en tolérant synonymes et approximations.
-- Je peux contester la note (« compte-la fausse », « non, c'était juste »). *Easy* n'est appliqué que si je le dis.
-- Seule la note finale est enregistrée (origine : Claude), avant de passer à la carte suivante.
+- Claude enregistre la note (origine : Claude) et enchaîne avec la carte suivante, sans attendre mon accord.
+- Je peux contester la note de la carte précédente (« compte-la fausse », « non, c'était juste ») : Claude la corrige, puis reprend. *Easy* n'est appliqué que si je le dis.
 - « On arrête » met fin à la session à tout moment. Claude résume : nombre de cartes révisées et répartition des notes.
 
 ## CL-5 — Demander un indice
@@ -45,7 +45,7 @@ Je veux réviser mes cartes dues en parlant avec Claude, pour valoriser un traje
 Je veux pouvoir demander un indice quand je bloque, pour ne pas rester sec au volant.
 
 - « Un indice » : Claude donne le contexte d'origine de la carte, s'il existe.
-- Une révision avec indice reçoit au mieux la note *Hard*.
+- Une révision avec indice reçoit au mieux la note *Hard*. Le serveur l'applique, quelle que soit la note transmise par Claude.
 
 ## CL-6 — Rien à réviser
 
