@@ -125,7 +125,8 @@ export function createCardsService(db: Db) {
 		},
 
 		list(ownerId: string, { query }: { query?: string } = {}): Promise<CardWithReviews[]> {
-			const q = query?.trim();
+			// `contains` devient un ILIKE sans échapper ses jokers : `%` et `_` se cherchent tels quels.
+			const q = query?.trim().replace(/[\\%_]/g, '\\$&');
 			return db.card.findMany({
 				where: {
 					ownerId,

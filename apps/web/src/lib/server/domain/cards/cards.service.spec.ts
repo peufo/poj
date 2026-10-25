@@ -125,6 +125,20 @@ describe('cards service', () => {
 		expect((await cards.list(alice, { query: 'sorcier' })).map((c) => c.id)).toEqual([newer.id]);
 	});
 
+	it('searches `%`, `_` and `\\` literally, not as LIKE wildcards', async () => {
+		await cards.create(alice, input, 'web', now);
+		const percent = await cards.create(
+			alice,
+			{ french: '100 % sûr', english: '100_percent sure', context: 'a\\b' },
+			'web',
+			now
+		);
+
+		for (const query of ['%', '_', '\\']) {
+			expect((await cards.list(alice, { query })).map((c) => c.id)).toEqual([percent.id]);
+		}
+	});
+
 	it('gets a card with its reviews and history', async () => {
 		const { id } = await cards.create(alice, input, 'web', now);
 		await answerBoth(id);
