@@ -119,7 +119,13 @@ export function createReviewsService(db: Db) {
 				});
 				const [last] = current.logs;
 				if (!last) throw new ConflictError(`Review ${reviewId} has changed`);
-				return { reviewId, rating: last.rating, due: current.due, replayed: true };
+				return {
+					reviewId,
+					rating: last.rating,
+					due: current.due,
+					context: review.card.context,
+					replayed: true
+				};
 			};
 
 			if (version !== versionOf(review)) return replay();
@@ -148,7 +154,13 @@ export function createReviewsService(db: Db) {
 			});
 			if (!applied) return replay();
 
-			return { reviewId, rating: next.rating, due: next.state.due, replayed: false };
+			return {
+				reviewId,
+				rating: next.rating,
+				due: next.state.due,
+				context: review.card.context,
+				replayed: false
+			};
 		},
 
 		/**
@@ -187,7 +199,13 @@ export function createReviewsService(db: Db) {
 				})
 			]);
 
-			return { reviewId, rating: next.rating, due: next.state.due, replayed: false };
+			return {
+				reviewId,
+				rating: next.rating,
+				due: next.state.due,
+				context: review.card.context,
+				replayed: false
+			};
 		}
 	};
 }

@@ -21,6 +21,8 @@ export interface AnswerResult {
 	/** Note effectivement retenue (plafonnée à `hard` après un indice). */
 	rating: Rating;
 	due: Date;
+	/** Contexte de la carte, à évoquer en renforcement. */
+	context: string | null;
 	/** Vrai si la note avait déjà été enregistrée : rien n'a été appliqué. */
 	replayed: boolean;
 }

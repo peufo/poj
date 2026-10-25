@@ -57,6 +57,50 @@ describe('cards service', () => {
 		expect(card.context).toBeNull();
 	});
 
+	it('creates once: an identical card within 10 minutes is returned, not duplicated', async () => {
+		const at = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+		const first = await cards.createOnce(alice, { ...input, context: 'réunion' }, 'claude', now);
+		const replay = await cards.createOnce(
+			alice,
+			{ ...input, context: '  réunion ' },
+			'claude',
+			at(9)
+		);
+
+		expect(first.created).toBe(true);
+		expect(first.card).toMatchObject({ ...input, context: 'réunion', origin: 'claude' });
+		expect(first.card.reviews).toHaveLength(2);
+		expect(replay).toEqual({ card: first.card, created: false });
+		expect(await db.card.count()).toBe(1);
+
+		// Un champ différent, un autre utilisateur ou plus de 10 minutes : nouvelle carte.
+		expect((await cards.createOnce(alice, input, 'claude', at(9))).created).toBe(true);
+		expect(
+			(await cards.createOnce(bob, { ...input, context: 'réunion' }, 'claude', at(9))).created
+		).toBe(true);
+		const late = await cards.createOnce(alice, { ...input, context: 'réunion' }, 'claude', at(11));
+		expect(late.created).toBe(true);
+		expect(late.card.id).not.toBe(first.card.id);
+	});
+
+	it('creates once again after the identical card was deleted', async () => {
+		const first = await cards.createOnce(alice, input, 'claude', now);
+		await cards.softDelete(alice, first.card.id);
+
+		const second = await cards.createOnce(alice, input, 'claude', now);
+		expect(second.created).toBe(true);
+		expect(second.card.id).not.toBe(first.card.id);
+	});
+
+	it('creates once even under concurrent identical calls', async () => {
+		const results = await Promise.all(
+			[1, 2, 3].map(() => cards.createOnce(alice, input, 'claude', now))
+		);
+
+		expect(results.filter((r) => r.created)).toHaveLength(1);
+		expect(new Set(results.map((r) => r.card.id)).size).toBe(1);
+	});
+
 	it('finds duplicates ignoring case and spaces, but not itself nor deleted cards', async () => {
 		const first = await cards.create(alice, input, 'web', now);
 		const deleted = await cards.create(alice, input, 'web', now);

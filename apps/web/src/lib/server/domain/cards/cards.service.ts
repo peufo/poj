@@ -8,6 +8,9 @@ export type CardsService = ReturnType<typeof createCardsService>;
 
 const DIRECTIONS = ['fr_to_en', 'en_to_fr'] as const;
 
+/** Fenêtre pendant laquelle `createOnce` renvoie une carte identique au lieu d'en créer une. */
+const REPLAY_WINDOW_MS = 10 * 60 * 1000;
+
 function clean({ french, english, context }: CardInput) {
 	return { french: french.trim(), english: english.trim(), context: context?.trim() || null };
 }
@@ -42,6 +45,51 @@ export function createCardsService(db: Db) {
 					}
 				},
 				include: { reviews: true }
+			});
+		},
+
+		/**
+		 * Comme `create`, mais rejouable : si une carte identique (mêmes trois champs, après
+		 * nettoyage) a été créée dans les 10 dernières minutes, la renvoie sans en créer une
+		 * seconde. Protège contre les relances réseau des clients sans identifiant (MCP).
+		 */
+		createOnce(
+			ownerId: string,
+			input: CardInput,
+			origin: Origin,
+			now = new Date()
+		): Promise<{ card: CardWithReviews; created: boolean }> {
+			const data = clean(input);
+			return db.$transaction(async (tx) => {
+				// Sérialise les créations d'un même propriétaire : deux relances simultanées
+				// ne peuvent pas passer toutes les deux la recherche.
+				await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}::text))`;
+				const existing = await tx.card.findFirst({
+					where: {
+						...data,
+						ownerId,
+						deletedAt: null,
+						createdAt: { gte: new Date(now.getTime() - REPLAY_WINDOW_MS) }
+					},
+					include: { reviews: true },
+					orderBy: { createdAt: 'desc' }
+				});
+				if (existing) return { card: existing, created: false };
+
+				const card = await tx.card.create({
+					data: {
+						...data,
+						origin,
+						ownerId,
+						// Horodatée avec `now` pour que la fenêtre de rejeu suive la même horloge.
+						createdAt: now,
+						reviews: {
+							create: DIRECTIONS.map((direction) => ({ direction, ...emptyState(now) }))
+						}
+					},
+					include: { reviews: true }
+				});
+				return { card, created: true };
 			});
 		},
 

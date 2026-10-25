@@ -36,3 +36,29 @@ export function startOfNextDay(now: Date, timeZone = TIME_ZONE): Date {
 	const midnightAsUtc = Date.UTC(year, month - 1, day + 1);
 	return new Date(midnightAsUtc - offsetMs(new Date(midnightAsUtc), timeZone));
 }
+
+const relative = new Intl.RelativeTimeFormat('fr', { numeric: 'always' });
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/**
+ * Date relative en français, pensée pour la voix : « dans 3 jours »,
+ * « dans 10 minutes », « il y a 2 heures », « maintenant » à moins d'une minute.
+ */
+export function formatRelative(date: Date, now = new Date()): string {
+	const diff = date.getTime() - now.getTime();
+	if (Math.abs(diff) < MINUTE) return 'maintenant';
+
+	// On passe à l'unité suivante quand l'arrondi l'atteint (59,6 min → 1 heure).
+	const minutes = Math.round(diff / MINUTE);
+	if (Math.abs(minutes) < 60) return relative.format(minutes, 'minute');
+	const hours = Math.round(diff / HOUR);
+	if (Math.abs(hours) < 24) return relative.format(hours, 'hour');
+	const days = Math.round(diff / DAY);
+	if (Math.abs(days) < 30) return relative.format(days, 'day');
+	const months = Math.round(diff / (30.44 * DAY));
+	if (Math.abs(months) < 12) return relative.format(months, 'month');
+	return relative.format(Math.round(diff / (365.25 * DAY)), 'year');
+}

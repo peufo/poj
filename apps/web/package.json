@@ -28,6 +28,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@modelcontextprotocol/client": "2.4.0",
 		"@playwright/test": "^1.60.0",
 		"@sveltejs/adapter-node": "next",
 		"@sveltejs/kit": "next",
@@ -62,6 +63,7 @@
 	},
 	"dependencies": {
 		"@hono/zod-openapi": "^1.6.3",
+		"@modelcontextprotocol/server": "2.4.0",
 		"@prisma/adapter-pg": "7.10.0",
 		"@prisma/client": "7.10.0",
 		"@scalar/hono-api-reference": "^0.12.6",
