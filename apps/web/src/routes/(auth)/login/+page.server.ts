@@ -5,6 +5,7 @@ import { authErrorMessage } from '#lib/server/auth-errors.js';
 import { db } from '#lib/server/db/index.js';
 import { createAccountsService } from '#lib/server/domain/index.js';
 import { oauthApiContext, oauthQuery, oauthRedirect } from '#lib/server/oauth-flow.js';
+import { REDIRECT_PARAM, safeRedirectTo } from '#lib/server/web/redirect-to.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -38,6 +39,10 @@ export const actions: Actions = {
 		// validé par le plugin contre ceux enregistrés.
 		const next = oauthRedirect(result);
 		if (next) redirect(302, next, { external: true });
-		redirect(302, '/cards');
+		// Hors flux OAuth : retour à la page demandée, si c'est un chemin interne.
+		redirect(
+			302,
+			(!oauth_query && safeRedirectTo(url.searchParams.get(REDIRECT_PARAM))) || '/cards'
+		);
 	}
 };
