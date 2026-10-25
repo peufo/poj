@@ -221,6 +221,76 @@ describe('reviews service', () => {
 		);
 	});
 
+	it('presents what the review page needs: context, hint state, novelty and previews', async () => {
+		await createCard(db, alice, { context: 'Au bureau', now: t0 });
+		const fresh = presented(await reviews.next(alice, t0));
+
+		expect(fresh).toMatchObject({ context: 'Au bureau', hintUsed: false, isNew: true, due: t0 });
+		expect(fresh.preview.again.getTime()).toBeLessThan(fresh.preview.good.getTime());
+		expect(fresh.preview.good.getTime()).toBeLessThan(fresh.preview.easy.getTime());
+
+		// L'indice demandé survit à un rechargement de la page.
+		await reviews.requestHint(alice, fresh.id, at(1));
+		expect(presented(await reviews.next(alice, at(2)))).toMatchObject({
+			id: fresh.id,
+			hintUsed: true
+		});
+	});
+
+	it('counts the reviews to present now, without buried siblings or deleted cards', async () => {
+		const card = await createCard(db, alice, { now: t0 });
+		const deleted = await createCard(db, alice, { french: 'b', english: 'b', now: t0 });
+		await cards.softDelete(alice, deleted.id);
+		await createCard(db, bob, { now: t0 });
+		expect(await reviews.countDue(alice, t0)).toBe(2);
+
+		const review = presented(await reviews.next(alice, t0));
+		await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'easy', version: review.version, origin: 'web' },
+			t0
+		);
+		expect(await reviews.countDue(alice, at(1))).toBe(0);
+		expect(card.reviews).toHaveLength(2);
+	});
+
+	it('exposes the last answer while it can be amended, with previews from the state before', async () => {
+		expect(await reviews.lastAnswer(alice, t0)).toBeNull();
+		const card = await createCard(db, alice, { french: 'fr', english: 'en', now: t0 });
+		const review = presented(await reviews.next(alice, t0));
+		const answered = await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'good', version: review.version, origin: 'web' },
+			t0
+		);
+
+		const last = await reviews.lastAnswer(alice, at(5));
+		expect(last).toMatchObject({
+			reviewId: review.id,
+			cardId: card.id,
+			direction: review.direction,
+			prompt: review.prompt,
+			rating: 'good',
+			hintUsed: false,
+			reviewedAt: t0,
+			due: answered.due
+		});
+		expect(last!.preview).toEqual(review.preview);
+
+		const amended = await reviews.amend(alice, review.id, 'again', at(6));
+		expect(await reviews.lastAnswer(alice, at(7))).toMatchObject({
+			rating: 'again',
+			due: amended.due
+		});
+
+		expect(await reviews.lastAnswer(alice, at(HOUR + 1))).toBeNull();
+		expect(await reviews.lastAnswer(bob, at(7))).toBeNull();
+		await cards.update(alice, card.id, { french: 'autre', english: 'en' }, at(8));
+		expect(await reviews.lastAnswer(alice, at(9))).toBeNull();
+	});
+
 	it('hides other users’ reviews', async () => {
 		const card = await createCard(db, bob, { context: 'x', now: t0 });
 		const [review] = card.reviews;

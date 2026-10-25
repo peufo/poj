@@ -1,8 +1,14 @@
 import type { Db } from '../db';
 import { ConflictError, NotFoundError } from '../errors';
-import type { Direction, Origin, Rating, Review } from '../cards/types';
-import { applyRating, parseState, serializeState, type SerializedState } from './scheduler';
-import type { AnswerResult, NextResult } from './types';
+import type { Card, Direction, Origin, Rating, Review, ReviewLog } from '../cards/types';
+import {
+	applyRating,
+	parseState,
+	previewDue,
+	serializeState,
+	type SerializedState
+} from './scheduler';
+import type { AnswerResult, LastAnswer, NextResult } from './types';
 
 export type ReviewsService = ReturnType<typeof createReviewsService>;
 
@@ -18,6 +24,23 @@ const versionOf = (review: Pick<Review, 'lastReview'>) => review.lastReview?.toI
 const hintUsedOn = (review: Pick<Review, 'hintRequestedAt' | 'lastReview'>) =>
 	review.hintRequestedAt !== null &&
 	(review.lastReview === null || review.hintRequestedAt > review.lastReview);
+
+/** Une réponse est corrigeable dans l'heure, tant que la révision n'a pas changé depuis. */
+function amendBlocker(
+	log: Pick<ReviewLog, 'reviewedAt'>,
+	review: Pick<Review, 'lastReview'>,
+	now: Date
+): string | null {
+	if (now.getTime() - log.reviewedAt.getTime() > AMEND_WINDOW_MS) return 'is too old to amend';
+	// Une réinitialisation (carte modifiée) depuis la réponse interdit la correction.
+	if (review.lastReview?.getTime() !== log.reviewedAt.getTime()) {
+		return 'has changed since its last answer';
+	}
+	return null;
+}
+
+const promptOf = (direction: Direction, card: Pick<Card, 'french' | 'english'>) =>
+	direction === 'fr_to_en' ? card.french : card.english;
 
 export function createReviewsService(db: Db) {
 	const owned = (ownerId: string) => ({ card: { ownerId, deletedAt: null } });
@@ -45,13 +68,25 @@ export function createReviewsService(db: Db) {
 		};
 	}
 
+	/** Révisions présentables : cartes non supprimées, sens inverse mis de côté. */
+	async function availableFilter(ownerId: string, now: Date) {
+		return { ...owned(ownerId), ...(await buriedFilter(ownerId, now)) };
+	}
+
 	return {
+		/** Nombre de révisions à présenter maintenant (dues, hors sens inverse mis de côté). */
+		async countDue(ownerId: string, now = new Date()): Promise<number> {
+			return db.review.count({
+				where: { ...(await availableFilter(ownerId, now)), due: { lte: now } }
+			});
+		},
+
 		/**
 		 * Prochaine révision à présenter : la plus en retard d'abord. Avec `ahead`, les
 		 * révisions à venir sont aussi candidates (révision en avance).
 		 */
 		async next(ownerId: string, now = new Date(), { ahead = false } = {}): Promise<NextResult> {
-			const available = { ...owned(ownerId), ...(await buriedFilter(ownerId, now)) };
+			const available = await availableFilter(ownerId, now);
 			const dueNow = { ...available, due: { lte: now } };
 
 			const [review, remaining] = await Promise.all([
@@ -73,18 +108,52 @@ export function createReviewsService(db: Db) {
 			}
 
 			const { card } = review;
-			const frToEn = review.direction === 'fr_to_en';
 			return {
 				review: {
 					id: review.id,
 					cardId: card.id,
 					direction: review.direction,
-					prompt: frToEn ? card.french : card.english,
-					expected: frToEn ? card.english : card.french,
+					prompt: promptOf(review.direction, card),
+					expected: promptOf(opposite[review.direction], card),
 					hasHint: card.context !== null,
+					context: card.context,
+					hintUsed: hintUsedOn(review),
+					isNew: review.state === 'new',
+					due: review.due,
+					preview: previewDue(review, now),
 					version: versionOf(review)
 				},
 				remaining
+			};
+		},
+
+		/**
+		 * La réponse la plus récente de l'utilisateur, si elle peut encore être corrigée
+		 * (dans l'heure, et révision inchangée depuis) ; sinon `null`.
+		 */
+		async lastAnswer(ownerId: string, now = new Date()): Promise<LastAnswer | null> {
+			const log = await db.reviewLog.findFirst({
+				where: {
+					reviewedAt: { gte: new Date(now.getTime() - AMEND_WINDOW_MS) },
+					review: owned(ownerId)
+				},
+				orderBy: { reviewedAt: 'desc' },
+				include: { review: { include: { card: true } } }
+			});
+			if (!log || amendBlocker(log, log.review, now)) return null;
+
+			const { review } = log;
+			const before = parseState(log.stateBefore as unknown as SerializedState);
+			return {
+				reviewId: review.id,
+				cardId: review.cardId,
+				direction: review.direction,
+				prompt: promptOf(review.direction, review.card),
+				rating: log.rating,
+				hintUsed: log.hintUsed,
+				reviewedAt: log.reviewedAt,
+				due: review.due,
+				preview: previewDue(before, log.reviewedAt)
 			};
 		},
 
@@ -180,13 +249,8 @@ export function createReviewsService(db: Db) {
 			});
 
 			if (!last) throw new ConflictError(`Review ${reviewId} has no answer to amend`);
-			if (now.getTime() - last.reviewedAt.getTime() > AMEND_WINDOW_MS) {
-				throw new ConflictError(`Answer on review ${reviewId} is too old to amend`);
-			}
-			// Une réinitialisation (carte modifiée) depuis la réponse interdit la correction.
-			if (review.lastReview?.getTime() !== last.reviewedAt.getTime()) {
-				throw new ConflictError(`Review ${reviewId} has changed since its last answer`);
-			}
+			const blocker = amendBlocker(last, review, now);
+			if (blocker) throw new ConflictError(`Answer on review ${reviewId} ${blocker}`);
 
 			const before = parseState(last.stateBefore as unknown as SerializedState);
 			const next = applyRating(before, rating, last.reviewedAt, { hintUsed: last.hintUsed });

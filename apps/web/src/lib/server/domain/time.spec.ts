@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatRelative, startOfNextDay } from './time';
+import { calendarDaysBetween, formatRelative, startOfDay, startOfNextDay } from './time';
 
 describe('startOfNextDay', () => {
 	it('returns the next Zurich midnight in winter (UTC+1)', () => {
@@ -19,6 +19,36 @@ describe('startOfNextDay', () => {
 		expect(startOfNextDay(new Date('2026-01-05T23:30:00Z'))).toEqual(
 			new Date('2026-01-06T23:00:00Z')
 		);
+	});
+});
+
+describe('startOfDay', () => {
+	it('returns the Zurich midnight that starts the day, shifted by whole days', () => {
+		const now = new Date('2026-01-05T08:00:00Z');
+		expect(startOfDay(now)).toEqual(new Date('2026-01-04T23:00:00Z'));
+		expect(startOfDay(now, 2)).toEqual(new Date('2026-01-06T23:00:00Z'));
+	});
+
+	it('follows the change to summer time', () => {
+		// Passage à l'heure d'été dans la nuit du 28 au 29 mars 2026
+		const now = new Date('2026-03-28T12:00:00Z');
+		expect(startOfDay(now, 1)).toEqual(new Date('2026-03-28T23:00:00Z'));
+		expect(startOfDay(now, 2)).toEqual(new Date('2026-03-29T22:00:00Z'));
+	});
+});
+
+describe('calendarDaysBetween', () => {
+	it('counts Zurich calendar days, not 24-hour spans', () => {
+		const lateEvening = new Date('2026-01-05T22:00:00Z'); // 23:00 à Zurich
+		expect(calendarDaysBetween(lateEvening, new Date('2026-01-05T22:50:00Z'))).toBe(0);
+		expect(calendarDaysBetween(lateEvening, new Date('2026-01-05T23:10:00Z'))).toBe(1);
+		expect(calendarDaysBetween(lateEvening, new Date('2026-01-15T06:00:00Z'))).toBe(10);
+	});
+
+	it('is negative in the past', () => {
+		const now = new Date('2026-01-05T08:00:00Z');
+		expect(calendarDaysBetween(now, new Date('2026-01-04T23:30:00Z'))).toBe(0);
+		expect(calendarDaysBetween(now, new Date('2026-01-04T08:00:00Z'))).toBe(-1);
 	});
 });
 

@@ -113,6 +113,20 @@ export function applyRating(
 	return { state: fromFsrsCard(card), rating: retained };
 }
 
+/**
+ * Échéance que donnerait chaque note, sans l'appliquer (intervalles affichés sous les
+ * boutons de note). Avec le même `now`, elle coïncide avec celle d'`applyRating`.
+ */
+export function previewDue(state: FsrsState, now: Date): Record<Rating, Date> {
+	const log = scheduler.repeat(toFsrsCard(state), now);
+	return {
+		again: log[FsrsRating.Again].card.due,
+		hard: log[FsrsRating.Hard].card.due,
+		good: log[FsrsRating.Good].card.due,
+		easy: log[FsrsRating.Easy].card.due
+	};
+}
+
 /** Forme JSON de l'état, stockée dans `ReviewLog.stateBefore`. */
 export type SerializedState = Omit<FsrsState, 'due' | 'lastReview'> & {
 	due: string;

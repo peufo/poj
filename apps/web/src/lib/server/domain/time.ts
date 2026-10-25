@@ -30,11 +30,31 @@ function offsetMs(date: Date, timeZone: string): number {
 	return asUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
 
+/**
+ * Minuit (heure locale) qui commence le jour civil de `now`, décalé de `days` jours :
+ * `startOfDay(now, 1)` est la fin du jour en cours.
+ */
+export function startOfDay(now: Date, days = 0, timeZone = TIME_ZONE): Date {
+	const { year, month, day } = localParts(now, timeZone);
+	const midnightAsUtc = Date.UTC(year, month - 1, day + days);
+	return new Date(midnightAsUtc - offsetMs(new Date(midnightAsUtc), timeZone));
+}
+
 /** Minuit (heure locale) qui suit `now` : la fin du jour civil en cours. */
 export function startOfNextDay(now: Date, timeZone = TIME_ZONE): Date {
-	const { year, month, day } = localParts(now, timeZone);
-	const midnightAsUtc = Date.UTC(year, month - 1, day + 1);
-	return new Date(midnightAsUtc - offsetMs(new Date(midnightAsUtc), timeZone));
+	return startOfDay(now, 1, timeZone);
+}
+
+/**
+ * Écart en jours civils (heure locale) de `from` à `to` : 0 le même jour, 1 le lendemain,
+ * négatif dans le passé, quelle que soit l'heure.
+ */
+export function calendarDaysBetween(from: Date, to: Date, timeZone = TIME_ZONE): number {
+	const a = localParts(from, timeZone);
+	const b = localParts(to, timeZone);
+	return Math.round(
+		(Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000
+	);
 }
 
 const relative = new Intl.RelativeTimeFormat('fr', { numeric: 'always' });

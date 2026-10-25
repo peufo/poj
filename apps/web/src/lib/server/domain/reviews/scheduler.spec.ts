@@ -5,6 +5,7 @@ import {
 	emptyState,
 	fromFsrsCard,
 	parseState,
+	previewDue,
 	serializeState,
 	toFsrsCard,
 	type FsrsState
@@ -64,6 +65,19 @@ describe('scheduler', () => {
 
 		const withHint = applyRating(graduated(), 'easy', now, { hintUsed: true });
 		expect(withHint.rating).toBe('hard');
+	});
+
+	it('previews the due date of each rating, as applying it would give', () => {
+		const start = graduated();
+		const at = start.due;
+		const preview = previewDue(start, at);
+
+		for (const rating of ['again', 'hard', 'good', 'easy'] as const) {
+			expect(preview[rating]).toEqual(
+				applyRating(start, rating, at, { hintUsed: false }).state.due
+			);
+		}
+		expect(preview.again.getTime()).toBeLessThan(preview.good.getTime());
 	});
 
 	it('round-trips a state through ts-fsrs and JSON without loss', () => {

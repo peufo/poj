@@ -3,7 +3,7 @@ import { useTestDatabase } from '../../testing/db';
 import { createUser } from '../../testing/factories';
 import { NotFoundError } from '../errors';
 import { applyRating } from '../reviews/scheduler';
-import { createCardsService } from './cards.service';
+import { createCardsService, resetsProgress } from './cards.service';
 
 const db = useTestDatabase();
 const cards = createCardsService(db);
@@ -193,6 +193,50 @@ describe('cards service', () => {
 		});
 
 		expect(await cards.stats(alice, now)).toEqual({ totalCards: 2, dueToday: 2 });
+	});
+
+	it('tells whether an edit resets progress, after cleaning the input', () => {
+		const existing = { french: 'un devis', english: 'a quote' };
+		expect(
+			resetsProgress(existing, { french: ' un devis ', english: 'a quote', context: 'x' })
+		).toBe(false);
+		expect(resetsProgress(existing, { french: 'un devis', english: 'an estimate' })).toBe(true);
+		expect(resetsProgress(existing, { french: 'le devis', english: 'a quote' })).toBe(true);
+	});
+
+	it('spreads due reviews over the next Zurich days, overdue ones today', async () => {
+		const overdue = await cards.create(alice, input, 'web', now);
+		const later = await cards.create(alice, { french: 'b', english: 'b' }, 'web', now);
+		const deleted = await cards.create(alice, { french: 'c', english: 'c' }, 'web', now);
+		await cards.softDelete(alice, deleted.id);
+		await cards.create(bob, input, 'web', now);
+		await db.review.updateMany({
+			where: { cardId: overdue.id, direction: 'fr_to_en' },
+			data: { due: new Date('2026-01-01T09:00:00Z') }
+		});
+		await db.review.updateMany({
+			where: { cardId: overdue.id, direction: 'en_to_fr' },
+			// 23:30 à Zurich : encore aujourd'hui
+			data: { due: new Date('2026-01-05T22:30:00Z') }
+		});
+		await db.review.updateMany({
+			where: { cardId: later.id, direction: 'fr_to_en' },
+			// 00:30 à Zurich le lendemain
+			data: { due: new Date('2026-01-05T23:30:00Z') }
+		});
+		await db.review.updateMany({
+			where: { cardId: later.id, direction: 'en_to_fr' },
+			data: { due: new Date('2026-01-20T09:00:00Z') }
+		});
+
+		const days = await cards.horizon(alice, now, 3);
+
+		expect(days).toEqual([
+			{ date: new Date('2026-01-04T23:00:00Z'), count: 2 },
+			{ date: new Date('2026-01-05T23:00:00Z'), count: 1 },
+			{ date: new Date('2026-01-06T23:00:00Z'), count: 0 }
+		]);
+		expect(days[0].count).toBe((await cards.stats(alice, now)).dueToday);
 	});
 
 	it('hides other users’ cards', async () => {

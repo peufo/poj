@@ -1,8 +1,16 @@
 import type { Db } from '../db';
 import { NotFoundError } from '../errors';
 import { emptyState } from '../reviews/scheduler';
-import { startOfNextDay } from '../time';
-import type { Card, CardDetail, CardInput, CardStats, CardWithReviews, Origin } from './types';
+import { calendarDaysBetween, startOfDay, startOfNextDay } from '../time';
+import type {
+	Card,
+	CardDetail,
+	CardInput,
+	CardStats,
+	CardWithReviews,
+	HorizonDay,
+	Origin
+} from './types';
 
 export type CardsService = ReturnType<typeof createCardsService>;
 
@@ -18,6 +26,15 @@ function clean({ french, english, context }: CardInput) {
 /** Clé de comparaison des doublons : casse et espaces ignorés. */
 function duplicateKey(text: string): string {
 	return text.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** Modifier le français ou l'anglais (après nettoyage) réinitialise la progression. */
+export function resetsProgress(
+	existing: Pick<Card, 'french' | 'english'>,
+	input: CardInput
+): boolean {
+	const data = clean(input);
+	return data.french !== existing.french || data.english !== existing.english;
 }
 
 export function createCardsService(db: Db) {
@@ -152,7 +169,7 @@ export function createCardsService(db: Db) {
 		): Promise<{ card: Card; progressReset: boolean }> {
 			const existing = await findOwned(ownerId, id);
 			const data = clean(input);
-			const progressReset = data.french !== existing.french || data.english !== existing.english;
+			const progressReset = resetsProgress(existing, input);
 
 			const [card] = await db.$transaction([
 				db.card.update({ where: { id }, data }),
@@ -184,6 +201,20 @@ export function createCardsService(db: Db) {
 				})
 			]);
 			return { totalCards, dueToday };
+		},
+
+		/**
+		 * Révisions dues sur les `days` prochains jours civils (Europe/Zurich), une entrée
+		 * par jour à partir d'aujourd'hui ; le premier jour inclut le retard.
+		 */
+		async horizon(ownerId: string, now = new Date(), days = 14): Promise<HorizonDay[]> {
+			const reviews = await db.review.findMany({
+				where: { due: { lt: startOfDay(now, days) }, card: { ownerId, deletedAt: null } },
+				select: { due: true }
+			});
+			const counts = Array.from({ length: days }, () => 0);
+			for (const { due } of reviews) counts[Math.max(0, calendarDaysBetween(now, due))] += 1;
+			return counts.map((count, i) => ({ date: startOfDay(now, i), count }));
 		}
 	};
 }
