@@ -1,0 +1,111 @@
+name: Tests et déploiement
+
+# Les tests tournent sur `main`, `dev` et les pull requests. Seul `main` construit
+# l'image et déclenche le déploiement : `dev` n'a pas d'environnement.
+on:
+  push:
+    branches: ['main', 'dev']
+  pull_request:
+
+# Un nouveau push annule les tests en cours sur la même branche, jamais un déploiement.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: poj
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    # Les variables de `src/env.ts` sont exigées dès le chargement des modules serveur
+    # (svelte-check, export du contrat, tests) : toutes sont définies, même en factice.
+    # La suite crée et migre elle-même `poj_test` (vitest.global-setup.ts).
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/poj
+      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/poj_test
+      ORIGIN: http://localhost:5173
+      BETTER_AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+      DEEPL_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Même version que celle qui a écrit `bun.lock` (voir aussi le Dockerfile).
+          bun-version: 1.2.22
+      # `prepare` génère aussi le client Prisma (ignoré par git).
+      - run: bun install --frozen-lockfile
+      # Le projet Vitest `client` tourne dans Chromium.
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run check
+      - run: bun run lint
+      - run: bun run test
+      # Le contrat OpenAPI versionné doit correspondre aux routes.
+      - run: bun run api:check
+
+  build-and-push-image:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # `:main` est le tag que suit Dokploy ; `:sha-<court>` permet de revenir à une
+      # version précise.
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha
+      # Buildx, pour le cache des couches entre deux builds (cache GitHub Actions).
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # `.git` est exclu du contexte : le sha entre par cet argument.
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+
+  # Sauté avec le job précédent hors de `main`.
+  trigger-deploy:
+    needs: build-and-push-image
+    runs-on: ubuntu-latest
+    steps:
+      # Webhook de l'application Dokploy (onglet Deployments).
+      - name: Trigger deploy webhook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$DEPLOY_HOOK_URL"
