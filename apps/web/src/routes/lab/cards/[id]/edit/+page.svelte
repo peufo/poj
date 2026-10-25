@@ -1,0 +1,53 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import AppShell from '#lib/components/AppShell.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
+	import CardForm, { type Suggestion } from '#lib/components/CardForm.svelte';
+	import { cards, dueNow, fakeDeepL } from '#lib/lab/fixtures.js';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+
+	// Les champs partent du texte enregistré ; la maquette ne réagit pas à un changement de carte.
+	// svelte-ignore state_referenced_locally
+	const card = data.card;
+	let french = $state(card.french);
+	let english = $state(card.english);
+	let context = $state(card.context ?? '');
+	let suggestion: Suggestion = $state({ status: 'idle' });
+	let saving = $state(false);
+
+	function translate() {
+		suggestion = { status: 'loading' };
+		setTimeout(() => (suggestion = { status: 'ready', text: fakeDeepL(french, context) }), 700);
+	}
+
+	function submit(event: SubmitEvent) {
+		event.preventDefault();
+		saving = true;
+		setTimeout(() => goto(`/lab/cards/${card.id}`), 600);
+	}
+</script>
+
+<svelte:head><title>Modifier · Poj</title></svelte:head>
+
+<AppShell current="cards" base="/lab" dueCount={dueNow.length} cardCount={cards.length} focus>
+	<div class="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 md:px-8">
+		<PageHeader
+			title="Modifier la carte"
+			back={{ href: `/lab/cards/${card.id}`, label: 'Carte' }}
+		/>
+		<CardForm
+			mode="edit"
+			bind:french
+			bind:english
+			bind:context
+			original={{ french: card.french, english: card.english }}
+			{suggestion}
+			{saving}
+			cancelHref="/lab/cards/{card.id}"
+			ontranslate={translate}
+			onsubmit={submit}
+		/>
+	</div>
+</AppShell>
