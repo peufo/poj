@@ -20,6 +20,9 @@ bun run lint                # prettier --check + eslint
 bun run test                # Vitest : projets "client" (navigateur) et "server" (node)
 bun run db:start            # Postgres Docker (compose.yaml racine), port 5433
 bun run db:migrate          # prisma migrate dev
+bun run sandbox             # sandbox:reset, puis l'app sur http://localhost:5174 branchée sur poj_sandbox
+bun run sandbox:reset       # recrée poj_sandbox (migrations) et charge la seed
+bun run sandbox:seed        # recharge seulement la seed (vide d'abord toutes les tables)
 bun run api:export          # régénère packages/api-contract/openapi.json
 bun run api:check           # échoue si le contrat versionné est obsolète
 bun run ios:project         # XcodeGen : apps/ios/project.yml → Poj.xcodeproj (ignoré par git)
@@ -34,9 +37,11 @@ bunx vitest --run --project server                                  # tests serv
 bunx vitest --run src/lib/server/domain/cards/cards.service.spec.ts -t "soft-deletes"
 ```
 
-- **Base de test :** les tests serveur tournent contre une vraie base PostgreSQL, désignée par `DATABASE_URL_TEST` (`poj_test`, créée une fois avec `bun run db:test:create`).
-  - `vitest.global-setup.ts` y applique les migrations, puis transmet l'URL aux tests via `inject('databaseUrl')`.
-  - Chaque test vide les tables.
+- **Base de test :** les tests serveur tournent contre une vraie base PostgreSQL, désignée par `DATABASE_URL_TEST` (`poj_test`).
+  - `vitest.global-setup.ts` la crée si besoin, y applique les migrations en attente (`migrate deploy` est sauté si tout est à jour), puis transmet l'URL aux tests via `inject('databaseUrl')`.
+  - Les specs passent par `src/lib/server/testing/` : `useTestDatabase()` (client Prisma, toutes les tables vidées avant chaque test), `createUser` / `createCard`, `createTestAuth` (Better Auth minimal). Ce dossier est interdit au code de prod (règle ESLint).
+  - Le projet `server` tourne un fichier à la fois et sans isolation (`isolate: false`) : pas d'état global ni de `vi.mock` dans les specs serveur.
+- **Bac à sable :** base `poj_sandbox` (`DATABASE_URL_SANDBOX`), jamais la base de dev. La seed (`testing/seed.ts`) crée le compte `sandbox@poj.local` / `sandbox-poj` et ~25 cartes dont l'historique est rejoué par les services à des dates relatives à maintenant. Les outils destructifs refusent toute base autre que `poj_sandbox` / `poj_test`, et `DATABASE_URL`.
 - **Projet `client` :** il a besoin du Chromium de Playwright (`bunx playwright install chromium`).
 
 ## Architecture web (`apps/web`)
@@ -74,7 +79,7 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 
 - **Alias `#lib/*` :** il passe par le champ `imports` du package.json. Il ne fait **aucune** résolution d'extension ni d'`index` implicite. Écrire le chemin complet en `.js` : `import { db } from '#lib/server/db/index.js'`. Le `.ts` est refusé à cause de `rewriteRelativeImportExtensions`.
 - **Types de hooks :** `Handle` s'importe depuis `@sveltejs/kit/hooks`, pas `@sveltejs/kit`.
-- **Variables d'environnement :** elles sont déclarées dans `src/env.ts` (`defineEnvVars`) et lues via `$app/env/private`. `DATABASE_URL_TEST` n'y figure pas : Vitest la lit via `process.env`.
+- **Variables d'environnement :** elles sont déclarées dans `src/env.ts` (`defineEnvVars`) et lues via `$app/env/private`. `DATABASE_URL_TEST` et `DATABASE_URL_SANDBOX` n'y figurent pas : Vitest et `scripts/sandbox.ts` les lisent via `process.env`.
 
 ### Prisma 7 et Better Auth
 

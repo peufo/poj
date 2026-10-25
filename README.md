@@ -45,6 +45,7 @@ Le serveur est la source de vérité. Le client Swift est généré à la compil
 | `bun run dev` / `build`                         | app web                                                  |
 | `bun run check` / `lint` / `test`               | vérifications et tests du web                            |
 | `bun run db:start` / `db:migrate`               | Postgres Docker / migrations Prisma                      |
+| `bun run sandbox` / `sandbox:reset`             | bac à sable : port 5174, base `poj_sandbox` + seed       |
 | `bun run api:export` / `api:check`              | exporte / vérifie le contrat OpenAPI                     |
 | `bun run ios:project`                           | (re)génère le projet Xcode depuis `apps/ios/project.yml` |
 | `bun run ios:build`                             | build iOS simulateur en ligne de commande                |

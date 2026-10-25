@@ -1,31 +1,13 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { betterAuth } from 'better-auth/minimal';
-import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
-import { PrismaClient } from './db/generated/prisma/client';
+import { describe, expect, it } from 'vitest';
 import { createAccountsService } from './domain/index.js';
-import { singleAccountHooks } from './single-account';
+import { createTestAuth } from './testing/auth';
+import { useTestDatabase } from './testing/db';
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: inject('databaseUrl') }) });
-
-// Instance minimale, avec les mêmes hooks que l'app (auth.ts dépend de SvelteKit).
-const auth = betterAuth({
-	baseURL: 'http://localhost:5173',
-	secret: 'test-secret-test-secret-test-secret',
-	database: prismaAdapter(db, { provider: 'postgresql' }),
-	emailAndPassword: { enabled: true },
-	advanced: { database: { generateId: 'uuid' } },
-	databaseHooks: singleAccountHooks(db)
-});
+const db = useTestDatabase();
+const auth = createTestAuth(db);
 
 const signUp = (email: string) =>
 	auth.api.signUpEmail({ body: { name: 'Jonas', email, password: 'motdepasse123' } });
-
-beforeEach(async () => {
-	await db.$executeRaw`TRUNCATE users CASCADE`;
-});
-
-afterAll(() => db.$disconnect());
 
 describe('single account', () => {
 	it('opens sign-up only while no account exists', async () => {

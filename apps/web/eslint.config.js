@@ -34,6 +34,24 @@ export default defineConfig(
 		}
 	},
 	{
+		// Les outils de test et de bac à sable (seed, remise à zéro) restent hors du code de prod.
+		files: ['src/**/*.{js,ts,svelte}'],
+		ignores: ['src/**/*.{test,spec}.{js,ts}', 'src/lib/server/testing/**'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							regex: '(^|/)testing(/|$)',
+							message: 'src/lib/server/testing/ is reserved for tests and scripts.'
+						}
+					]
+				}
+			]
+		}
+	},
+	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {}

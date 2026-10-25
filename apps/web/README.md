@@ -19,12 +19,14 @@ src/lib/server/
   domain/                logique métier en TS pur (aucun import SvelteKit ni Hono)
   db/                    singleton PrismaClient ; generated/ = client généré (ignoré par git)
   auth.ts                configuration Better Auth
+  testing/               outils de test et de bac à sable (base jetable, fabriques, seed) ; interdit en prod
   api/                   app Hono (basePath /api)
     index.ts             OpenAPI, doc, gestion d'erreurs, montage de /v1
     auth-docs.ts         endpoints Better Auth documentés dans le contrat (pour les clients mobiles)
     middleware/          requireAuth (cookie ou Bearer)
     v1/                  routes versionnées + schémas Zod
 scripts/export-openapi.ts  export du contrat vers packages/api-contract/openapi.json
+scripts/sandbox.ts         bac à sable : reset, seed, serveur de dev sur la base poj_sandbox
 src/routes/
   api/[...path]/         délègue toutes les méthodes HTTP à l'app Hono
   (auth)/                /login, /register
@@ -62,7 +64,9 @@ bun run dev
 | `bun run db:reset`                            | recrée la base de dev                                                     |
 | `bun run db:studio`                           | Prisma Studio                                                             |
 | `bun run auth:schema`                         | régénère les modèles d'auth dans `schema.prisma` (CLI Better Auth)        |
-| `bun run db:test:create`                      | crée la base de test `poj_test` (une fois)                                |
+| `bun run sandbox`                             | `sandbox:reset`, puis l'app sur le port 5174 branchée sur `poj_sandbox`   |
+| `bun run sandbox:reset`                       | recrée la base `poj_sandbox` (migrations) et charge la seed               |
+| `bun run sandbox:seed`                        | recharge seulement la seed du bac à sable                                 |
 | `bun run test:unit -- --run`                  | tests Vitest                                                              |
 | `bun run test:unit -- --run --project server` | tests serveur uniquement (services du domaine)                            |
 | `bun run check` / `bun run lint`              | vérification des types / lint                                             |
@@ -71,7 +75,16 @@ bun run dev
 
 > **`auth:schema`** réécrit les modèles d'auth avec les conventions de Better Auth (camelCase, `gen_random_uuid()`). Après l'avoir lancé, il faut remettre les `@map` / `@@map` en snake_case et `@default(uuid(7))` (voir le diff), puis lancer `db:migrate`.
 
-Les tests du domaine tournent contre une vraie base PostgreSQL (`DATABASE_URL_TEST`) : les migrations y sont appliquées automatiquement (`vitest.global-setup.ts`) et les tables sont vidées avant chaque test.
+Les tests du domaine tournent contre une vraie base PostgreSQL (`DATABASE_URL_TEST`) : la base est créée si besoin et les migrations y sont appliquées automatiquement (`vitest.global-setup.ts`). Chaque spec obtient son client par `useTestDatabase()` (`src/lib/server/testing/db.ts`), qui vide toutes les tables avant chaque test.
+
+### Bac à sable
+
+`bun run sandbox` lance l'app sur [localhost:5174](http://localhost:5174) avec une base dédiée, `poj_sandbox` (`DATABASE_URL_SANDBOX`), recréée à chaque lancement. La base de dev et le `.env` ne sont pas touchés.
+
+- Compte : `sandbox@poj.local` / `sandbox-poj`.
+- Seed (`src/lib/server/testing/seed.ts`) : ~25 vraies cartes FR→EN dont l'historique est rejoué par les services du domaine, à des dates relatives à maintenant. Elle couvre les cartes neuves, dues, très en retard, en apprentissage, mûres (avec un oubli), une note encore corrigeable, un indice, un sens inverse mis de côté, un doublon, une carte supprimée, une carte modifiée et les deux origines.
+- Le fuzz de FSRS dépend de la date de réponse : d'un chargement à l'autre, les intervalles varient de quelques pour cent, sans changer de catégorie.
+- Garde-fou : la remise à zéro et la seed refusent toute base autre que `poj_sandbox` ou `poj_test`, ainsi que `DATABASE_URL`.
 
 ## API
 

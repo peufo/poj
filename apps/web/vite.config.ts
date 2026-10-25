@@ -41,8 +41,13 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					globalSetup: ['./vitest.global-setup.ts'],
-					// Les tests partagent une seule base de test.
+					// Les tests partagent une seule base de test : un fichier à la fois. Sans
+					// isolation, les modules ne sont chargés qu'une fois pour toute la suite (pas
+					// d'état global ni de `vi.mock` dans les specs serveur).
 					fileParallelism: false,
+					isolate: false,
+					// Requis par Vitest pour un projet sans parallélisme : passe après `client`.
+					sequence: { groupOrder: 1 },
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}

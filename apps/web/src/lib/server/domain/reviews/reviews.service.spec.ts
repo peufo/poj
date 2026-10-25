@@ -1,12 +1,12 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
-import { PrismaClient } from '../../db/generated/prisma/client';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useTestDatabase } from '../../testing/db';
+import { createCard, createUser } from '../../testing/factories';
 import { createCardsService } from '../cards/cards.service';
 import { ConflictError, NotFoundError } from '../errors';
 import { createReviewsService } from './reviews.service';
 import type { NextReview, NextResult } from './types';
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: inject('databaseUrl') }) });
+const db = useTestDatabase();
 const cards = createCardsService(db);
 const reviews = createReviewsService(db);
 
@@ -19,12 +19,9 @@ let alice: string;
 let bob: string;
 
 beforeEach(async () => {
-	await db.$executeRaw`TRUNCATE cards, users CASCADE`;
-	({ id: alice } = await db.user.create({ data: { name: 'Alice', email: 'alice@test.dev' } }));
-	({ id: bob } = await db.user.create({ data: { name: 'Bob', email: 'bob@test.dev' } }));
+	alice = await createUser(db, 'Alice');
+	bob = await createUser(db, 'Bob');
 });
-
-afterAll(() => db.$disconnect());
 
 function presented(result: NextResult): NextReview {
 	if (!result.review) throw new Error('expected a review to be presented');
@@ -65,15 +62,15 @@ describe('reviews service', () => {
 	});
 
 	it('reports nothing due with the next due date, ignoring other users', async () => {
-		const { id } = await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		const { id } = await createCard(db, alice, { now: t0 });
 		await setDue(id, at(DAY));
-		await cards.create(bob, { french: 'b', english: 'b' }, 'web', t0);
+		await createCard(db, bob, { french: 'b', english: 'b', now: t0 });
 
 		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY) });
 	});
 
 	it('reviews ahead when nothing is due', async () => {
-		const { id } = await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		const { id } = await createCard(db, alice, { now: t0 });
 		await setDue(id, at(DAY));
 
 		const result = await reviews.next(alice, t0, { ahead: true });
@@ -82,14 +79,14 @@ describe('reviews service', () => {
 	});
 
 	it('excludes deleted cards', async () => {
-		const { id } = await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		const { id } = await createCard(db, alice, { now: t0 });
 		await cards.softDelete(alice, id);
 
 		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: null });
 	});
 
 	it('buries the opposite direction for 24 hours after an answer', async () => {
-		const { id } = await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		const { id } = await createCard(db, alice, { now: t0 });
 		const first = presented(await reviews.next(alice, t0));
 		const { due } = await reviews.answer(
 			alice,
@@ -107,7 +104,7 @@ describe('reviews service', () => {
 	});
 
 	it('records the answer in the history with the state before it', async () => {
-		await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 
 		const result = await reviews.answer(
@@ -130,7 +127,7 @@ describe('reviews service', () => {
 	});
 
 	it('caps the rating at hard after a hint, until the next answer', async () => {
-		await cards.create(alice, { french: 'a', english: 'a', context: 'au bureau' }, 'web', t0);
+		await createCard(db, alice, { context: 'au bureau', now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 
 		expect(await reviews.requestHint(alice, review.id, t0)).toEqual({ context: 'au bureau' });
@@ -154,7 +151,7 @@ describe('reviews service', () => {
 	});
 
 	it('does not record a hint for a card without context', async () => {
-		await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 
 		expect(await reviews.requestHint(alice, review.id, t0)).toEqual({ context: null });
@@ -168,7 +165,7 @@ describe('reviews service', () => {
 	});
 
 	it('ignores a replayed answer with a stale version', async () => {
-		await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 		const answer = { rating: 'good' as const, version: review.version, origin: 'claude' as const };
 
@@ -180,7 +177,7 @@ describe('reviews service', () => {
 	});
 
 	it('amends the last answer by recomputing from the previous state', async () => {
-		await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 		await reviews.answer(
 			alice,
@@ -201,7 +198,7 @@ describe('reviews service', () => {
 	});
 
 	it('refuses to amend after an hour, without an answer, or after a reset', async () => {
-		const card = await cards.create(alice, { french: 'a', english: 'a' }, 'web', t0);
+		const card = await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 		const other = card.reviews.find((r) => r.id !== review.id)!;
 		await reviews.answer(
@@ -225,7 +222,7 @@ describe('reviews service', () => {
 	});
 
 	it('hides other users’ reviews', async () => {
-		const card = await cards.create(bob, { french: 'a', english: 'a', context: 'x' }, 'web', t0);
+		const card = await createCard(db, bob, { context: 'x', now: t0 });
 		const [review] = card.reviews;
 
 		await expect(reviews.requestHint(alice, review.id, t0)).rejects.toBeInstanceOf(NotFoundError);

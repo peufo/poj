@@ -1,11 +1,11 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
-import { PrismaClient } from '../../db/generated/prisma/client';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useTestDatabase } from '../../testing/db';
+import { createUser } from '../../testing/factories';
 import { NotFoundError } from '../errors';
 import { applyRating } from '../reviews/scheduler';
 import { createCardsService } from './cards.service';
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: inject('databaseUrl') }) });
+const db = useTestDatabase();
 const cards = createCardsService(db);
 
 const now = new Date('2026-01-05T08:00:00Z');
@@ -15,12 +15,9 @@ let alice: string;
 let bob: string;
 
 beforeEach(async () => {
-	await db.$executeRaw`TRUNCATE cards, users CASCADE`;
-	({ id: alice } = await db.user.create({ data: { name: 'Alice', email: 'alice@test.dev' } }));
-	({ id: bob } = await db.user.create({ data: { name: 'Bob', email: 'bob@test.dev' } }));
+	alice = await createUser(db, 'Alice');
+	bob = await createUser(db, 'Bob');
 });
-
-afterAll(() => db.$disconnect());
 
 /** Simule une réponse `good` sur les deux sens d'une carte. */
 async function answerBoth(cardId: string) {

@@ -1,8 +1,8 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { InMemoryTransport, type CallToolResult } from '@modelcontextprotocol/server';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
-import { PrismaClient } from '../db/generated/prisma/client';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useTestDatabase } from '../testing/db';
+import { createUser } from '../testing/factories';
 import {
 	createCardsService,
 	createReviewsService,
@@ -13,7 +13,7 @@ import {
 import { createMcpRequestHandler } from './handler';
 import { createPojMcpServer } from './server';
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: inject('databaseUrl') }) });
+const db = useTestDatabase();
 const cards = createCardsService(db);
 const reviews = createReviewsService(db);
 
@@ -36,13 +36,10 @@ let bob: string;
 let clock: Date;
 
 beforeEach(async () => {
-	await db.$executeRaw`TRUNCATE cards, users CASCADE`;
-	({ id: alice } = await db.user.create({ data: { name: 'Alice', email: 'alice@test.dev' } }));
-	({ id: bob } = await db.user.create({ data: { name: 'Bob', email: 'bob@test.dev' } }));
+	alice = await createUser(db, 'Alice');
+	bob = await createUser(db, 'Bob');
 	clock = t0;
 });
-
-afterAll(() => db.$disconnect());
 
 const deps = (translator: Translator | null = echo) => ({
 	cards,
