@@ -195,10 +195,15 @@ describe('cards service', () => {
 	it('counts cards and reviews due before the end of the Zurich day', async () => {
 		const due = await cards.create(alice, input, 'web', now);
 		const notDue = await cards.create(alice, { french: 'b', english: 'b' }, 'web', now);
+		const lateToday = await cards.create(alice, { french: 'c', english: 'c' }, 'web', now);
 		// Échéance à 23:30 heure de Zurich le jour même : due aujourd'hui
 		await db.review.updateMany({
-			where: { cardId: due.id, direction: 'fr_to_en' },
+			where: { cardId: lateToday.id, direction: 'fr_to_en' },
 			data: { due: new Date('2026-01-05T22:30:00Z') }
+		});
+		await db.review.updateMany({
+			where: { cardId: lateToday.id, direction: 'en_to_fr' },
+			data: { due: new Date('2026-01-20T09:00:00Z') }
 		});
 		// Échéance le lendemain : pas due aujourd'hui
 		await db.review.updateMany({
@@ -206,7 +211,30 @@ describe('cards service', () => {
 			data: { due: new Date('2026-01-06T09:00:00Z') }
 		});
 
-		expect(await cards.stats(alice, now)).toEqual({ totalCards: 2, dueToday: 2 });
+		// `due` : un seul sens aujourd'hui, l'autre sera mis de côté jusqu'à demain.
+		expect(await cards.stats(alice, now)).toEqual({ totalCards: 3, dueToday: 2 });
+		expect(due.reviews).toHaveLength(2);
+	});
+
+	it('leaves buried directions out of today until their burial ends', async () => {
+		const answered = await cards.create(alice, input, 'web', now);
+		const fresh = await cards.create(alice, { french: 'b', english: 'b' }, 'web', now);
+		// Le français → anglais de `answered` a été noté il y a 2 h : l'autre sens, dû,
+		// est mis de côté jusqu'à demain 6 h UTC.
+		const twoHoursAgo = new Date(now.getTime() - 2 * 3_600_000);
+		await db.review.updateMany({
+			where: { cardId: answered.id, direction: 'fr_to_en' },
+			data: { lastReview: twoHoursAgo, state: 'review', due: new Date('2026-01-15T09:00:00Z') }
+		});
+
+		const stats = await cards.stats(alice, now);
+		const days = await cards.horizon(alice, now, 3);
+
+		// Aujourd'hui : un seul sens de `fresh` ; demain : l'autre sens de `fresh`, et le sens
+		// de `answered` à la fin de sa mise de côté.
+		expect(stats.dueToday).toBe(1);
+		expect(days.map((d) => d.count)).toEqual([1, 2, 0]);
+		expect(fresh.reviews).toHaveLength(2);
 	});
 
 	it('tells whether an edit resets progress, after cleaning the input', () => {
@@ -245,9 +273,11 @@ describe('cards service', () => {
 
 		const days = await cards.horizon(alice, now, 3);
 
+		// `overdue` : un sens aujourd'hui, l'autre demain (mis de côté après la réponse) ;
+		// `later` : un sens demain, l'autre au-delà de l'horizon.
 		expect(days).toEqual([
-			{ date: new Date('2026-01-04T23:00:00Z'), count: 2 },
-			{ date: new Date('2026-01-05T23:00:00Z'), count: 1 },
+			{ date: new Date('2026-01-04T23:00:00Z'), count: 1 },
+			{ date: new Date('2026-01-05T23:00:00Z'), count: 2 },
 			{ date: new Date('2026-01-06T23:00:00Z'), count: 0 }
 		]);
 		expect(days[0].count).toBe((await cards.stats(alice, now)).dueToday);

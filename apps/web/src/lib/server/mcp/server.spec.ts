@@ -151,7 +151,7 @@ describe('MCP server', () => {
 			const client = await connect(alice);
 
 			const next = data(await call(client, 'next_review'));
-			expect(next).toMatchObject({ nothing_due: false, has_hint: true, remaining: 2 });
+			expect(next).toMatchObject({ nothing_due: false, has_hint: true, remaining: 1 });
 			expect(JSON.stringify(next)).not.toContain('réunion budget');
 
 			const hint = await call(client, 'get_hint', { review_id: next.review_id });
@@ -289,7 +289,7 @@ describe('MCP server', () => {
 		await client.connect(transport);
 
 		const next = data(await call(client, 'next_review'));
-		expect(next).toMatchObject({ nothing_due: false, remaining: 2 });
+		expect(next).toMatchObject({ nothing_due: false, remaining: 1 });
 		expect([card.french, card.english]).toContain(next.prompt);
 		await client.close();
 	});

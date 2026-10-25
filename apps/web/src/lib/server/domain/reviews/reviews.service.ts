@@ -8,16 +8,13 @@ import {
 	serializeState,
 	type SerializedState
 } from './scheduler';
+import { opposite, SIBLING_BURY_MS } from './availability';
 import type { AnswerResult, LastAnswer, NextResult } from './types';
 
 export type ReviewsService = ReturnType<typeof createReviewsService>;
 
-/** Le sens inverse d'une carte notée est mis de côté pendant ce délai. */
-const SIBLING_BURY_MS = 24 * 60 * 60 * 1000;
 /** Délai pendant lequel la dernière note d'une révision peut être corrigée. */
 const AMEND_WINDOW_MS = 60 * 60 * 1000;
-
-const opposite: Record<Direction, Direction> = { fr_to_en: 'en_to_fr', en_to_fr: 'fr_to_en' };
 
 const versionOf = (review: Pick<Review, 'lastReview'>) => review.lastReview?.toISOString() ?? 'new';
 
@@ -73,12 +70,25 @@ export function createReviewsService(db: Db) {
 		return { ...owned(ownerId), ...(await buriedFilter(ownerId, now)) };
 	}
 
+	/**
+	 * Révisions qui seront présentées dans la session en cours : au plus une par carte, car
+	 * répondre à un sens met l'autre de côté (et les sens déjà mis de côté sont exclus).
+	 * C'est donc le nombre de cartes ayant une révision présentable maintenant.
+	 */
+	async function countPresentable(ownerId: string, now: Date): Promise<number> {
+		const buried = await buriedFilter(ownerId, now);
+		return db.card.count({
+			where: { ownerId, deletedAt: null, reviews: { some: { ...buried, due: { lte: now } } } }
+		});
+	}
+
 	return {
-		/** Nombre de révisions à présenter maintenant (dues, hors sens inverse mis de côté). */
-		async countDue(ownerId: string, now = new Date()): Promise<number> {
-			return db.review.count({
-				where: { ...(await availableFilter(ownerId, now)), due: { lte: now } }
-			});
+		/**
+		 * Nombre de révisions à présenter maintenant : dues, hors sens mis de côté, et au plus
+		 * une par carte (l'autre sens sera mis de côté après la réponse).
+		 */
+		countDue(ownerId: string, now = new Date()): Promise<number> {
+			return countPresentable(ownerId, now);
 		},
 
 		/**
@@ -95,7 +105,7 @@ export function createReviewsService(db: Db) {
 					orderBy: [{ due: 'asc' }, { id: 'asc' }],
 					include: { card: true }
 				}),
-				db.review.count({ where: dueNow })
+				countPresentable(ownerId, now)
 			]);
 
 			if (!review) {

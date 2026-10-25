@@ -59,7 +59,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
   - `review_id`, `direction` (`fr_to_en` ou `en_to_fr`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
   - `has_hint` : vrai si la carte a un contexte ;
   - `version` : jeton opaque à renvoyer avec la note ;
-  - `remaining` : nombre de révisions encore dues ;
+  - `remaining` : nombre de révisions qui seront encore présentées dans la session, au plus une par carte (voir [Sessions](repetition.md#sessions)) ;
   - si rien n'est dû et que `ahead` vaut `false` : `nothing_due` et la date de la prochaine échéance.
 - **Le contexte n'est pas renvoyé ici :** il ne s'obtient que par `get_hint`. Le serveur sait ainsi quand un indice a été demandé.
 - **Ordre et mise de côté** du sens inverse : ceux de la spec de répétition, appliqués par le serveur.

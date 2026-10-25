@@ -58,7 +58,8 @@ describe('reviews service', () => {
 			hasHint: true,
 			version: 'new'
 		});
-		expect(result).toMatchObject({ remaining: 4 });
+		// Un sens par carte : répondre à l'un mettra l'autre de côté.
+		expect(result).toMatchObject({ remaining: 2 });
 	});
 
 	it('reports nothing due with the next due date, ignoring other users', async () => {
@@ -101,6 +102,30 @@ describe('reviews service', () => {
 		const nextDay = presented(await reviews.next(alice, at(DAY + 1)));
 		expect(nextDay).toMatchObject({ cardId: id });
 		expect(nextDay.direction).not.toBe(first.direction);
+	});
+
+	it('counts only what the session will present, so the count never jumps', async () => {
+		const a = await createCard(db, alice, { french: 'a', english: 'a', now: t0 });
+		const b = await createCard(db, alice, { french: 'b', english: 'b', now: t0 });
+		// `b` a un sens noté il y a une heure : l'autre est mis de côté.
+		await db.review.updateMany({
+			where: { cardId: b.id, direction: 'fr_to_en' },
+			data: { lastReview: at(-HOUR), state: 'review', due: at(10 * DAY) }
+		});
+
+		const first = await reviews.next(alice, t0);
+		expect(first).toMatchObject({ remaining: 1, review: { cardId: a.id } });
+		expect(await reviews.countDue(alice, t0)).toBe(1);
+
+		const review = presented(first);
+		await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'easy', version: review.version, origin: 'web' },
+			t0
+		);
+		expect(await reviews.next(alice, at(1))).toMatchObject({ review: null });
+		expect(await reviews.countDue(alice, at(1))).toBe(0);
 	});
 
 	it('records the answer in the history with the state before it', async () => {
@@ -242,7 +267,7 @@ describe('reviews service', () => {
 		const deleted = await createCard(db, alice, { french: 'b', english: 'b', now: t0 });
 		await cards.softDelete(alice, deleted.id);
 		await createCard(db, bob, { now: t0 });
-		expect(await reviews.countDue(alice, t0)).toBe(2);
+		expect(await reviews.countDue(alice, t0)).toBe(1);
 
 		const review = presented(await reviews.next(alice, t0));
 		await reviews.answer(

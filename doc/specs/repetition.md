@@ -43,6 +43,9 @@
 - **Chaque réponse est enregistrée immédiatement.** Interrompre une session (arrivée à destination, appel) ne perd rien et ne pénalise rien.
 - **Ordre de présentation :** les révisions les plus en retard d'abord.
 - **Mise de côté du sens inverse :** quand une carte vient d'être révisée dans un sens, l'autre sens n'est pas présenté avant 24 heures, même s'il est dû. Sinon, la seconde révision révélerait la réponse de la première. L'idée vient de spacedrep.
+- **Compteurs :** ils ne comptent que ce qui sera réellement présenté.
+  - Révisions restantes d'une session : au plus une par carte, car répondre à un sens mettra l'autre de côté ; les sens déjà mis de côté sont exclus.
+  - Dues aujourd'hui et échéancier : un sens mis de côté compte au jour où sa mise de côté se termine, s'il est encore dû. Quand les deux sens d'une carte viendraient à moins de 24 heures d'intervalle, le second compte 24 heures après le premier.
 - **Révision en avance :** quand rien n'est dû, on peut réviser les prochaines révisions à venir. FSRS tient compte du temps réellement écoulé ; une révision anticipée fait peu progresser la carte, mais ne fausse rien.
 
 ## Affichage de la progression

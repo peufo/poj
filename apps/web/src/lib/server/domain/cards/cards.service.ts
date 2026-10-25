@@ -1,5 +1,6 @@
 import type { Db } from '../db';
 import { NotFoundError } from '../errors';
+import { presentations } from '../reviews/availability';
 import { emptyState } from '../reviews/scheduler';
 import { calendarDaysBetween, startOfDay, startOfNextDay } from '../time';
 import type {
@@ -42,6 +43,14 @@ export function createCardsService(db: Db) {
 		const card = await db.card.findFirst({ where: { id, ownerId, deletedAt: null } });
 		if (!card) throw new NotFoundError(`Card ${id} not found`);
 		return card;
+	}
+
+	/** Les révisions des cartes non supprimées, de quoi calculer leur présentation. */
+	function reviewSlots(ownerId: string) {
+		return db.review.findMany({
+			where: { card: { ownerId, deletedAt: null } },
+			select: { id: true, cardId: true, direction: true, due: true, lastReview: true }
+		});
 	}
 
 	return {
@@ -194,27 +203,36 @@ export function createCardsService(db: Db) {
 			await db.card.update({ where: { id }, data: { deletedAt: new Date() } });
 		},
 
+		/**
+		 * Nombre de cartes, et révisions qui seront présentées d'ici la fin du jour civil
+		 * (Europe/Zurich) : sans les sens mis de côté jusqu'à demain, et au plus un sens par
+		 * carte quand les deux viendraient aujourd'hui (voir `presentations`).
+		 */
 		async stats(ownerId: string, now = new Date()): Promise<CardStats> {
-			const [totalCards, dueToday] = await Promise.all([
+			const [totalCards, slots] = await Promise.all([
 				db.card.count({ where: { ownerId, deletedAt: null } }),
-				db.review.count({
-					where: { due: { lt: startOfNextDay(now) }, card: { ownerId, deletedAt: null } }
-				})
+				reviewSlots(ownerId)
 			]);
+			const endOfDay = startOfNextDay(now).getTime();
+			let dueToday = 0;
+			for (const { at } of presentations(slots, now).values()) {
+				if (at.getTime() < endOfDay) dueToday += 1;
+			}
 			return { totalCards, dueToday };
 		},
 
 		/**
-		 * Révisions dues sur les `days` prochains jours civils (Europe/Zurich), une entrée
-		 * par jour à partir d'aujourd'hui ; le premier jour inclut le retard.
+		 * Révisions présentées sur les `days` prochains jours civils (Europe/Zurich), une entrée
+		 * par jour à partir d'aujourd'hui ; le premier jour inclut le retard. Un sens mis de
+		 * côté compte au jour où sa mise de côté se termine, comme dans `stats`.
 		 */
 		async horizon(ownerId: string, now = new Date(), days = 14): Promise<HorizonDay[]> {
-			const reviews = await db.review.findMany({
-				where: { due: { lt: startOfDay(now, days) }, card: { ownerId, deletedAt: null } },
-				select: { due: true }
-			});
+			const slots = await reviewSlots(ownerId);
+			const end = startOfDay(now, days).getTime();
 			const counts = Array.from({ length: days }, () => 0);
-			for (const { due } of reviews) counts[Math.max(0, calendarDaysBetween(now, due))] += 1;
+			for (const { at } of presentations(slots, now).values()) {
+				if (at.getTime() < end) counts[Math.max(0, calendarDaysBetween(now, at))] += 1;
+			}
 			return counts.map((count, i) => ({ date: startOfDay(now, i), count }));
 		}
 	};

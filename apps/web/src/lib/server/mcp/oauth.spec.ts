@@ -395,7 +395,7 @@ describe('Claude connector flow', () => {
 
 		const client = await mcpClient(tokens.access_token);
 		const result = await client.callTool({ name: 'next_review', arguments: {} });
-		expect(result.structuredContent).toMatchObject({ nothing_due: false, remaining: 2 });
+		expect(result.structuredContent).toMatchObject({ nothing_due: false, remaining: 1 });
 		await client.close();
 	});
 
