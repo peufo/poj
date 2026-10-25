@@ -35,7 +35,11 @@ services:
           || psql -c 'CREATE DATABASE poj'
 
   app:
-    build: .
+    build:
+      context: .
+      # Sha affiché par l'image, exporté par `bun run stack:up` (`.git` est exclu du contexte).
+      args:
+        BUILD_COMMIT: ${BUILD_COMMIT:-local}
     profiles: [prod]
     ports:
       # Port de `proxy`, qui partage le réseau de `app`.

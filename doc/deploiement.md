@@ -67,4 +67,5 @@ bun run stack:stop
 ```
 
 - Le service `proxy` (Caddy, en HTTP) tient le rôle du proxy de Dokploy, et l'app joint sa propre `ORIGIN` à travers lui.
+- `stack:up` passe le sha court de `HEAD` à l'image (`BUILD_COMMIT`, `local` à défaut), comme la CI passe celui du commit déployé.
 - Claude ne peut pas joindre `localhost` : le connecteur ne se teste qu'en ligne.
