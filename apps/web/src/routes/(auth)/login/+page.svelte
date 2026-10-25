@@ -1,35 +1,47 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Button from '#lib/ui/Button.svelte';
+	import Notice from '#lib/ui/Notice.svelte';
+	import TextField from '#lib/ui/TextField.svelte';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
+	let pending = $state(false);
 </script>
 
-<h1 class="mb-6 text-2xl font-semibold">Connexion</h1>
-<form method="post" use:enhance class="flex flex-col gap-4">
-	<label>
-		Email
-		<input
-			type="email"
-			name="email"
-			required
-			autocomplete="email"
-			value={form?.email ?? ''}
-			class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-		/>
-	</label>
-	<label>
-		Mot de passe
-		<input
-			type="password"
-			name="password"
-			required
-			autocomplete="current-password"
-			class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-		/>
-	</label>
-	<button class="w-full rounded-md bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
-		>Se connecter</button
-	>
+<svelte:head><title>Connexion · Poj</title></svelte:head>
+
+<div class="flex flex-col gap-1.5">
+	<h1 class="text-2xl font-bold tracking-tight">Connexion</h1>
+	<p class="text-ink-2">Tes cartes t’attendent.</p>
+</div>
+
+<form
+	method="post"
+	class="flex flex-col gap-5"
+	use:enhance={() => {
+		pending = true;
+		return async ({ update }) => {
+			await update();
+			pending = false;
+		};
+	}}
+>
+	<TextField
+		label="Email"
+		name="email"
+		type="email"
+		required
+		autocomplete="email"
+		value={form?.email ?? ''}
+	/>
+	<TextField
+		label="Mot de passe"
+		name="password"
+		type="password"
+		required
+		autocomplete="current-password"
+	/>
+	{#if form?.message}<Notice tone="danger">{form.message}</Notice>{/if}
+	<Button type="submit" variant="primary" size="lg" block loading={pending}>Se connecter</Button>
 </form>
-<p class="mt-4 text-red-600">{form?.message ?? ''}</p>

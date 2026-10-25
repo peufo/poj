@@ -1,3 +1,10 @@
-<h1 class="mb-6 text-2xl font-semibold">Mes cartes</h1>
+<script lang="ts">
+	import PageHeader from '#lib/components/PageHeader.svelte';
+</script>
 
-<p class="text-gray-500">Bientôt ici : la liste de vos cartes.</p>
+<svelte:head><title>Cartes · Poj</title></svelte:head>
+
+<div class="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-10 md:px-8">
+	<PageHeader title="Cartes" />
+	<p class="text-ink-2">Bientôt ici : la liste de tes cartes.</p>
+</div>
