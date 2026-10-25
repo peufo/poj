@@ -10,3 +10,6 @@ DerivedData/
 .build/
 .swiftpm/
 apps/ios/Poj/Info.plist
+
+# Claude Code
+/.claude/worktrees
