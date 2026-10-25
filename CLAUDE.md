@@ -21,6 +21,8 @@ bun run lint                # prettier --check + eslint
 bun run test                # Vitest : projets "client" (navigateur) et "server" (node)
 bun run db:start            # Postgres Docker (compose.yaml racine), port 5433
 bun run db:migrate          # prisma migrate dev
+bun run stack:up            # image de prod en local (profil Compose `prod`), http://localhost:3000
+bun run stack:stop          # arrête app et proxy (jamais `docker compose down` : il arrête aussi db)
 bun run sandbox             # sandbox:reset, puis l'app sur http://localhost:5174 branchée sur poj_sandbox
 bun run sandbox:reset       # recrée poj_sandbox (migrations) et charge la seed
 bun run sandbox:seed        # recharge seulement la seed (vide d'abord toutes les tables)
@@ -89,6 +91,8 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 - **Alias `#lib/*` :** il passe par le champ `imports` du package.json. Il ne fait **aucune** résolution d'extension ni d'`index` implicite. Écrire le chemin complet en `.js` : `import { db } from '#lib/server/db/index.js'`. Le `.ts` est refusé à cause de `rewriteRelativeImportExtensions`.
 - **Types de hooks :** `Handle` s'importe depuis `@sveltejs/kit/hooks`, pas `@sveltejs/kit`.
 - **Variables d'environnement :** elles sont déclarées dans `src/env.ts` (`defineEnvVars`) et lues via `$app/env/private`. `DATABASE_URL_TEST` et `DATABASE_URL_SANDBOX` n'y figurent pas : Vitest et `scripts/sandbox.ts` les lisent via `process.env`.
+  - Elles sont validées dès l'analyse des routes de `vite build` : le Dockerfile passe des valeurs factices.
+- **adapter-node ne lit pas `ORIGIN` :** il déduit l'URL des requêtes de l'en-tête `Host` et suppose HTTPS (sauf `PROTOCOL_HEADER`). Si elle ne correspond pas à `ORIGIN`, les formulaires répondent 403 et `/api/auth/*` 404.
 
 ### Prisma 7 et Better Auth
 
@@ -97,6 +101,7 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
   - le générateur est `prisma-client`, avec sortie dans `src/lib/server/db/generated/` (ignoré par git, produit par `prepare` / `db:generate`) ;
   - le client passe par l'adaptateur `PrismaPg` ;
   - les paquets `prisma`, `@prisma/client` et `@prisma/adapter-pg` sont épinglés en 7.10.0, car le tag npm `latest` de `prisma` pointe sur une rc 8.
+  - `prisma` et `dotenv` (lu par `prisma.config.ts`) sont des `dependencies` : l'image de prod lance `prisma migrate deploy` au démarrage, sans les dépendances de dev.
 - **Conventions de schéma** (pensées pour une future synchro hors ligne) :
   - `id String @id @default(uuid(7)) @db.Uuid`, et un id fourni par le client est accepté ;
   - `createdAt` et `updatedAt`, avec suppression logique via `deletedAt` ;
@@ -127,3 +132,4 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 
 - **Base de dev :** Postgres Docker exposé sur **5433**, car un Postgres natif occupe le 5432.
 - **Fichier d'environnement :** `apps/web/.env`, modèle dans `apps/web/.env.example`.
+- **Déploiement :** `main` seulement (GitHub Actions → GHCR → webhook Dokploy), voir `doc/deploiement.md`. Le `.env` racine (modèle `.env.example`) ne sert qu'à la stack Docker.

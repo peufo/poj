@@ -8,7 +8,9 @@ apps/
   ios/                app SwiftUI, client API généré depuis le contrat           → apps/ios/README.md
 packages/
   api-contract/       openapi.json exporté par le web, source de vérité des clients
-compose.yaml          PostgreSQL de dev (port 5433)
+compose.yaml          PostgreSQL de dev (port 5433) ; profil `prod` : l'image de prod en local
+Dockerfile            image de production de l'app web
+doc/deploiement.md    déploiement (GitHub Actions → GHCR → Dokploy)
 ```
 
 ## Prérequis
@@ -36,17 +38,18 @@ Le serveur est la source de vérité. Le client Swift est généré à la compil
 2. `bun run api:export`, puis commiter `openapi.json` avec le changement serveur.
 3. Rebuilder l'app iOS : le client (`Client`, `Components.Schemas.*`) est régénéré. Les ruptures de contrat deviennent des erreurs de compilation.
 
-`bun run api:check` échoue si le contrat versionné n'est plus à jour. À ajouter en CI.
+`bun run api:check` échoue si le contrat versionné n'est plus à jour. La CI le vérifie.
 
 ## Commandes racine
 
-| Commande                                        | Rôle                                                     |
-| ----------------------------------------------- | -------------------------------------------------------- |
-| `bun run dev` / `build`                         | app web                                                  |
-| `bun run check` / `lint` / `test`               | vérifications et tests du web                            |
-| `bun run db:start` / `db:migrate`               | Postgres Docker / migrations Prisma                      |
-| `bun run sandbox` / `sandbox:reset`             | bac à sable : port 5174, base `poj_sandbox` + seed       |
-| `bun run api:export` / `api:check`              | exporte / vérifie le contrat OpenAPI                     |
-| `bun run ios:project`                           | (re)génère le projet Xcode depuis `apps/ios/project.yml` |
-| `bun run ios:build`                             | build iOS simulateur en ligne de commande                |
-| `bun run ios:test`                              | tests du package Swift `PojAPI`                          |
+| Commande                            | Rôle                                                       |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `bun run dev` / `build`             | app web                                                    |
+| `bun run check` / `lint` / `test`   | vérifications et tests du web                              |
+| `bun run db:start` / `db:migrate`   | Postgres Docker / migrations Prisma                        |
+| `bun run stack:up` / `stack:stop`   | image de prod en local (http://localhost:3000, base `poj`) |
+| `bun run sandbox` / `sandbox:reset` | bac à sable : port 5174, base `poj_sandbox` + seed         |
+| `bun run api:export` / `api:check`  | exporte / vérifie le contrat OpenAPI                       |
+| `bun run ios:project`               | (re)génère le projet Xcode depuis `apps/ios/project.yml`   |
+| `bun run ios:build`                 | build iOS simulateur en ligne de commande                  |
+| `bun run ios:test`                  | tests du package Swift `PojAPI`                            |

@@ -66,6 +66,7 @@ bun run dev
 | `bun run db:start`                            | démarre Postgres (Docker)                                                 |
 | `bun run db:migrate -- --name <nom>`          | crée/applique une migration après modification du schéma, puis `generate` |
 | `bun run db:deploy`                           | applique les migrations (CI / prod)                                       |
+| `bun run start`                               | prod : `prisma migrate deploy`, puis le serveur adapter-node (`build/`)   |
 | `bun run db:generate`                         | régénère le client Prisma                                                 |
 | `bun run db:reset`                            | recrée la base de dev                                                     |
 | `bun run db:studio`                           | Prisma Studio                                                             |
@@ -140,4 +141,4 @@ npx @modelcontextprotocol/inspector --cli $BASE/mcp --transport http --method to
   --header "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-Claude ne peut pas joindre `localhost`. Pour le brancher, il faut une URL publique en HTTPS (déploiement ou tunnel) avec `ORIGIN` réglé dessus. On ajoute ensuite `${ORIGIN}/mcp` comme connecteur personnalisé sur claude.ai.
+Claude ne peut pas joindre `localhost`. Pour le brancher, il faut une URL publique en HTTPS (déploiement ou tunnel) avec `ORIGIN` réglé dessus. On ajoute ensuite `${ORIGIN}/mcp` comme connecteur personnalisé sur claude.ai. Le déploiement est décrit dans [doc/deploiement.md](../../doc/deploiement.md).
