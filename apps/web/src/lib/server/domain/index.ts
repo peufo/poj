@@ -7,3 +7,4 @@ export * from './reviews/reviews.service';
 export type * from './reviews/types';
 export * from './translation/translator';
 export * from './translation/translation.service';
+export * from './accounts/accounts.service';

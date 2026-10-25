@@ -33,6 +33,3 @@
 	>
 </form>
 <p class="mt-4 text-red-600">{form?.message ?? ''}</p>
-<p class="mt-4 text-sm">
-	Pas de compte ? <a class="text-blue-600 underline" href="/register">Créer un compte</a>
-</p>

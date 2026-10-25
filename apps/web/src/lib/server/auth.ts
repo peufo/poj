@@ -5,6 +5,7 @@ import { bearer } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
 import { db } from '#lib/server/db/index.js';
+import { singleAccountHooks } from '#lib/server/single-account.js';
 
 export const auth = betterAuth({
 	baseURL: ORIGIN,
@@ -14,6 +15,7 @@ export const auth = betterAuth({
 	advanced: {
 		database: { generateId: 'uuid' }
 	},
+	databaseHooks: singleAccountHooks(db),
 	plugins: [
 		bearer(), // session via `Authorization: Bearer <token>` (client mobile)
 		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array

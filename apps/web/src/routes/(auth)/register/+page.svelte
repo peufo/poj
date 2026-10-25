@@ -5,7 +5,10 @@
 	let { form }: { form: ActionData } = $props();
 </script>
 
-<h1 class="mb-6 text-2xl font-semibold">Inscription</h1>
+<h1 class="mb-2 text-2xl font-semibold">Créer votre compte</h1>
+<p class="mb-6 text-sm text-gray-600">
+	Premier lancement : ce compte sera le seul. Les inscriptions seront fermées ensuite.
+</p>
 <form method="post" use:enhance class="flex flex-col gap-4">
 	<label>
 		Nom
@@ -44,6 +47,3 @@
 	>
 </form>
 <p class="mt-4 text-red-600">{form?.message ?? ''}</p>
-<p class="mt-4 text-sm">
-	Déjà inscrit ? <a class="text-blue-600 underline" href="/login">Se connecter</a>
-</p>

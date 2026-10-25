@@ -1,7 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
-import type { Actions } from './$types';
+import { db } from '#lib/server/db/index.js';
+import { createAccountsService } from '#lib/server/domain/index.js';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async () => {
+	// Le compte unique existe déjà : l'inscription est fermée (refusée aussi côté Better Auth).
+	if (!(await createAccountsService(db).isSignUpOpen())) redirect(302, '/login');
+};
 
 export const actions: Actions = {
 	default: async ({ request }) => {
