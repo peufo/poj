@@ -322,7 +322,7 @@ export function createPojMcpServer({
 					{ rating, version, origin: 'claude' },
 					at
 				);
-				return answerResult(answer, rating, at, answer.replayed);
+				return answerResult(answer, rating, at, { replayed: answer.replayed });
 			}, 'Cette révision a été modifiée entre-temps : rien n’a été enregistré. Appelle next_review pour continuer.')
 	);
 
@@ -333,7 +333,7 @@ export function createPojMcpServer({
 			description:
 				"Remplace la dernière note enregistrée d'une révision, quand l'utilisateur la conteste après submit_review (« non, compte-la fausse »). Seule la dernière réponse est corrigeable, et seulement dans l'heure qui suit. Le plafond à hard après un indice s'applique toujours. N'utilise easy que si l'utilisateur le demande explicitement.",
 			inputSchema: z.object({ review_id: reviewIdSchema, rating: ratingSchema }),
-			outputSchema: answerOutput,
+			outputSchema: answerOutput.extend({ changed: z.boolean() }),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -345,7 +345,7 @@ export function createPojMcpServer({
 			guard(async () => {
 				const at = now();
 				const answer = await reviews.amend(ownerId, review_id, rating, at);
-				return answerResult(answer, rating, at);
+				return answerResult(answer, rating, at, { changed: answer.changed });
 			}, "Impossible de corriger cette note : seule la dernière réponse d'une révision se corrige, dans l'heure qui suit.")
 	);
 
@@ -353,7 +353,7 @@ export function createPojMcpServer({
 		answer: { reviewId: string; rating: Rating; due: Date; context: string | null },
 		requested: Rating,
 		at: Date,
-		replayed?: boolean
+		{ replayed, changed }: { replayed?: boolean; changed?: boolean } = {}
 	): Promise<CallToolResult> {
 		const remaining = await remainingDue(at);
 		const capped = !replayed && answer.rating !== requested;
@@ -362,9 +362,11 @@ export function createPojMcpServer({
 		const lines = [
 			replayed
 				? `Déjà enregistrée, rien n'a été appliqué une seconde fois. Note : ${answer.rating}.`
-				: capped
-					? `Note plafonnée à ${answer.rating}, car un indice a été demandé.`
-					: `Note retenue : ${answer.rating}.`,
+				: changed === false
+					? `Note inchangée : c'était déjà ${answer.rating}${capped ? ' (plafonnée à hard, car un indice a été demandé)' : ''}. Rien n'a été modifié.`
+					: capped
+						? `Note plafonnée à ${answer.rating}, car un indice a été demandé.`
+						: `Note retenue : ${answer.rating}.`,
 			`Prochaine révision ${nextDueIn}.`,
 			...(answer.context ? [`Contexte : ${quote(answer.context)}.`] : []),
 			remaining === 0 ? 'Plus rien de dû.' : `Encore ${remaining} due${remaining > 1 ? 's' : ''}.`
@@ -377,7 +379,8 @@ export function createPojMcpServer({
 			next_due_in: nextDueIn,
 			context: answer.context,
 			remaining,
-			...(replayed !== undefined && { replayed })
+			...(replayed !== undefined && { replayed }),
+			...(changed !== undefined && { changed })
 		});
 	}
 

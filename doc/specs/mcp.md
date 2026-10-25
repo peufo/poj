@@ -88,6 +88,7 @@ Sert quand je conteste une note **après** son enregistrement (voir le déroulé
 - **Entrée :** `review_id`, `rating`.
 - **Effet :** remplace la dernière réponse de cette révision. L'état FSRS est recalculé à partir de l'état antérieur, que conserve l'historique. Le plafond `hard` lié à l'indice s'applique toujours.
 - **Limite :** seule la **dernière** réponse d'une révision est corrigeable, et seulement dans l'heure qui suit.
+- **Note inchangée :** si la note retenue (plafond compris) est déjà celle enregistrée, rien n'est modifié et la sortie l'indique (`changed` à `false`).
 
 ## Déroulé d'une révision vocale
 

@@ -35,6 +35,7 @@
 
 - La **dernière** réponse d'une révision peut être corrigée dans l'heure qui suit : la note est remplacée, et l'état FSRS est recalculé à partir de l'état antérieur conservé dans l'historique.
 - Le plafond *Hard* lié à l'indice s'applique toujours.
+- Si la note retenue (plafond compris) est celle déjà enregistrée, la correction ne change rien et n'est pas marquée comme corrigée.
 - Avec Claude, la note est enregistrée d'office et je conteste ensuite ([specs/mcp.md](mcp.md#déroulé-dune-révision-vocale)). Sur le web, c'est un bouton pendant la révision ([WEB-7](../stories/web.md#web-7--réviser)).
 
 ## Sessions

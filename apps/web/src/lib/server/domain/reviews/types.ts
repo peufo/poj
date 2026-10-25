@@ -50,3 +50,8 @@ export interface AnswerResult {
 	/** Vrai si la note avait déjà été enregistrée : rien n'a été appliqué. */
 	replayed: boolean;
 }
+
+export interface AmendResult extends AnswerResult {
+	/** Faux si la note retenue était déjà celle enregistrée : ni l'état ni l'historique n'ont changé. */
+	changed: boolean;
+}

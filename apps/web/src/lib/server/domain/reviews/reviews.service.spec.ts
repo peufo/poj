@@ -222,6 +222,32 @@ describe('reviews service', () => {
 		expect(logs[0]).toMatchObject({ rating: 'again', amendedAt: at(5) });
 	});
 
+	it('leaves everything untouched when the amended rating is the one already recorded', async () => {
+		await createCard(db, alice, { context: 'au bureau', now: t0 });
+		const review = presented(await reviews.next(alice, t0));
+		await reviews.requestHint(alice, review.id, t0);
+		await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'hard', version: review.version, origin: 'web' },
+			t0
+		);
+		const before = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+
+		// Good est plafonné à Hard après l'indice : la note ne change pas.
+		const amended = await reviews.amend(alice, review.id, 'good', at(5));
+
+		expect(amended).toMatchObject({ rating: 'hard', due: before.due, changed: false });
+		expect(await db.review.findUniqueOrThrow({ where: { id: review.id } })).toEqual(before);
+		const [log] = await db.reviewLog.findMany({ where: { reviewId: review.id } });
+		expect(log).toMatchObject({ rating: 'hard', amendedAt: null });
+		expect(await reviews.amend(alice, review.id, 'hard', at(6))).toMatchObject({ changed: false });
+		expect(await reviews.amend(alice, review.id, 'again', at(7))).toMatchObject({
+			rating: 'again',
+			changed: true
+		});
+	});
+
 	it('refuses to amend after an hour, without an answer, or after a reset', async () => {
 		const card = await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));

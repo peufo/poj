@@ -9,7 +9,7 @@ import {
 	type SerializedState
 } from './scheduler';
 import { opposite, SIBLING_BURY_MS } from './availability';
-import type { AnswerResult, LastAnswer, NextResult } from './types';
+import type { AmendResult, AnswerResult, LastAnswer, NextResult } from './types';
 
 export type ReviewsService = ReturnType<typeof createReviewsService>;
 
@@ -244,14 +244,15 @@ export function createReviewsService(db: Db) {
 
 		/**
 		 * Corrige la dernière note d'une révision, dans l'heure qui suit : l'état est
-		 * recalculé depuis l'état antérieur conservé dans l'historique.
+		 * recalculé depuis l'état antérieur conservé dans l'historique. Si la note retenue
+		 * (plafond après indice compris) est celle déjà enregistrée, rien n'est modifié.
 		 */
 		async amend(
 			ownerId: string,
 			reviewId: string,
 			rating: Rating,
 			now = new Date()
-		): Promise<AnswerResult> {
+		): Promise<AmendResult> {
 			const review = await findOwned(ownerId, reviewId);
 			const last = await db.reviewLog.findFirst({
 				where: { reviewId },
@@ -264,6 +265,18 @@ export function createReviewsService(db: Db) {
 
 			const before = parseState(last.stateBefore as unknown as SerializedState);
 			const next = applyRating(before, rating, last.reviewedAt, { hintUsed: last.hintUsed });
+
+			// Même note retenue (ex. Hard demandé après un indice, déjà Hard) : rien ne change.
+			if (next.rating === last.rating) {
+				return {
+					reviewId,
+					rating: last.rating,
+					due: review.due,
+					context: review.card.context,
+					replayed: false,
+					changed: false
+				};
+			}
 
 			await db.$transaction([
 				db.review.update({ where: { id: reviewId }, data: next.state }),
@@ -278,7 +291,8 @@ export function createReviewsService(db: Db) {
 				rating: next.rating,
 				due: next.state.due,
 				context: review.card.context,
-				replayed: false
+				replayed: false,
+				changed: true
 			};
 		}
 	};

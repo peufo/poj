@@ -102,8 +102,9 @@ export const actions: Actions = {
 		if (!isRating(rating)) return fail(400, { amendOpen: true });
 
 		try {
-			await orNotFound(reviews.amend(ownerId, reviewId, rating), 'Révision');
-			return { amended: true };
+			const result = await orNotFound(reviews.amend(ownerId, reviewId, rating), 'Révision');
+			// Même note qu'avant (plafond après indice compris) : rien n'a été modifié.
+			return { amended: true, amendUnchanged: !result.changed };
 		} catch (cause) {
 			if (cause instanceof ConflictError) {
 				return fail(409, {

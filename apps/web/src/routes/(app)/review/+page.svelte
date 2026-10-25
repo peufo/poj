@@ -10,7 +10,13 @@
 	import Notice from '#lib/ui/Notice.svelte';
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue, formatInterval } from '#lib/format/due.js';
-	import { directionLabels, formatWeekday, plural, type Rating } from '#lib/format/labels.js';
+	import {
+		directionLabels,
+		formatWeekday,
+		plural,
+		ratingLabels,
+		type Rating
+	} from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -315,6 +321,11 @@
 				</Button>
 			</form>
 		</div>
+		{#if form && 'amendUnchanged' in form && form.amendUnchanged}
+			<p class="text-sm text-ink-3" role="status">
+				Note inchangée : c’était déjà {ratingLabels[last.rating]}.
+			</p>
+		{/if}
 		{#if amendInline}
 			<div class="flex flex-col gap-2 rounded-xl bg-surface p-3">
 				<p class="text-sm font-medium">Nouvelle note pour « {last.prompt} »</p>

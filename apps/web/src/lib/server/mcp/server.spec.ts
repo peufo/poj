@@ -212,8 +212,15 @@ describe('MCP server', () => {
 			const amended = data(
 				await call(client, 'amend_review', { review_id: next.review_id, rating: 'again' })
 			);
-			expect(amended).toMatchObject({ rating: 'again', capped: false });
+			expect(amended).toMatchObject({ rating: 'again', capped: false, changed: true });
 			expect(await db.reviewLog.findFirst()).toMatchObject({ rating: 'again' });
+
+			const same = await call(client, 'amend_review', {
+				review_id: next.review_id,
+				rating: 'again'
+			});
+			expect(data(same)).toMatchObject({ rating: 'again', changed: false });
+			expect(text(same)).toContain('Note inchangée');
 
 			clock = at(HOUR + 1);
 			const late = await call(client, 'amend_review', {
