@@ -2,7 +2,7 @@
 
 ## Jalon 1 — Web : gérer et réviser mes cartes
 
-Objectif : pouvoir tout faire sans Claude, et **voir que tout est en ordre** (cartes, échéances, historique).
+Objectif : pouvoir tout faire sans Claude, et **voir que tout est en ordre** (cartes, échéances, historique). Plan : [plans/jalon-1.md](plans/jalon-1.md).
 
 - Accès réservé à mon compte : [WEB-1](stories/web.md#web-1--accès-réservé)
 - Créer, lister, consulter, modifier et supprimer des cartes, avec la suggestion DeepL à la création : [WEB-2 à WEB-6](stories/web.md)
