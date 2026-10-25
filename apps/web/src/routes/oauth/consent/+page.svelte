@@ -13,7 +13,7 @@
 			<li>{scope}</li>
 		{/each}
 	</ul>
-	<p class="mb-6 text-sm text-gray-600">
+	<p class="text-gray-600 mb-6 text-sm">
 		Vous serez ensuite redirigé vers <strong>{data.redirectHost}</strong>.
 	</p>
 	<form method="post" use:enhance class="flex flex-col gap-4">
@@ -21,12 +21,12 @@
 		<button
 			name="accept"
 			value="true"
-			class="w-full rounded-md bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
+			class="bg-blue-600 text-white hover:bg-blue-700 w-full rounded-md px-4 py-2 transition"
 			>Autoriser</button
 		>
-		<button name="accept" value="false" class="w-full rounded-md border border-gray-300 px-4 py-2"
+		<button name="accept" value="false" class="border-gray-300 w-full rounded-md border px-4 py-2"
 			>Refuser</button
 		>
 	</form>
-	<p class="mt-4 text-red-600">{form?.message ?? ''}</p>
+	<p class="text-red-600 mt-4">{form?.message ?? ''}</p>
 </main>
