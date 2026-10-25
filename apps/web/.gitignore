@@ -26,3 +26,10 @@ test-results
 
 # Prisma
 /src/lib/server/db/generated
+
+# Impeccable : artefacts de session (captures, pages de décision, cache)
+/.impeccable/review
+/.impeccable/questions
+/.impeccable/build
+/.impeccable/hook.cache.json
+/.impeccable/config.local.json

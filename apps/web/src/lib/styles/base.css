@@ -1,0 +1,91 @@
+/*
+ * Base : thème, surfaces du navigateur (sélection, curseur, focus, barres de défilement)
+ * et préférences de mouvement. Tout vient des tokens.
+ */
+@layer base {
+	:root {
+		color-scheme: light dark;
+	}
+
+	/* Forcer un thème, sur la page ou sur un sous-arbre (lab, aperçus côte à côte) */
+	[data-theme='light'] {
+		color-scheme: light;
+	}
+
+	[data-theme='dark'] {
+		color-scheme: dark;
+	}
+
+	html {
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+		-webkit-tap-highlight-color: transparent;
+		scrollbar-color: var(--color-line-strong) transparent;
+		accent-color: var(--color-accent);
+	}
+
+	body {
+		min-height: 100dvh;
+		background-color: var(--color-canvas);
+		color: var(--color-ink);
+		font-family: var(--font-sans);
+		font-size: var(--text-base);
+		line-height: var(--text-base--line-height);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
+	}
+
+	[data-theme] {
+		color: var(--color-ink);
+	}
+
+	::selection {
+		background-color: var(--color-selection);
+		color: var(--color-ink);
+	}
+
+	input,
+	textarea {
+		caret-color: var(--color-accent);
+	}
+
+	h1,
+	h2,
+	h3 {
+		text-wrap: balance;
+	}
+
+	p {
+		text-wrap: pretty;
+	}
+
+	a,
+	button,
+	[role='button'],
+	label {
+		touch-action: manipulation;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-focus);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
+	}
+
+	a {
+		text-underline-offset: 0.2em;
+		text-decoration-thickness: 1px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		::before,
+		::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+}

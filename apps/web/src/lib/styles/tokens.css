@@ -1,0 +1,112 @@
+/*
+ * Tokens de Poj. Source unique des valeurs visuelles, exposée à Tailwind via @theme.
+ *
+ * Chaque couleur est déclarée par paire avec light-dark() : clair et sombre sont conçus
+ * côte à côte, aucun des deux n'est dérivé de l'autre. La palette par défaut de Tailwind
+ * est désactivée (`--color-*: initial`) : seules ces couleurs sémantiques existent.
+ *
+ * Les valeurs restent des propriétés non enregistrées : light-dark() est résolu là où
+ * la couleur est utilisée, ce qui permet de forcer un thème sur un sous-arbre
+ * (`data-theme` sur n'importe quel élément).
+ */
+@theme {
+	--color-*: initial;
+
+	/* Surfaces, du fond vers l'avant */
+	--color-canvas: light-dark(oklch(0.99 0.002 265), oklch(0.16 0.006 265));
+	--color-surface: light-dark(oklch(0.968 0.003 265), oklch(0.19 0.007 265));
+	--color-raised: light-dark(oklch(1 0 0), oklch(0.215 0.008 265));
+	--color-inset: light-dark(oklch(0.985 0.002 265), oklch(0.185 0.007 265));
+	--color-hover: light-dark(oklch(0.95 0.004 265), oklch(0.235 0.008 265));
+	--color-line: light-dark(oklch(0.915 0.005 265), oklch(0.265 0.008 265));
+	--color-line-strong: light-dark(oklch(0.85 0.007 265), oklch(0.345 0.01 265));
+
+	/* Encre : texte principal, secondaire, discret (≥ 4,5:1 sur canvas et surface) */
+	--color-ink: light-dark(oklch(0.23 0.012 265), oklch(0.95 0.004 265));
+	--color-ink-2: light-dark(oklch(0.44 0.013 265), oklch(0.77 0.01 265));
+	--color-ink-3: light-dark(oklch(0.525 0.013 265), oklch(0.635 0.012 265));
+
+	/* Accent : action principale, sélection, « dû ». Jamais décoratif. */
+	--color-accent: light-dark(oklch(0.52 0.19 275), oklch(0.555 0.18 275));
+	--color-accent-hover: light-dark(oklch(0.47 0.19 275), oklch(0.6 0.18 275));
+	--color-on-accent: oklch(0.99 0.003 275);
+	--color-accent-text: light-dark(oklch(0.5 0.19 275), oklch(0.78 0.12 275));
+	--color-accent-soft: light-dark(oklch(0.955 0.028 275), oklch(0.265 0.055 275));
+
+	/* Notes FSRS : réservées aux notes, jamais réutilisées ailleurs */
+	--color-again: light-dark(oklch(0.52 0.19 25), oklch(0.76 0.14 25));
+	--color-again-soft: light-dark(oklch(0.962 0.024 25), oklch(0.255 0.05 25));
+	--color-hard: light-dark(oklch(0.52 0.12 60), oklch(0.81 0.12 75));
+	--color-hard-soft: light-dark(oklch(0.966 0.03 80), oklch(0.26 0.042 70));
+	--color-good: light-dark(oklch(0.5 0.12 155), oklch(0.78 0.13 155));
+	--color-good-soft: light-dark(oklch(0.96 0.03 155), oklch(0.25 0.04 155));
+	--color-easy: light-dark(oklch(0.5 0.13 240), oklch(0.77 0.11 235));
+	--color-easy-soft: light-dark(oklch(0.96 0.024 240), oklch(0.26 0.045 240));
+
+	/* États */
+	--color-warn: light-dark(oklch(0.5 0.11 70), oklch(0.83 0.12 82));
+	--color-warn-soft: light-dark(oklch(0.97 0.035 88), oklch(0.255 0.04 78));
+	--color-danger: light-dark(oklch(0.52 0.2 25), oklch(0.73 0.16 25));
+	--color-danger-soft: light-dark(oklch(0.962 0.024 25), oklch(0.255 0.05 25));
+	--color-focus: light-dark(oklch(0.55 0.19 275), oklch(0.72 0.15 275));
+	--color-selection: light-dark(oklch(0.88 0.07 275), oklch(0.38 0.1 275));
+	--color-scrim: light-dark(oklch(0.2 0.01 265 / 0.32), oklch(0 0 0 / 0.6));
+
+	/* Maîtrise : une rampe neutre, de « Nouvelle » à « Solide ». Pas d'indigo : l'accent
+	   reste réservé à l'action, à la sélection et à ce qui est dû. */
+	--color-level-0: light-dark(oklch(0.88 0.006 265), oklch(0.34 0.01 265));
+	--color-level-1: light-dark(oklch(0.72 0.01 265), oklch(0.5 0.012 265));
+	--color-level-2: light-dark(oklch(0.52 0.013 265), oklch(0.7 0.01 265));
+	--color-level-3: light-dark(oklch(0.3 0.012 265), oklch(0.9 0.005 265));
+
+	/* Typographie : police système (SF sur iPhone et Mac), échelle fixe ≈ 1,2 */
+	--font-*: initial;
+	--font-sans:
+		system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto,
+		'Helvetica Neue', sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	--text-*: initial;
+	--text-xs: 0.75rem;
+	--text-xs--line-height: 1rem;
+	--text-sm: 0.875rem;
+	--text-sm--line-height: 1.25rem;
+	--text-base: 1rem;
+	--text-base--line-height: 1.5rem;
+	--text-lg: 1.1875rem;
+	--text-lg--line-height: 1.625rem;
+	--text-xl: 1.4375rem;
+	--text-xl--line-height: 1.875rem;
+	--text-2xl: 1.75rem;
+	--text-2xl--line-height: 2.125rem;
+	--text-3xl: 2.125rem;
+	--text-3xl--line-height: 2.5rem;
+	--text-4xl: 2.625rem;
+	--text-4xl--line-height: 3rem;
+
+	/* Formes */
+	--radius-*: initial;
+	--radius-sm: 0.375rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.625rem;
+	--radius-xl: 0.875rem;
+	--radius-2xl: 1.25rem;
+	--radius-full: 9999px;
+
+	/* Profondeur : seulement ce qui flotte (feuilles, barre d'onglets, boutons pleins) */
+	--shadow-*: initial;
+	--shadow-raised:
+		inset 0 1px 0 light-dark(transparent, oklch(1 0 0 / 0.05)),
+		0 1px 2px light-dark(oklch(0.25 0.02 265 / 0.06), oklch(0 0 0 / 0.3)),
+		0 2px 8px -2px light-dark(oklch(0.25 0.02 265 / 0.08), oklch(0 0 0 / 0.35));
+	--shadow-overlay:
+		inset 0 1px 0 light-dark(transparent, oklch(1 0 0 / 0.06)),
+		0 8px 24px -6px light-dark(oklch(0.25 0.02 265 / 0.14), oklch(0 0 0 / 0.5)),
+		0 24px 48px -12px light-dark(oklch(0.25 0.02 265 / 0.12), oklch(0 0 0 / 0.45));
+
+	/* Mouvement : 150 à 220 ms, ease-out, pour les changements d'état uniquement */
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+	--default-transition-duration: 160ms;
+	--default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

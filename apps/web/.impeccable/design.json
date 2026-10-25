@@ -1,0 +1,416 @@
+{
+	"schemaVersion": 2,
+	"generatedAt": "2026-10-25T12:00:00Z",
+	"title": "Design System: Poj",
+	"extensions": {
+		"colorMeta": {
+			"accent": {
+				"role": "primary",
+				"displayName": "Indigo d'action",
+				"canonical": "light-dark(oklch(0.52 0.19 275), oklch(0.555 0.18 275))",
+				"tonalRamp": [
+					"oklch(0.15 0.08 275)",
+					"oklch(0.27 0.13 275)",
+					"oklch(0.39 0.17 275)",
+					"oklch(0.52 0.19 275)",
+					"oklch(0.64 0.15 275)",
+					"oklch(0.76 0.1 275)",
+					"oklch(0.88 0.06 275)",
+					"oklch(0.95 0.028 275)"
+				]
+			},
+			"accent-text": {
+				"role": "primary",
+				"displayName": "Indigo de texte",
+				"canonical": "light-dark(oklch(0.5 0.19 275), oklch(0.78 0.12 275))"
+			},
+			"accent-soft": {
+				"role": "primary",
+				"displayName": "Indigo voilé",
+				"canonical": "light-dark(oklch(0.955 0.028 275), oklch(0.265 0.055 275))"
+			},
+			"again": {
+				"role": "secondary",
+				"displayName": "Note Again",
+				"canonical": "light-dark(oklch(0.52 0.19 25), oklch(0.76 0.14 25))",
+				"tonalRamp": [
+					"oklch(0.15 0.06 25)",
+					"oklch(0.27 0.11 25)",
+					"oklch(0.39 0.16 25)",
+					"oklch(0.52 0.19 25)",
+					"oklch(0.64 0.16 25)",
+					"oklch(0.76 0.14 25)",
+					"oklch(0.88 0.06 25)",
+					"oklch(0.96 0.024 25)"
+				]
+			},
+			"hard": {
+				"role": "secondary",
+				"displayName": "Note Hard",
+				"canonical": "light-dark(oklch(0.52 0.12 60), oklch(0.81 0.12 75))",
+				"tonalRamp": [
+					"oklch(0.15 0.04 60)",
+					"oklch(0.27 0.07 60)",
+					"oklch(0.39 0.1 60)",
+					"oklch(0.52 0.12 60)",
+					"oklch(0.66 0.12 70)",
+					"oklch(0.81 0.12 75)",
+					"oklch(0.9 0.06 80)",
+					"oklch(0.966 0.03 80)"
+				]
+			},
+			"good": {
+				"role": "secondary",
+				"displayName": "Note Good",
+				"canonical": "light-dark(oklch(0.5 0.12 155), oklch(0.78 0.13 155))",
+				"tonalRamp": [
+					"oklch(0.15 0.04 155)",
+					"oklch(0.26 0.07 155)",
+					"oklch(0.38 0.1 155)",
+					"oklch(0.5 0.12 155)",
+					"oklch(0.64 0.13 155)",
+					"oklch(0.78 0.13 155)",
+					"oklch(0.89 0.06 155)",
+					"oklch(0.96 0.03 155)"
+				]
+			},
+			"easy": {
+				"role": "secondary",
+				"displayName": "Note Easy",
+				"canonical": "light-dark(oklch(0.5 0.13 240), oklch(0.77 0.11 235))",
+				"tonalRamp": [
+					"oklch(0.15 0.04 240)",
+					"oklch(0.26 0.08 240)",
+					"oklch(0.38 0.11 240)",
+					"oklch(0.5 0.13 240)",
+					"oklch(0.64 0.12 238)",
+					"oklch(0.77 0.11 235)",
+					"oklch(0.89 0.05 240)",
+					"oklch(0.96 0.024 240)"
+				]
+			},
+			"warn": {
+				"role": "tertiary",
+				"displayName": "Avertissement",
+				"canonical": "light-dark(oklch(0.5 0.11 70), oklch(0.83 0.12 82))"
+			},
+			"danger": {
+				"role": "tertiary",
+				"displayName": "Danger",
+				"canonical": "light-dark(oklch(0.52 0.2 25), oklch(0.73 0.16 25))"
+			},
+			"focus": {
+				"role": "tertiary",
+				"displayName": "Anneau de focus",
+				"canonical": "light-dark(oklch(0.55 0.19 275), oklch(0.72 0.15 275))"
+			},
+			"canvas": {
+				"role": "neutral",
+				"displayName": "Canvas",
+				"canonical": "light-dark(oklch(0.99 0.002 265), oklch(0.16 0.006 265))",
+				"tonalRamp": [
+					"oklch(0.16 0.006 265)",
+					"oklch(0.19 0.007 265)",
+					"oklch(0.215 0.008 265)",
+					"oklch(0.265 0.008 265)",
+					"oklch(0.85 0.007 265)",
+					"oklch(0.915 0.005 265)",
+					"oklch(0.968 0.003 265)",
+					"oklch(0.99 0.002 265)"
+				]
+			},
+			"surface": {
+				"role": "neutral",
+				"displayName": "Surface",
+				"canonical": "light-dark(oklch(0.968 0.003 265), oklch(0.19 0.007 265))"
+			},
+			"raised": {
+				"role": "neutral",
+				"displayName": "Relief",
+				"canonical": "light-dark(oklch(1 0 0), oklch(0.215 0.008 265))"
+			},
+			"inset": {
+				"role": "neutral",
+				"displayName": "Creux",
+				"canonical": "light-dark(oklch(0.985 0.002 265), oklch(0.185 0.007 265))"
+			},
+			"hover": {
+				"role": "neutral",
+				"displayName": "Survol",
+				"canonical": "light-dark(oklch(0.95 0.004 265), oklch(0.235 0.008 265))"
+			},
+			"line": {
+				"role": "neutral",
+				"displayName": "Filet",
+				"canonical": "light-dark(oklch(0.915 0.005 265), oklch(0.265 0.008 265))"
+			},
+			"line-strong": {
+				"role": "neutral",
+				"displayName": "Filet appuyé",
+				"canonical": "light-dark(oklch(0.85 0.007 265), oklch(0.345 0.01 265))"
+			},
+			"ink": {
+				"role": "neutral",
+				"displayName": "Encre",
+				"canonical": "light-dark(oklch(0.23 0.012 265), oklch(0.95 0.004 265))",
+				"tonalRamp": [
+					"oklch(0.23 0.012 265)",
+					"oklch(0.3 0.012 265)",
+					"oklch(0.44 0.013 265)",
+					"oklch(0.525 0.013 265)",
+					"oklch(0.635 0.012 265)",
+					"oklch(0.72 0.01 265)",
+					"oklch(0.88 0.006 265)",
+					"oklch(0.95 0.004 265)"
+				]
+			},
+			"ink-2": {
+				"role": "neutral",
+				"displayName": "Encre secondaire",
+				"canonical": "light-dark(oklch(0.44 0.013 265), oklch(0.77 0.01 265))"
+			},
+			"ink-3": {
+				"role": "neutral",
+				"displayName": "Encre discrète",
+				"canonical": "light-dark(oklch(0.525 0.013 265), oklch(0.635 0.012 265))"
+			},
+			"level-0": {
+				"role": "neutral",
+				"displayName": "Maîtrise : Nouvelle",
+				"canonical": "light-dark(oklch(0.88 0.006 265), oklch(0.34 0.01 265))"
+			},
+			"level-1": {
+				"role": "neutral",
+				"displayName": "Maîtrise : En cours",
+				"canonical": "light-dark(oklch(0.72 0.01 265), oklch(0.5 0.012 265))"
+			},
+			"level-2": {
+				"role": "neutral",
+				"displayName": "Maîtrise : Acquise",
+				"canonical": "light-dark(oklch(0.52 0.013 265), oklch(0.7 0.01 265))"
+			},
+			"level-3": {
+				"role": "neutral",
+				"displayName": "Maîtrise : Solide",
+				"canonical": "light-dark(oklch(0.3 0.012 265), oklch(0.9 0.005 265))"
+			}
+		},
+		"typographyMeta": {
+			"display": {
+				"displayName": "Display",
+				"purpose": "Face de la carte en révision (question et réponse)."
+			},
+			"display-wide": {
+				"displayName": "Display large",
+				"purpose": "Face de la carte en révision sur grand écran."
+			},
+			"headline": {
+				"displayName": "Headline",
+				"purpose": "Grand titre d'écran façon iOS, suivi du total."
+			},
+			"title": {
+				"displayName": "Title",
+				"purpose": "Échéance d'un sens sur la fiche d'une carte."
+			},
+			"title-sm": { "displayName": "Title small", "purpose": "Titres de section et de feuille." },
+			"body": { "displayName": "Body", "purpose": "Texte courant, français d'une ligne, champs." },
+			"body-sm": {
+				"displayName": "Body small",
+				"purpose": "Libellés, navigation latérale, aides, légendes."
+			},
+			"label": {
+				"displayName": "Label",
+				"purpose": "Puces d'échéance, pastilles de note, intervalles ; chiffres tabulaires."
+			},
+			"mono": { "displayName": "Mono", "purpose": "Rare ; valeurs techniques." }
+		},
+		"shadows": [
+			{
+				"name": "shadow-raised",
+				"value": "inset 0 1px 0 light-dark(transparent, oklch(1 0 0 / 0.05)), 0 1px 2px light-dark(oklch(0.25 0.02 265 / 0.06), oklch(0 0 0 / 0.3)), 0 2px 8px -2px light-dark(oklch(0.25 0.02 265 / 0.08), oklch(0 0 0 / 0.35))",
+				"purpose": "Bouton principal, segment actif, carte de révision."
+			},
+			{
+				"name": "shadow-overlay",
+				"value": "inset 0 1px 0 light-dark(transparent, oklch(1 0 0 / 0.06)), 0 8px 24px -6px light-dark(oklch(0.25 0.02 265 / 0.14), oklch(0 0 0 / 0.5)), 0 24px 48px -12px light-dark(oklch(0.25 0.02 265 / 0.12), oklch(0 0 0 / 0.45))",
+				"purpose": "Feuille modale, seule surface qui recouvre la page."
+			}
+		],
+		"motion": [
+			{
+				"name": "ease-out",
+				"value": "cubic-bezier(0.22, 1, 0.36, 1)",
+				"purpose": "Easing par défaut de tous les changements d'état."
+			},
+			{
+				"name": "ease-in-out",
+				"value": "cubic-bezier(0.65, 0, 0.35, 1)",
+				"purpose": "Déplacements symétriques."
+			},
+			{
+				"name": "duration-default",
+				"value": "160ms",
+				"purpose": "Durée par défaut des transitions (boutons, survols : 150 ms)."
+			},
+			{
+				"name": "duration-sheet",
+				"value": "220ms",
+				"purpose": "Entrée et sortie de la feuille et de son voile."
+			},
+			{
+				"name": "duration-horizon",
+				"value": "200ms",
+				"purpose": "Hauteur et couleur des barres de l'horizon, révélation de la réponse."
+			}
+		],
+		"breakpoints": [
+			{ "name": "sm", "value": "640px" },
+			{ "name": "md", "value": "768px" }
+		]
+	},
+	"components": [
+		{
+			"name": "Bouton principal",
+			"kind": "button",
+			"refersTo": "button-primary",
+			"description": "L'action pleine d'une zone : Réviser, Enregistrer.",
+			"html": "<button class=\"ds-btn ds-btn-primary\">Réviser</button>",
+			"css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; padding: 0 0.875rem; border-radius: var(--radius-lg); font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 500; border: 0; cursor: pointer; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out); } .ds-btn:active { transform: scale(0.98); } .ds-btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; } .ds-btn-primary { background: var(--color-accent); color: var(--color-on-accent); box-shadow: var(--shadow-raised); } .ds-btn-primary:hover { background: var(--color-accent-hover); }"
+		},
+		{
+			"name": "Bouton secondaire",
+			"kind": "button",
+			"refersTo": "button-secondary",
+			"description": "Action à côté de l'action principale.",
+			"html": "<button class=\"ds-btn2\">Modifier</button>",
+			"css": ".ds-btn2 { display: inline-flex; align-items: center; height: 2.5rem; padding: 0 0.875rem; border-radius: var(--radius-lg); border: 1px solid var(--color-line-strong); background: var(--color-raised); color: var(--color-ink); font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 500; cursor: pointer; transition: background-color 150ms var(--ease-out); } .ds-btn2:hover { background: var(--color-hover); } .ds-btn2:active { transform: scale(0.98); } .ds-btn2:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }"
+		},
+		{
+			"name": "Bouton discret",
+			"kind": "button",
+			"refersTo": "button-ghost",
+			"description": "Annuler, actions tertiaires.",
+			"html": "<button class=\"ds-btn-ghost\">Annuler</button>",
+			"css": ".ds-btn-ghost { display: inline-flex; align-items: center; height: 2.5rem; padding: 0 0.875rem; border-radius: var(--radius-lg); border: 0; background: transparent; color: var(--color-ink-2); font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 500; cursor: pointer; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); } .ds-btn-ghost:hover { background: var(--color-hover); color: var(--color-ink); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }"
+		},
+		{
+			"name": "Champ de texte",
+			"kind": "input",
+			"refersTo": "text-field",
+			"description": "Libellé au-dessus, champ creux, halo d'accent au focus.",
+			"html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Français</span><input class=\"ds-field-input\" placeholder=\"tenir le coup\"></label>",
+			"css": ".ds-field { display: flex; flex-direction: column; gap: 0.375rem; font-family: var(--font-sans); } .ds-field-label { font-size: 0.875rem; font-weight: 500; color: var(--color-ink); } .ds-field-input { height: 2.75rem; padding: 0 0.75rem; border-radius: var(--radius-lg); border: 1px solid var(--color-line-strong); background: var(--color-inset); color: var(--color-ink); font: inherit; font-size: 1rem; transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out); } .ds-field-input::placeholder { color: var(--color-ink-3); } .ds-field-input:hover { border-color: var(--color-ink-3); } .ds-field-input:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 20%, transparent); }"
+		},
+		{
+			"name": "Puce d'échéance",
+			"kind": "chip",
+			"refersTo": "due-chip-due",
+			"description": "Échéance d'un sens : langue à produire, puis délai.",
+			"html": "<span class=\"ds-due ds-due-due\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"opacity:.7\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg><b>EN</b><span style=\"opacity:.4\">·</span>à réviser</span> <span class=\"ds-due ds-due-later\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"opacity:.7\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg><b>FR</b><span style=\"opacity:.4\">·</span>dans 12 j</span>",
+			"css": ".ds-due { display: inline-flex; align-items: center; gap: 0.25rem; height: 1.5rem; padding: 0 0.375rem; border-radius: var(--radius-md); font-family: var(--font-sans); font-size: 0.75rem; line-height: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; } .ds-due b { font-weight: 600; letter-spacing: 0.025em; } .ds-due-due { background: var(--color-accent-soft); color: var(--color-accent-text); } .ds-due-later { background: var(--color-surface); color: var(--color-ink-2); }"
+		},
+		{
+			"name": "Notes",
+			"kind": "custom",
+			"refersTo": "rating-button-good",
+			"description": "Les quatre notes au pouce, chacune dans sa teinte réservée.",
+			"html": "<div class=\"ds-rate\"><button class=\"ds-rate-b ds-again\"><span>Again</span><small>10 min</small></button><button class=\"ds-rate-b ds-hard\"><span>Hard</span><small>2 j</small></button><button class=\"ds-rate-b ds-good\"><span>Good</span><small>4 j</small></button><button class=\"ds-rate-b ds-easy\"><span>Easy</span><small>9 j</small></button></div>",
+			"css": ".ds-rate { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; font-family: var(--font-sans); } .ds-rate-b { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; height: 4rem; border: 0; border-radius: var(--radius-xl); cursor: pointer; transition: transform 150ms var(--ease-out), filter 150ms var(--ease-out); } .ds-rate-b span { font-size: 0.9375rem; font-weight: 600; } .ds-rate-b small { font-size: 0.75rem; color: var(--color-ink-2); font-variant-numeric: tabular-nums; } .ds-rate-b:hover { filter: brightness(1.04); } .ds-rate-b:active { transform: scale(0.97); } .ds-rate-b:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; } .ds-again { background: var(--color-again-soft); color: var(--color-again); } .ds-hard { background: var(--color-hard-soft); color: var(--color-hard); } .ds-good { background: var(--color-good-soft); color: var(--color-good); } .ds-easy { background: var(--color-easy-soft); color: var(--color-easy); }"
+		},
+		{
+			"name": "Navigation latérale",
+			"kind": "nav",
+			"refersTo": "nav-item-active",
+			"description": "Barre latérale sur grand écran ; pastille indigo pour les révisions dues.",
+			"html": "<nav class=\"ds-nav\"><a class=\"ds-nav-i\" href=\"#\"><span>Réviser</span><span class=\"ds-nav-badge\">12</span></a><a class=\"ds-nav-i\" aria-current=\"page\" href=\"#\"><span>Cartes</span><span class=\"ds-nav-count\">148</span></a><a class=\"ds-nav-i\" href=\"#\"><span>Nouvelle carte</span></a></nav>",
+			"css": ".ds-nav { display: flex; flex-direction: column; gap: 0.125rem; width: 13rem; padding: 0.75rem; background: var(--color-surface); font-family: var(--font-sans); } .ds-nav-i { display: flex; align-items: center; gap: 0.625rem; height: 2.25rem; padding: 0 0.625rem; border-radius: var(--radius-lg); font-size: 0.875rem; font-weight: 500; color: var(--color-ink-2); text-decoration: none; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); } .ds-nav-i span:first-child { flex: 1; } .ds-nav-i:hover, .ds-nav-i[aria-current] { background: var(--color-hover); color: var(--color-ink); } .ds-nav-i:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; } .ds-nav-badge { border-radius: 9999px; background: var(--color-accent); color: var(--color-on-accent); padding: 1px 0.375rem; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; } .ds-nav-count { font-size: 0.75rem; color: var(--color-ink-3); font-variant-numeric: tabular-nums; }"
+		},
+		{
+			"name": "Contrôle segmenté",
+			"kind": "custom",
+			"refersTo": "segmented-control",
+			"description": "Choix exclusif court ; segment actif en relief.",
+			"html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">Système</button><button>Clair</button><button>Sombre</button></div>",
+			"css": ".ds-seg { display: inline-flex; padding: 0.125rem; border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); font-family: var(--font-sans); } .ds-seg button { height: 2rem; padding: 0 0.75rem; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-3); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), box-shadow 150ms var(--ease-out); } .ds-seg button:hover { color: var(--color-ink); } .ds-seg button[aria-pressed=true] { background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-raised); } .ds-seg button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }"
+		},
+		{
+			"name": "Horizon",
+			"kind": "custom",
+			"refersTo": "panel",
+			"description": "Signature : les révisions dues jour par jour ; toucher un jour filtre la liste.",
+			"html": "<div class=\"ds-hz\"><p><b>14 prochains jours</b><span>63 révisions</span></p><div class=\"ds-hz-bars\"><button class=\"ds-hz-d ds-hz-today\"><i style=\"height:80%\"></i><em>25</em></button><button class=\"ds-hz-d\"><i style=\"height:45%\"></i><em>L</em></button><button class=\"ds-hz-d\"><i style=\"height:30%\"></i><em>M</em></button><button class=\"ds-hz-d ds-hz-empty\"><i></i><em>M</em></button><button class=\"ds-hz-d\"><i style=\"height:60%\"></i><em>J</em></button><button class=\"ds-hz-d\"><i style=\"height:20%\"></i><em>V</em></button><button class=\"ds-hz-d\"><i style=\"height:35%\"></i><em>S</em></button></div></div>",
+			"css": ".ds-hz { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; border-radius: var(--radius-2xl); background: var(--color-surface); font-family: var(--font-sans); } .ds-hz p { display: flex; justify-content: space-between; margin: 0; font-size: 0.875rem; } .ds-hz p b { font-weight: 500; color: var(--color-ink); } .ds-hz p span { color: var(--color-ink-2); font-variant-numeric: tabular-nums; } .ds-hz-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; height: 6rem; align-items: end; } .ds-hz-d { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.375rem; height: 100%; border: 0; background: none; padding: 0; cursor: pointer; } .ds-hz-d i { display: block; width: 100%; max-width: 1.25rem; border-radius: 3px; background: color-mix(in oklab, var(--color-accent) 45%, transparent); transition: background-color 200ms var(--ease-out), height 200ms var(--ease-out); } .ds-hz-d:hover i { background: color-mix(in oklab, var(--color-accent) 70%, transparent); } .ds-hz-today i { background: var(--color-accent); } .ds-hz-empty i { height: 2px; background: var(--color-line-strong); } .ds-hz-d em { display: flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; font-style: normal; font-size: 0.75rem; color: var(--color-ink-3); font-variant-numeric: tabular-nums; } .ds-hz-today em { font-weight: 600; color: var(--color-accent-text); } .ds-hz-d:focus-visible { outline: 2px solid var(--color-focus); border-radius: var(--radius-md); }"
+		},
+		{
+			"name": "Barre de maîtrise",
+			"kind": "custom",
+			"refersTo": "panel",
+			"description": "Répartition des révisions par niveau, en rampe d'encre neutre.",
+			"html": "<div class=\"ds-mb\"><div class=\"ds-mb-bar\"><i style=\"flex-grow:18;background:var(--color-level-0)\"></i><i style=\"flex-grow:40;background:var(--color-level-1)\"></i><i style=\"flex-grow:52;background:var(--color-level-2)\"></i><i style=\"flex-grow:36;background:var(--color-level-3)\"></i></div><dl><div><span style=\"background:var(--color-level-0)\"></span><dt>Nouvelle</dt><dd>18</dd></div><div><span style=\"background:var(--color-level-1)\"></span><dt>En cours</dt><dd>40</dd></div><div><span style=\"background:var(--color-level-2)\"></span><dt>Acquise</dt><dd>52</dd></div><div><span style=\"background:var(--color-level-3)\"></span><dt>Solide</dt><dd>36</dd></div></dl></div>",
+			"css": ".ds-mb { display: flex; flex-direction: column; gap: 0.625rem; font-family: var(--font-sans); } .ds-mb-bar { display: flex; gap: 0.125rem; height: 0.5rem; } .ds-mb-bar i { height: 100%; border-radius: 9999px; } .ds-mb dl { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; font-size: 0.875rem; } .ds-mb dl div { display: flex; align-items: center; gap: 0.375rem; } .ds-mb dl span { width: 0.5rem; height: 0.5rem; border-radius: 9999px; } .ds-mb dt { color: var(--color-ink-2); } .ds-mb dd { margin: 0; font-weight: 500; color: var(--color-ink); font-variant-numeric: tabular-nums; }"
+		}
+	],
+	"narrative": {
+		"northStar": "L'échéancier en ordre",
+		"overview": "Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres froids à peine teintés de bleu (teinte 265), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent indigo qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.\n\nLe clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme=\"light|dark\"` force un thème sur n'importe quel sous-arbre (lab, aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.\n\nRejets confirmés par la direction : le tableau de bord gamifié (séries, trophées, confettis) et la table grise de back-office.",
+		"keyCharacteristics": [
+			"Police système (SF sur iPhone et Mac), échelle fixe d'environ 1,2.",
+			"Neutres froids en paliers : canvas, surface, raised, inset, hover.",
+			"Un seul accent indigo (teinte 275), jamais décoratif.",
+			"Quatre teintes réservées aux notes FSRS (Again, Hard, Good, Easy).",
+			"Maîtrise en rampe d'encre neutre, sans couleur.",
+			"Filets d'un pixel ; ombres douces seulement sur ce qui flotte.",
+			"Clair et sombre à soin égal via `light-dark()`."
+		],
+		"rules": [
+			{
+				"name": "The One Indigo Rule",
+				"body": "L'indigo ne marque que trois choses : l'action principale, la sélection et ce qui est dû. Jamais un ornement, jamais un niveau de maîtrise, jamais un titre.",
+				"section": "colors"
+			},
+			{
+				"name": "The Reserved Ratings Rule",
+				"body": "Les teintes again, hard, good et easy n'existent que pour les notes. On ne les réutilise ni pour un succès, ni pour une erreur, ni pour la maîtrise : `danger` et `warn` ont leurs propres tokens.",
+				"section": "colors"
+			},
+			{
+				"name": "The Paired Tokens Rule",
+				"body": "Toute nouvelle couleur s'écrit en paire `light-dark()` dans `tokens.css`, conçue dans les deux thèmes à la fois. La palette par défaut de Tailwind est désactivée (`--color-*: initial`) : une couleur qui n'est pas un token n'existe pas.",
+				"section": "colors"
+			},
+			{
+				"name": "The Tabular Figures Rule",
+				"body": "Tout nombre qui se compare ou se met à jour (compteurs, échéances, horizon, intervalles) est en chiffres tabulaires (`tabular-nums`).",
+				"section": "typography"
+			},
+			{
+				"name": "The One Family Rule",
+				"body": "Une seule famille, la police système. La hiérarchie se fait par taille et graisse ; aucune police d'affichage importée.",
+				"section": "typography"
+			},
+			{
+				"name": "The Only What Floats Rule",
+				"body": "Une ombre signale qu'un élément est au-dessus du reste : un bouton plein, un segment choisi, la carte à réviser, une feuille. Les panneaux, les lignes et les champs restent plats, séparés par la teinte ou par un filet.",
+				"section": "elevation"
+			}
+		],
+		"dos": [
+			"Do déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme` dans le lab.",
+			"Do réserver l'indigo à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte indigo.",
+			"Do séparer par paliers de surface et filets d'un pixel avant de recourir à une ombre.",
+			"Do mettre les nombres en chiffres tabulaires.",
+			"Do limiter le mouvement aux changements d'état, entre 150 et 220 ms, en ease-out ; respecter `prefers-reduced-motion`.",
+			"Do utiliser les éléments natifs (`<dialog>`, `<button>`, form actions) et les composants `#lib/ui` avant d'écrire du balisage neuf.",
+			"Do garder un seul bouton plein par zone d'action."
+		],
+		"donts": [
+			"Don't utiliser les teintes de note (again, hard, good, easy) pour autre chose qu'une note.",
+			"Don't colorer la maîtrise en indigo ou avec les teintes de note : elle reste une rampe d'encre neutre.",
+			"Don't ajouter séries, trophées, confettis ou autre mécanique de tableau de bord gamifié.",
+			"Don't composer l'écran comme une table grise de back-office.",
+			"Don't utiliser une valeur de couleur, de rayon, d'ombre ou de police hors des tokens : les échelles par défaut de Tailwind sont désactivées.",
+			"Don't poser une ombre sur un panneau, une ligne ou un champ.",
+			"Don't importer une police d'affichage."
+		]
+	}
+}
