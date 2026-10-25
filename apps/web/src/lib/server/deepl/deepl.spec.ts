@@ -39,7 +39,7 @@ describe('DeepL translator', () => {
 		expect(JSON.parse(init.body as string)).toEqual({
 			text: ['tenir pour acquis'],
 			source_lang: 'FR',
-			target_lang: 'EN-US',
+			target_lang: 'EN-GB',
 			context: 'réunion budget'
 		});
 	});

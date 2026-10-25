@@ -2,7 +2,7 @@
 import { TranslatorError, type Language, type Translator } from '#lib/server/domain/index.js';
 
 const SOURCE: Record<Language, string> = { fr: 'FR', en: 'EN' };
-const TARGET: Record<Language, string> = { fr: 'FR', en: 'EN-US' };
+const TARGET: Record<Language, string> = { fr: 'FR', en: 'EN-GB' };
 
 const TIMEOUT_MS = 5_000;
 

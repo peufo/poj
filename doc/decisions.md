@@ -68,7 +68,7 @@ Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut
 
 ## 2026-10-24 — DeepL comme second avis à la création
 
-**Décision :** le serveur interroge l'API DeepL (clé gratuite) pour obtenir une traduction de référence de chaque carte proposée.
+**Décision :** le serveur interroge l'API DeepL (clé gratuite) pour obtenir une traduction de référence de chaque carte proposée. Les traductions vers l'anglais visent l'anglais britannique (`EN-GB`).
 - **Avec Claude :** si DeepL diverge de la proposition de Claude, Claude expose les deux options avec ses arguments, et c'est moi qui tranche.
 - **Sur le web :** le formulaire affiche la traduction DeepL comme suggestion. Aucun statut particulier : la carte est enregistrée telle que je la saisis.
 
