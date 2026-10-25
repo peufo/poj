@@ -1,0 +1,17 @@
+.git
+.github
+.claude
+.vscode
+**/.DS_Store
+**/node_modules
+**/.svelte-kit
+**/build
+**/.env
+**/.env.*
+!**/.env.example
+apps/ios
+apps/web/.impeccable
+apps/web/src/lib/server/db/generated
+**/test-results
+**/playwright-report
+doc

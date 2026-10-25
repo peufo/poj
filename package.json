@@ -11,6 +11,8 @@
 		"test": "bun --filter @poj/web test:unit --run",
 		"db:start": "docker compose up -d",
 		"db:migrate": "bun --filter @poj/web db:migrate",
+		"stack:up": "docker compose --profile prod up -d --build",
+		"stack:stop": "docker compose stop app proxy",
 		"sandbox": "bun --filter @poj/web sandbox",
 		"sandbox:reset": "bun --filter @poj/web sandbox:reset",
 		"sandbox:seed": "bun --filter @poj/web sandbox:seed",

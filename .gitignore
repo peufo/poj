@@ -13,3 +13,8 @@ apps/ios/Poj/Info.plist
 
 # Claude Code
 /.claude/worktrees
+
+# Environnement de la stack Docker (modèle : .env.example)
+/.env
+/.env.*
+!/.env.example

@@ -1,3 +1,7 @@
+# `db` : Postgres de dev (`bun run db:start`), qui héberge aussi les bases `poj_test` et
+# `poj_sandbox`. Le profil `prod` lance en plus l'image de production sur sa propre base
+# `poj` (`bun run stack:up`, puis http://localhost:3000 ; `bun run stack:stop`).
+# Pas de `docker compose down` : il arrêterait aussi `db`.
 services:
   db:
     image: postgres
@@ -10,5 +14,52 @@ services:
       POSTGRES_DB: local
     volumes:
       - pgdata:/var/lib/postgresql
+
+  # Crée la base `poj` si elle manque. Un script de `docker-entrypoint-initdb.d` ne
+  # s'exécuterait que sur un volume neuf.
+  db-init:
+    image: postgres
+    profiles: [prod]
+    depends_on: [db]
+    environment:
+      PGHOST: db
+      PGUSER: root
+      PGPASSWORD: mysecretpassword
+      PGDATABASE: postgres
+    command:
+      - sh
+      - -c
+      - |
+        until pg_isready -q; do sleep 1; done
+        psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'poj'" | grep -q 1 \
+          || psql -c 'CREATE DATABASE poj'
+
+  app:
+    build: .
+    profiles: [prod]
+    ports:
+      # Port de `proxy`, qui partage le réseau de `app`.
+      - 3000:3000
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://root:mysecretpassword@db:5432/poj
+      ORIGIN: http://localhost:3000
+      PORT: 3001
+      # adapter-node suppose HTTPS faute de cet en-tête : sans lui, l'URL des requêtes
+      # ne correspondrait pas à `ORIGIN` (403 sur les formulaires, 404 sur /api/auth).
+      PROTOCOL_HEADER: x-forwarded-proto
+    depends_on:
+      db-init:
+        # `start` lance `prisma migrate deploy` immédiatement : la base doit exister.
+        condition: service_completed_successfully
+
+  # Tient le rôle du proxy de Dokploy, en HTTP. Il partage le réseau de `app` : l'app
+  # joint ainsi sa propre `ORIGIN` (JWKS du MCP) en passant par lui, comme en prod.
+  proxy:
+    image: caddy:2.11.2-alpine
+    profiles: [prod]
+    network_mode: service:app
+    command: caddy reverse-proxy --from :3000 --to localhost:3001
+
 volumes:
   pgdata:
