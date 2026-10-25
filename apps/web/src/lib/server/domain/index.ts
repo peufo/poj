@@ -5,3 +5,5 @@ export * from './cards/cards.service';
 export type * from './cards/types';
 export * from './reviews/reviews.service';
 export type * from './reviews/types';
+export * from './translation/translator';
+export * from './translation/translation.service';

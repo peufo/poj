@@ -8,5 +8,10 @@ export const variables = defineEnvVars({
 	BETTER_AUTH_SECRET: {
 		description:
 			'Secret used to sign tokens. For production use 32 characters generated with high entropy. See [Better Auth installation](https://www.better-auth.com/docs/installation).'
+	},
+	DEEPL_API_KEY: {
+		description:
+			'DeepL API key (free keys end with `:fx`). Optional: without it, DeepL suggestions are disabled.',
+		schema: (value) => value || undefined
 	}
 });
