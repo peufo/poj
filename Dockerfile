@@ -32,7 +32,8 @@ FROM install AS deps
 RUN bun install --frozen-lockfile --production
 
 FROM base
-ENV NODE_ENV=production PORT=3000
+# Les dates affichées (échéancier, « aujourd'hui ») suivent le fuseau du processus.
+ENV NODE_ENV=production PORT=3000 TZ=Europe/Zurich
 COPY --from=deps /app ./
 COPY apps/web/prisma.config.ts apps/web/
 COPY apps/web/prisma apps/web/prisma
