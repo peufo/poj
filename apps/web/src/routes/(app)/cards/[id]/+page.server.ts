@@ -1,0 +1,55 @@
+import { fail, redirect } from '@sveltejs/kit';
+import { masteryOf } from '#lib/format/mastery.js';
+import { cards, idOf, orNotFound, ownerOf } from '#lib/server/web/services.js';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async ({ locals, params }) => {
+	const card = await orNotFound(cards.get(ownerOf(locals), idOf(params.id)));
+
+	return {
+		now: new Date(),
+		card: {
+			id: card.id,
+			french: card.french,
+			english: card.english,
+			context: card.context,
+			origin: card.origin,
+			createdAt: card.createdAt,
+			reviews: card.reviews.map((review) => ({
+				direction: review.direction,
+				due: review.due,
+				isNew: review.state === 'new',
+				mastery: masteryOf(review),
+				// Réponses de l'historique, réinitialisations comprises.
+				answers: review.logs.length,
+				lastRating: review.logs[0]?.rating ?? null
+			})),
+			history: card.reviews
+				.flatMap((review) =>
+					review.logs.map((log) => ({
+						id: log.id,
+						at: log.reviewedAt,
+						direction: review.direction,
+						rating: log.rating,
+						origin: log.origin,
+						hintUsed: log.hintUsed,
+						amended: log.amendedAt !== null
+					}))
+				)
+				.sort((a, b) => b.at.getTime() - a.at.getTime())
+		}
+	};
+};
+
+export const actions: Actions = {
+	// Suppression en deux temps : sans `confirm`, on demande confirmation.
+	delete: async ({ request, locals, params }) => {
+		const ownerId = ownerOf(locals);
+		const id = idOf(params.id);
+		const form = await request.formData();
+		if (form.get('confirm') !== '1') return fail(400, { confirmDelete: true });
+
+		await orNotFound(cards.softDelete(ownerId, id));
+		redirect(303, '/cards');
+	}
+};

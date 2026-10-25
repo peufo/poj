@@ -11,8 +11,17 @@
 		if (path === '/cards/new') return 'new';
 		return 'cards';
 	});
+
+	// Révision et formulaires : la barre d'onglets s'efface (barre d'action au pouce).
+	const focus = $derived(current !== 'cards' || (page.route.id?.endsWith('/edit') ?? false));
 </script>
 
-<AppShell {current} user={data.user} focus={current === 'review'}>
+<AppShell
+	{current}
+	user={data.user}
+	dueCount={data.nav.dueCount}
+	cardCount={data.nav.cardCount}
+	{focus}
+>
 	{@render children()}
 </AppShell>
