@@ -17,7 +17,6 @@ src/env.ts               variables d'environnement déclarées pour SvelteKit
 src/hooks.server.ts      Better Auth : sert /api/auth/*, met la session dans event.locals
 src/lib/server/
   domain/                logique métier en TS pur (aucun import SvelteKit ni Hono)
-    notes/               service Note + tests
   db/                    singleton PrismaClient ; generated/ = client généré (ignoré par git)
   auth.ts                configuration Better Auth
   api/                   app Hono (basePath /api)
@@ -29,10 +28,10 @@ scripts/export-openapi.ts  export du contrat vers packages/api-contract/openapi.
 src/routes/
   api/[...path]/         délègue toutes les méthodes HTTP à l'app Hono
   (auth)/                /login, /register
-  (app)/                 pages authentifiées (/notes, /logout)
+  (app)/                 pages authentifiées (/cards, /logout)
 ```
 
-**Règle** : les `load` / form actions et les routes API sont de fines couches (validation → appel `domain/` → sérialisation). Toute logique métier vit dans `domain/`. Les services reçoivent le client Prisma en paramètre (`createNotesService(db)`), ce qui les rend testables.
+**Règle** : les `load` / form actions et les routes API sont de fines couches (validation → appel `domain/` → sérialisation). Toute logique métier vit dans `domain/`. Les services reçoivent le client Prisma en paramètre (`createCardsService(db)`), ce qui les rend testables.
 
 ### Conventions du schéma (pensées pour une future synchro hors ligne)
 
@@ -98,11 +97,8 @@ TOKEN=$(curl -si -X POST $BASE/api/auth/sign-in/email -H 'content-type: applicat
   -d '{"email":"ada@example.com","password":"motdepasse123"}' \
   | grep -i '^set-auth-token:' | cut -d' ' -f2 | tr -d '\r')
 
-# Utiliser l'API
-curl $BASE/api/v1/notes -H "Authorization: Bearer $TOKEN"
-
-curl -X POST $BASE/api/v1/notes -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"id":"0199a0d8-b380-7148-bf7a-36511d883b07","title":"Ma note","content":"..."}'
+# Utiliser le token
+curl $BASE/api/auth/get-session -H "Authorization: Bearer $TOKEN"
 ```
 
 Côté mobile : stocker le token dans le Keystore Android et l'envoyer dans le header `Authorization` à chaque requête.

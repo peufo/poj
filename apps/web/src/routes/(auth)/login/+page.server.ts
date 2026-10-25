@@ -18,6 +18,6 @@ export const actions: Actions = {
 			return fail(500, { email, message: 'Erreur inattendue' });
 		}
 
-		redirect(302, '/notes');
+		redirect(302, '/cards');
 	}
 };

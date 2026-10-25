@@ -25,7 +25,6 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
-  notes         Note[]
 
   @@unique([email])
   @@map("users")
@@ -77,18 +76,4 @@ model Verification {
 
   @@index([identifier])
   @@map("verifications")
-}
-
-model Note {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  title     String
-  content   String    @default("")
-  ownerId   String    @map("owner_id") @db.Uuid
-  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@index([ownerId, updatedAt])
-  @@map("notes")
 }

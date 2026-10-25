@@ -31,7 +31,7 @@ Depuis `apps/web`, pour un test ciblé :
 
 ```sh
 bunx vitest --run --project server                                  # tests serveur seulement
-bunx vitest --run src/lib/server/domain/notes/notes.service.spec.ts -t "soft-deletes"
+bunx vitest --run src/lib/server/domain/cards/cards.service.spec.ts -t "soft-deletes"
 ```
 
 - **Base de test :** les tests serveur tournent contre une vraie base PostgreSQL, désignée par `DATABASE_URL_TEST` (`poj_test`, créée une fois avec `bun run db:test:create`).
