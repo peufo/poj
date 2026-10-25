@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
+import { authErrorMessage } from '#lib/server/auth-errors.js';
 import { db } from '#lib/server/db/index.js';
 import { createAccountsService } from '#lib/server/domain/index.js';
 import { oauthApiContext, oauthQuery, oauthRedirect } from '#lib/server/oauth-flow.js';
@@ -28,9 +29,9 @@ export const actions: Actions = {
 			});
 		} catch (error) {
 			if (error instanceof APIError) {
-				return fail(400, { email, message: error.message || 'Connexion impossible' });
+				return fail(400, { email, message: authErrorMessage(error, 'Connexion impossible.') });
 			}
-			return fail(500, { email, message: 'Erreur inattendue' });
+			return fail(500, { email, message: 'Erreur inattendue. Réessaie.' });
 		}
 
 		// Flux OAuth : consentement, ou directement le `redirect_uri` (externe) du client,

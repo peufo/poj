@@ -1,6 +1,7 @@
 import { APIError } from 'better-auth/api';
 import type { BetterAuthOptions } from 'better-auth/minimal';
 import { createAccountsService, type Db } from '#lib/server/domain/index.js';
+import { SIGN_UP_CLOSED } from '#lib/server/auth-errors.js';
 
 /**
  * Refuse toute création d'utilisateur dès qu'un compte existe, quel que soit le
@@ -13,7 +14,10 @@ export function singleAccountHooks(db: Db): BetterAuthOptions['databaseHooks'] {
 			create: {
 				async before() {
 					if (!(await accounts.isSignUpOpen())) {
-						throw new APIError('FORBIDDEN', { message: 'Les inscriptions sont fermées.' });
+						throw new APIError('FORBIDDEN', {
+							message: 'Les inscriptions sont fermées.',
+							code: SIGN_UP_CLOSED
+						});
 					}
 				}
 			}

@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
+import { authErrorMessage } from '#lib/server/auth-errors.js';
 import { db } from '#lib/server/db/index.js';
 import { createAccountsService } from '#lib/server/domain/index.js';
 import type { Actions, PageServerLoad } from './$types';
@@ -21,9 +22,13 @@ export const actions: Actions = {
 			await auth.api.signUpEmail({ body: { name, email, password }, headers: request.headers });
 		} catch (error) {
 			if (error instanceof APIError) {
-				return fail(400, { name, email, message: error.message || 'Inscription impossible' });
+				return fail(400, {
+					name,
+					email,
+					message: authErrorMessage(error, 'Inscription impossible.')
+				});
 			}
-			return fail(500, { name, email, message: 'Erreur inattendue' });
+			return fail(500, { name, email, message: 'Erreur inattendue. Réessaie.' });
 		}
 
 		redirect(302, '/cards');
