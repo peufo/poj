@@ -9,10 +9,21 @@
 		hintUsed?: boolean;
 		selected?: Rating | null;
 		shortcuts?: boolean;
-		onrate: (rating: Rating) => void;
+		/** Si renseigné, chaque note est un bouton d'envoi du formulaire parent (`name=note`). */
+		name?: string;
+		disabled?: boolean;
+		onrate?: (rating: Rating) => void;
 	};
 
-	let { intervals, hintUsed = false, selected = null, shortcuts = true, onrate }: Props = $props();
+	let {
+		intervals,
+		hintUsed = false,
+		selected = null,
+		shortcuts = true,
+		name,
+		disabled = false,
+		onrate
+	}: Props = $props();
 
 	const styles: Record<Rating, string> = {
 		again: 'bg-again-soft text-again',
@@ -28,9 +39,11 @@
 	{#each ratings as rating, i (rating)}
 		{@const off = blocked(rating)}
 		<button
-			type="button"
-			disabled={off}
-			onclick={() => onrate(rating)}
+			type={name ? 'submit' : 'button'}
+			{name}
+			value={name ? rating : undefined}
+			disabled={off || disabled}
+			onclick={() => onrate?.(rating)}
 			title={off ? 'Contexte vu : Hard au mieux' : ratingMeanings[rating]}
 			aria-pressed={selected === rating}
 			class={[

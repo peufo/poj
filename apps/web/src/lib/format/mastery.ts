@@ -10,17 +10,28 @@
 /** `State` de ts-fsrs : New, Learning, Review, Relearning. */
 export type FsrsState = 0 | 1 | 2 | 3;
 
+/** Le même état, tel que la base le nomme. */
+export type ReviewStateName = 'new' | 'learning' | 'review' | 'relearning';
+
+const stateIndex: Record<ReviewStateName, FsrsState> = {
+	new: 0,
+	learning: 1,
+	review: 2,
+	relearning: 3
+};
+
 export type MasteryLevel = 0 | 1 | 2 | 3;
 
 export const masteryLabels = ['Nouvelle', 'En cours', 'Acquise', 'Solide'] as const;
 
 export function masteryOf({
-	state,
+	state: raw,
 	stability
 }: {
-	state: FsrsState;
+	state: FsrsState | ReviewStateName;
 	stability: number;
 }): MasteryLevel {
+	const state = typeof raw === 'string' ? stateIndex[raw] : raw;
 	if (state === 0) return 0;
 	if (state === 1 || state === 3 || stability < 7) return 1;
 	if (stability < 30) return 2;

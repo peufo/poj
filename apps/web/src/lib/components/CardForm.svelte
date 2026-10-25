@@ -9,12 +9,21 @@
 </script>
 
 <script lang="ts">
+	import type { SubmitFunction } from '$app/forms';
+	import { onMount } from 'svelte';
+	import { fromAction } from 'svelte/attachments';
+	import { enhance as kitEnhance } from '$app/forms';
 	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
 
 	// Formulaire de carte (création et modification, WEB-2 et WEB-5). Purement présentationnel :
 	// la page fournit l'action du formulaire, la suggestion DeepL et l'éventuel doublon.
+	//
+	// Sans JavaScript, il reste utilisable : « Traduire avec DeepL » poste le formulaire sur
+	// `translateAction`, la confirmation d'un doublon renvoie l'anglais confirmé
+	// (`confirmValue`), et l'accord sur la réinitialisation part dans `acknowledge_reset`
+	// dès que l'avertissement est affiché.
 
 	type Props = {
 		mode: 'create' | 'edit';
@@ -26,8 +35,14 @@
 		suggestion?: Suggestion;
 		duplicate?: Duplicate | null;
 		saving?: boolean;
-		errors?: Partial<Record<'french' | 'english', string>>;
+		errors?: Partial<Record<'french' | 'english' | 'context', string>>;
 		action?: string;
+		/** Action serveur de la suggestion DeepL : le bouton devient un envoi du formulaire. */
+		translateAction?: string;
+		/** Valeur envoyée avec `confirm` par « Enregistrer quand même ». */
+		confirmValue?: string;
+		/** Amélioration progressive des actions serveur (`use:enhance`). */
+		enhance?: SubmitFunction;
 		cancelHref: string;
 		ontranslate?: () => void;
 		onsubmit?: (event: SubmitEvent) => void;
@@ -44,10 +59,19 @@
 		saving = false,
 		errors = {},
 		action,
+		translateAction,
+		confirmValue = '1',
+		enhance,
 		cancelHref,
 		ontranslate,
 		onsubmit
 	}: Props = $props();
+
+	const enhanceForm = (form: HTMLFormElement, submit: SubmitFunction) => kitEnhance(form, submit);
+
+	// Sans JavaScript, le bouton DeepL reste actif : le serveur valide le français.
+	let hydrated = $state(false);
+	onMount(() => (hydrated = true));
 
 	const resets = $derived(
 		mode === 'edit' &&
@@ -57,7 +81,13 @@
 	const taken = $derived(suggestion.status === 'ready' && english.trim() === suggestion.text);
 </script>
 
-<form method="post" {action} {onsubmit} class="flex flex-col gap-6">
+<form
+	method="post"
+	{action}
+	{onsubmit}
+	{@attach enhance && fromAction(enhanceForm, () => enhance)}
+	class="flex flex-col gap-6"
+>
 	<TextField
 		label="Français"
 		name="french"
@@ -78,6 +108,7 @@
 		rows={2}
 		optional
 		lang="fr"
+		error={errors.context}
 		hint="Où, quand, avec qui ? Il lève l'ambiguïté et servira d'indice en révision."
 	/>
 
@@ -98,7 +129,10 @@
 				variant="ghost"
 				icon="translate"
 				class="-mr-2 text-accent-text! hover:bg-accent-soft!"
-				disabled={!french.trim()}
+				type={translateAction ? 'submit' : 'button'}
+				formaction={translateAction}
+				formnovalidate={translateAction ? true : undefined}
+				disabled={hydrated && !french.trim()}
 				loading={suggestion.status === 'loading'}
 				onclick={ontranslate}
 			>
@@ -138,6 +172,7 @@
 	</TextField>
 
 	{#if resets}
+		<input type="hidden" name="acknowledge_reset" value="1" />
 		<Notice tone="warn" title="La progression repartira de zéro">
 			Tu modifies le français ou l'anglais : les deux sens redeviendront neufs et dus immédiatement.
 			L'historique des réponses est conservé.
@@ -171,7 +206,7 @@
 			loading={saving}
 			class="md:w-auto"
 			name={duplicate ? 'confirm' : undefined}
-			value={duplicate ? '1' : undefined}
+			value={duplicate ? confirmValue : undefined}
 		>
 			{#if duplicate}Enregistrer quand même{:else if mode === 'create'}Enregistrer la carte{:else}Enregistrer
 				les modifications{/if}
