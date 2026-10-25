@@ -25,6 +25,7 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
+  cards         Card[]
 
   @@unique([email])
   @@map("users")
@@ -76,4 +77,103 @@ model Verification {
 
   @@index([identifier])
   @@map("verifications")
+}
+
+// ─── Cartes et répétition espacée (doc/specs/repetition.md) ───
+
+enum Origin {
+  web
+  claude
+
+  @@map("origin")
+}
+
+enum Direction {
+  fr_to_en
+  en_to_fr
+
+  @@map("direction")
+}
+
+enum Rating {
+  again
+  hard
+  good
+  easy
+
+  @@map("rating")
+}
+
+/// `State` de ts-fsrs.
+enum ReviewState {
+  new
+  learning
+  review
+  relearning
+
+  @@map("review_state")
+}
+
+model Card {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  french    String
+  english   String
+  context   String?
+  origin    Origin
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  reviews   Review[]
+
+  @@index([ownerId, createdAt])
+  @@map("cards")
+}
+
+/// Une révision par sens d'une carte. Les champs FSRS reprennent la `Card` de ts-fsrs
+/// (sans `elapsed_days`, déprécié et recalculé depuis `lastReview`).
+/// Pas de `deletedAt` : une révision suit sa carte.
+model Review {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  cardId          String      @map("card_id") @db.Uuid
+  card            Card        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  direction       Direction
+  due             DateTime
+  stability       Float
+  difficulty      Float
+  scheduledDays   Int         @map("scheduled_days")
+  learningSteps   Int         @map("learning_steps")
+  reps            Int
+  lapses          Int
+  state           ReviewState
+  lastReview      DateTime?   @map("last_review")
+  /// Indice demandé depuis la dernière réponse si postérieur à `lastReview`.
+  hintRequestedAt DateTime?   @map("hint_requested_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  logs            ReviewLog[]
+
+  @@unique([cardId, direction])
+  @@index([due])
+  @@map("reviews")
+}
+
+/// Historique des réponses. `stateBefore` (état FSRS avant la réponse) permet de
+/// corriger la dernière note.
+model ReviewLog {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  reviewId    String    @map("review_id") @db.Uuid
+  review      Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  rating      Rating
+  hintUsed    Boolean   @map("hint_used")
+  origin      Origin
+  reviewedAt  DateTime  @map("reviewed_at")
+  stateBefore Json      @map("state_before")
+  amendedAt   DateTime? @map("amended_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([reviewId, reviewedAt])
+  @@map("review_logs")
 }

@@ -66,6 +66,7 @@
 		"@prisma/client": "7.10.0",
 		"@scalar/hono-api-reference": "^0.12.6",
 		"hono": "^4.13.9",
+		"ts-fsrs": "5.4.2",
 		"zod": "^4.6.5"
 	}
 }
