@@ -139,6 +139,28 @@ describe('cards service', () => {
 		}
 	});
 
+	it('searches regardless of accents, both ways, in every field', async () => {
+		const ecole = await cards.create(
+			alice,
+			{ french: 'à l’École', english: 'at school', context: 'Réunion des élèves' },
+			'web',
+			now
+		);
+		const cafe = await cards.create(alice, { french: 'un cafe', english: 'a café' }, 'web', now);
+		const deleted = await cards.create(alice, { french: 'école', english: 'x' }, 'web', now);
+		await cards.softDelete(alice, deleted.id);
+		await cards.create(bob, { french: 'école', english: 'school' }, 'web', now);
+
+		const search = async (query: string) =>
+			(await cards.list(alice, { query })).map((c) => c.id);
+		expect(await search('ecole')).toEqual([ecole.id]);
+		expect(await search('ÉCOLE')).toEqual([ecole.id]);
+		expect(await search('reunion des eleves')).toEqual([ecole.id]);
+		expect(await search('café')).toEqual([cafe.id]);
+		expect(await search('CAFE')).toEqual([cafe.id]);
+		expect(await search('écol_')).toEqual([]);
+	});
+
 	it('gets a card with its reviews and history', async () => {
 		const { id } = await cards.create(alice, input, 'web', now);
 		await answerBoth(id);

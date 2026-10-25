@@ -133,21 +133,28 @@ export function createCardsService(db: Db) {
 			return candidates.filter((card) => duplicateKey(card.english) === key);
 		},
 
-		list(ownerId: string, { query }: { query?: string } = {}): Promise<CardWithReviews[]> {
-			// `contains` devient un ILIKE sans échapper ses jokers : `%` et `_` se cherchent tels quels.
-			const q = query?.trim().replace(/[\\%_]/g, '\\$&');
+		/**
+		 * Cartes non supprimées, des plus récentes aux plus anciennes. La recherche porte sur
+		 * le français, l'anglais et le contexte, sans tenir compte de la casse ni des accents
+		 * (extension `unaccent`) ; `%` et `_` s'y cherchent tels quels.
+		 */
+		async list(ownerId: string, { query }: { query?: string } = {}): Promise<CardWithReviews[]> {
+			const q = query?.trim();
+			let ids: string[] | undefined;
+			if (q) {
+				const pattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
+				const rows = await db.$queryRaw<{ id: string }[]>`
+					SELECT id FROM cards
+					WHERE owner_id = ${ownerId}::uuid AND deleted_at IS NULL AND (
+						unaccent(french) ILIKE unaccent(${pattern})
+						OR unaccent(english) ILIKE unaccent(${pattern})
+						OR unaccent(context) ILIKE unaccent(${pattern})
+					)`;
+				if (rows.length === 0) return [];
+				ids = rows.map((row) => row.id);
+			}
 			return db.card.findMany({
-				where: {
-					ownerId,
-					deletedAt: null,
-					...(q && {
-						OR: [
-							{ french: { contains: q, mode: 'insensitive' } },
-							{ english: { contains: q, mode: 'insensitive' } },
-							{ context: { contains: q, mode: 'insensitive' } }
-						]
-					})
-				},
+				where: { ownerId, deletedAt: null, ...(ids && { id: { in: ids } }) },
 				include: { reviews: { orderBy: { direction: 'asc' } } },
 				orderBy: { createdAt: 'desc' }
 			});

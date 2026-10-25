@@ -24,6 +24,7 @@ push sur main → GitHub Actions : tests → image ghcr.io/peufo/poj:main → we
 ### Dokploy
 
 1. **Postgres :** créer une base (nom `poj`), et noter son URL de connexion **interne**.
+   - La recherche de cartes utilise l'extension **`unaccent`**, créée par une migration (`CREATE EXTENSION IF NOT EXISTS unaccent`). Elle fait partie des modules contrib de l'image `postgres` officielle (celle de Dokploy, de `compose.yaml` et de la CI). C'est une extension de confiance : l'utilisateur propriétaire de la base suffit, sans droits de superutilisateur.
 2. **Application :**
    - provider Docker, image `ghcr.io/peufo/poj:main` ;
    - registre : `ghcr.io`, avec un jeton GitHub (classic) au scope `read:packages`, tant que le paquet est privé.
