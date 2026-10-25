@@ -3,6 +3,7 @@ import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
 import { db } from '#lib/server/db/index.js';
 import { createAccountsService } from '#lib/server/domain/index.js';
+import { oauthApiContext, oauthQuery, oauthRedirect } from '#lib/server/oauth-flow.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -11,13 +12,20 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, url }) => {
 		const form = await request.formData();
 		const email = form.get('email')?.toString() ?? '';
 		const password = form.get('password')?.toString() ?? '';
+		// Connexion demandée par une autorisation OAuth (connecteur Claude) : le formulaire
+		// est posté sur l'URL de la page, qui porte la requête signée.
+		const oauth_query = oauthQuery(url);
 
+		let result: unknown;
 		try {
-			await auth.api.signInEmail({ body: { email, password }, headers: request.headers });
+			result = await auth.api.signInEmail({
+				body: { email, password, ...(oauth_query && { oauth_query }) },
+				...oauthApiContext(request)
+			});
 		} catch (error) {
 			if (error instanceof APIError) {
 				return fail(400, { email, message: error.message || 'Connexion impossible' });
@@ -25,6 +33,10 @@ export const actions: Actions = {
 			return fail(500, { email, message: 'Erreur inattendue' });
 		}
 
+		// Flux OAuth : consentement, ou directement le `redirect_uri` (externe) du client,
+		// validé par le plugin contre ceux enregistrés.
+		const next = oauthRedirect(result);
+		if (next) redirect(302, next, { external: true });
 		redirect(302, '/cards');
 	}
 };

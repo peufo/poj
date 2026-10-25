@@ -5,7 +5,7 @@ Le serveur MCP permet à Claude de capturer et de réviser des cartes : [stories
 ## Principes
 
 - **Une couche fine, comme le reste.** Les outils valident leurs entrées, appellent les services du domaine (`cards`, `reviews`, `deepl`), puis sérialisent. Aucune règle métier ne vit dans le serveur MCP. Le web et Claude ont ainsi exactement le même comportement.
-- **Le serveur garantit ce qu'il peut garantir.** Les règles qui dépendent du comportement de Claude (relire la carte avant de la créer, ne jamais proposer *Easy*) figurent dans les descriptions des outils. Toutes celles que le serveur peut appliquer lui-même, il les applique : plafond à *Hard* après un indice, mise de côté du sens inverse, rejeu sans effet.
+- **Le serveur garantit ce qu'il peut garantir.** Les règles qui dépendent du comportement de Claude (relire la carte avant de la créer, ne jamais proposer _Easy_) figurent dans les descriptions des outils. Toutes celles que le serveur peut appliquer lui-même, il les applique : plafond à _Hard_ après un indice, mise de côté du sens inverse, rejeu sans effet.
 - **Pensé pour la voix.** Les résultats sont courts et directement exploitables, avec des dates relatives (« dans 3 jours »). Il n'y a pas de liste longue à lire au volant.
 - **Sans état de session.** Chaque appel se suffit à lui-même. L'état est en base, pas dans la connexion MCP.
 
@@ -18,7 +18,10 @@ Le serveur MCP permet à Claude de capturer et de réviser des cartes : [stories
   - Le rafraîchissement des jetons est supporté : Claude renouvelle ses jetons quand ils expirent.
   - La connexion réutilise la page de connexion du web. Il faut ajouter une page de consentement (« Claude demande l'accès à vos cartes ») : elle ne s'affiche qu'à l'ajout du connecteur, et elle protège contre un client qui se ferait passer pour Claude. Pas d'approbation automatique.
 - **Exposition :** l'enregistrement est ouvert à tout client, mais n'importe qui ne peut pas utiliser mes cartes pour autant : il faut ensuite se connecter avec **mon** compte, le seul existant ([WEB-1](../stories/web.md#web-1--accès-réservé)).
-- **À vérifier à l'implémentation :** le plugin `@better-auth/mcp` est récent. Il faudra tester le parcours complet avec le MCP Inspector, puis avec claude.ai.
+- **Scope :** l'accès au MCP exige le scope `cards` (« lire, créer et réviser vos cartes »), annoncé dans les métadonnées de la ressource et dans le `401`. Claude y ajoute `offline_access` pour obtenir un jeton de rafraîchissement.
+- **Découverte :** la ressource est `${ORIGIN}/mcp`, l'émetteur `${ORIGIN}/api/auth`. Sont servis : `/.well-known/oauth-protected-resource` (et `/…/mcp`), `/.well-known/oauth-authorization-server` (à la racine et suffixé par `/api/auth`), et sous `/api/auth/.well-known/` les métadonnées OAuth et OpenID.
+- **Clients :** DCR seulement, sans CIMD (Claude se rabat sur DCR quand CIMD n'est pas annoncé). Les clients natifs sans `application_type` (anciens Claude Code, boucle locale) sont enregistrés comme natifs : leur redirection `http://localhost:<port>` est acceptée quel que soit le port.
+- **À vérifier :** le parcours complet est testé (tests serveur, puis curl et MCP Inspector en CLI sur le bac à sable). Reste à le tester avec claude.ai, une fois Poj joignable en HTTPS.
 
 Références : [Build an MCP server for Claude](https://claude.com/docs/connectors/building/index.md), [Better Auth : MCP](https://www.better-auth.com/docs/plugins/mcp).
 
@@ -97,7 +100,7 @@ Pour que la session reste fluide en voiture, Claude n'attend pas mon accord sur 
 
 ## Consignes générales
 
-Les instructions du serveur MCP (transmises à l'initialisation, si le client les prend en compte) résument le rôle de Poj et les règles ci-dessus : langue de travail français, carte relue avant création, *Easy* jamais proposé, réponses brèves en mode vocal. Les règles critiques figurent **aussi** dans la description des outils concernés, que Claude lit de manière certaine.
+Les instructions du serveur MCP (transmises à l'initialisation, si le client les prend en compte) résument le rôle de Poj et les règles ci-dessus : langue de travail français, carte relue avant création, _Easy_ jamais proposé, réponses brèves en mode vocal. Les règles critiques figurent **aussi** dans la description des outils concernés, que Claude lit de manière certaine.
 
 ## Hors périmètre
 

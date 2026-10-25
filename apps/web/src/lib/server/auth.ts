@@ -1,23 +1,16 @@
 import { ORIGIN, BETTER_AUTH_SECRET } from '$app/env/private';
 import { betterAuth } from 'better-auth/minimal';
-import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { bearer } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
+import { createAuthOptions } from '#lib/server/auth-config.js';
 import { db } from '#lib/server/db/index.js';
-import { singleAccountHooks } from '#lib/server/single-account.js';
+
+const options = createAuthOptions({ db, origin: ORIGIN, secret: BETTER_AUTH_SECRET });
 
 export const auth = betterAuth({
-	baseURL: ORIGIN,
-	secret: BETTER_AUTH_SECRET,
-	database: prismaAdapter(db, { provider: 'postgresql' }),
-	emailAndPassword: { enabled: true },
-	advanced: {
-		database: { generateId: 'uuid' }
-	},
-	databaseHooks: singleAccountHooks(db),
+	...options,
 	plugins: [
-		bearer(), // session via `Authorization: Bearer <token>` (client mobile)
+		...options.plugins,
 		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array
 	]
 });

@@ -1,6 +1,8 @@
 import { redirect } from '@sveltejs/kit';
+import { isOAuthFlow } from '#lib/server/oauth-flow.js';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = ({ locals }) => {
-	if (locals.user) redirect(302, '/cards');
+export const load: LayoutServerLoad = ({ locals, url }) => {
+	// Au milieu d'une autorisation OAuth (`prompt=login`), la connexion est redemandée.
+	if (locals.user && !isOAuthFlow(url)) redirect(302, '/cards');
 };

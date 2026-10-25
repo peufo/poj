@@ -4,7 +4,7 @@ App SvelteKit full-stack (Bun, TypeScript strict) qui expose aussi l'API REST ve
 
 Les commandes ci-dessous se lancent depuis `apps/web` (les plus courantes existent aussi à la racine).
 
-**Stack** : SvelteKit 3 · PostgreSQL + Prisma 7 · Better Auth (email/mot de passe + `bearer`) · Hono + `@hono/zod-openapi` · Vitest.
+**Stack** : SvelteKit 3 · PostgreSQL + Prisma 7 · Better Auth (email/mot de passe + `bearer`, serveur OAuth via `jwt` + `@better-auth/mcp`) · MCP (SDK TypeScript v2) · Hono + `@hono/zod-openapi` · Vitest.
 
 ## Structure
 
@@ -18,7 +18,10 @@ src/hooks.server.ts      Better Auth : sert /api/auth/*, met la session dans eve
 src/lib/server/
   domain/                logique métier en TS pur (aucun import SvelteKit ni Hono)
   db/                    singleton PrismaClient ; generated/ = client généré (ignoré par git)
-  auth.ts                configuration Better Auth
+  auth-config.ts         options Better Auth partagées (plugins bearer, jwt, mcp)
+  auth.ts                instance Better Auth de l'app (+ sveltekitCookies)
+  oauth-flow.ts          reprise du flux OAuth depuis /login et /oauth/consent
+  mcp/                   serveur MCP (outils), route protégée (endpoint.ts)
   testing/               outils de test et de bac à sable (base jetable, fabriques, seed) ; interdit en prod
   api/                   app Hono (basePath /api)
     index.ts             OpenAPI, doc, gestion d'erreurs, montage de /v1
@@ -30,6 +33,9 @@ scripts/sandbox.ts         bac à sable : reset, seed, serveur de dev sur la bas
 src/routes/
   api/[...path]/         délègue toutes les méthodes HTTP à l'app Hono
   (auth)/                /login, /register
+  oauth/consent/         consentement OAuth (connecteur Claude)
+  mcp/                   serveur MCP, Streamable HTTP sans état (POST, jeton OAuth)
+  .well-known/           métadonnées OAuth (ressource protégée, serveur d'autorisation)
   (app)/                 pages authentifiées (/cards, /logout)
 ```
 
@@ -115,3 +121,23 @@ curl $BASE/api/auth/get-session -H "Authorization: Bearer $TOKEN"
 ```
 
 Côté mobile : stocker le token dans le Keystore Android et l'envoyer dans le header `Authorization` à chaque requête.
+
+## Connecteur Claude (MCP + OAuth)
+
+Le serveur MCP est servi en `POST /mcp`, protégé par OAuth. Better Auth est le serveur d'autorisation : émetteur `${ORIGIN}/api/auth`, enregistrement dynamique des clients (DCR) sur `/api/auth/oauth2/register`, scope `cards`. Le parcours complet est décrit dans [doc/specs/mcp.md](../../doc/specs/mcp.md).
+
+```sh
+BASE=http://localhost:5174   # bac à sable
+curl $BASE/.well-known/oauth-protected-resource/mcp
+curl $BASE/.well-known/oauth-authorization-server/api/auth
+curl -i -X POST $BASE/mcp -H 'content-type: application/json' -d '{}'   # 401 + WWW-Authenticate
+```
+
+Avec un jeton d'accès, le MCP Inspector en ligne de commande liste les outils :
+
+```sh
+npx @modelcontextprotocol/inspector --cli $BASE/mcp --transport http --method tools/list \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+Claude ne peut pas joindre `localhost`. Pour le brancher, il faut une URL publique en HTTPS (déploiement ou tunnel) avec `ORIGIN` réglé dessus. On ajoute ensuite `${ORIGIN}/mcp` comme connecteur personnalisé sur claude.ai.

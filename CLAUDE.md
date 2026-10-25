@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Monorepo contenant :
+
 - `apps/web` : SvelteKit 3, qui porte aussi l'API REST ;
 - `apps/ios` : app SwiftUI ;
 - `packages/api-contract/openapi.json` : le contrat versionné qui relie les deux.
@@ -49,6 +50,7 @@ bunx vitest --run src/lib/server/domain/cards/cards.service.spec.ts -t "soft-del
 ### Couches
 
 `src/lib/server/domain/` contient toute la logique métier. C'est du TS pur :
+
 - aucun import de SvelteKit (`$app/*`) ni de Hono ;
 - les imports venant de Prisma sont des imports de **types** uniquement ;
 - les services sont des fabriques qui reçoivent le client Prisma (`createNotesService(db)`). Les tests leur passent leur propre `PrismaClient`.
@@ -65,13 +67,20 @@ Les `load`, les form actions et les handlers Hono sont de fines couches : valida
 - **Côté Hono :** le middleware `requireAuth` réutilise `c.env.locals`. Il ne rappelle `getSession` que si ces `locals` sont absents (app montée seule).
 - **App Hono :** `api/index.ts` (basePath `/api`), avec les routes versionnées dans `api/v1/`. Toute sous-app se crée avec `createApp()` (`api/factory.ts`), qui partage le `defaultHook` : erreur 422 `validation_error`.
 
+### Serveur MCP et OAuth (connecteur Claude)
+
+- **Serveur d'autorisation :** Better Auth, avec les plugins `jwt` et `mcp` (`@better-auth/mcp`), configurés dans `auth-config.ts` (options partagées par `auth.ts` et `testing/auth.ts`). DCR ouvert, connexion par `/login`, consentement par `/oauth/consent`, scope `cards`, ressource `${ORIGIN}/mcp`, émetteur `${ORIGIN}/api/auth`.
+- **Route `/mcp` :** `routes/mcp/+server.ts` (POST seulement, GET/DELETE → 405) appelle `createMcpEndpoint` (`mcp/endpoint.ts`) : `requireMcpAuth` vérifie le JWT via le JWKS, puis l'utilisateur `sub` doit exister. Sans jeton valide : 401 + `WWW-Authenticate` (`resource_metadata`).
+- **Découverte :** `svelteKitHandler` ne sert que `/api/auth/*`. Les routes `routes/.well-known/oauth-{protected-resource,authorization-server}/[...path]` passent donc la requête à `auth.handler`, dont les hooks `onRequest` des plugins servent ces chemins.
+- **Reprise du flux (`oauth-flow.ts`) :** le plugin redirige vers `/login` ou `/oauth/consent` avec une requête signée (`…&sig=`). Les actions la renvoient en `oauth_query` à `signInEmail` / `oauth2Consent`, avec `oauthApiContext(request)`, puis suivent `{ redirect, url }`.
+
 ### Contrat OpenAPI
 
 La spec est construite à partir des `createRoute` et des schémas Zod de `@hono/zod-openapi`.
 
 - **`operationId` :** chaque route doit avoir un `operationId` stable. Il devient le nom de la méthode dans le client Swift.
 - **Schémas plats :** éviter `.extend()` sur un schéma déjà nommé avec `.openapi('X')`. Il est exporté en `allOf`, ce qui donne des types Swift illisibles.
-- **Endpoints d'auth :** ceux de Better Auth sont *documentés* dans `api/auth-docs.ts` (`registerPath`) pour que les clients mobiles les génèrent. Le basePath `/api` est ajouté automatiquement : déclarer `/auth/...`.
+- **Endpoints d'auth :** ceux de Better Auth sont _documentés_ dans `api/auth-docs.ts` (`registerPath`) pour que les clients mobiles les génèrent. Le basePath `/api` est ajouté automatiquement : déclarer `/auth/...`.
 - **Export :** `scripts/export-openapi.ts` charge le module de l'API via un serveur Vite en `middlewareMode` (`ssrLoadModule`). C'est nécessaire pour que `$app/*` et `#lib/*` soient résolus.
 - **Après toute modification d'une route ou d'un schéma :** `bun run api:export`, puis commiter `openapi.json` avec le changement.
 
@@ -95,6 +104,12 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
   - mutations idempotentes : un `POST` rejoué avec le même `id` renvoie l'existant, `PUT` crée ou remplace, `DELETE` réussit même si c'est déjà supprimé.
 - **`bun run auth:schema` :** la CLI Better Auth réécrit les modèles d'auth dans `schema.prisma` avec ses propres conventions. Il faut ensuite réappliquer les `@map`/`@@map` en snake_case et `@default(uuid(7))`, puis lancer `db:migrate`.
 - **`auth.ts` :** le plugin `sveltekitCookies` doit rester le dernier du tableau `plugins`.
+- **Paquets Better Auth :** `better-auth`, `auth`, `@better-auth/mcp` et `@better-auth/oauth-provider` sont épinglés à la même version exacte (1.7.12). Les plugins exigent un `better-auth` de même version (peer deps).
+- **Pièges OAuth :**
+  - avec Prisma sur PostgreSQL, la ressource MCP doit être déclarée dans `resources` avec `allowedScopes` ;
+  - appelé côté serveur, l'authorize du plugin exige `request` : Better Auth renvoie alors une `Response`, sauf si on passe `asResponse: false`. `oauthApiContext` règle les deux, et ajoute `accept: application/json` pour obtenir `{ redirect, url }` au lieu d'une redirection levée ;
+  - SvelteKit 3 refuse `redirect()` vers une URL externe sans `{ external: true }`. C'est le cas du `redirect_uri` du client, déjà validé par le plugin ;
+  - `requireMcpAuth` télécharge le JWKS par HTTP (`${ORIGIN}/api/auth/jwks`), avec un cache par URL et une recharge au plus toutes les 30 s. Les tests routent `fetch` vers l'instance et gardent la même clé de signature d'un test à l'autre.
 
 ## Architecture iOS (`apps/ios`)
 
