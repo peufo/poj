@@ -1,13 +1,16 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { masteryOf } from '#lib/format/mastery.js';
+import { presentations } from '#lib/server/domain/index.js';
 import { cards, idOf, orNotFound, ownerOf } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const card = await orNotFound(cards.get(ownerOf(locals), idOf(params.id)));
+	const now = new Date();
+	const shown = presentations(card.reviews, now);
 
 	return {
-		now: new Date(),
+		now,
 		card: {
 			id: card.id,
 			french: card.french,
@@ -20,6 +23,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				due: review.due,
 				isNew: review.state === 'new',
 				mastery: masteryOf(review),
+				/** Mis de côté (l'autre sens vient d'être noté) : présenté à cette date. */
+				buriedUntil: shown.get(review.id)?.buriedUntil ?? null,
 				// Réponses depuis la dernière réinitialisation (`reps` FSRS, remis à 0 avec elle) ;
 				// l'historique complet reste affiché à part.
 				answers: review.reps,

@@ -12,6 +12,7 @@
 		directionLabels,
 		formatDate,
 		formatDateTime,
+		formatDue,
 		originLabels,
 		plural
 	} from '#lib/format/labels.js';
@@ -24,13 +25,6 @@
 	let deleting = $state(false);
 
 	const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-	const dueDate = new Intl.DateTimeFormat('fr-FR', {
-		weekday: 'short',
-		day: 'numeric',
-		month: 'short',
-		hour: '2-digit',
-		minute: '2-digit'
-	});
 
 	const submitDelete: SubmitFunction = () => {
 		deleting = true;
@@ -78,7 +72,10 @@
 		<h2 id="progress-title" class="text-lg font-semibold">Progression</h2>
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each card.reviews as r (r.direction)}
-				{@const due = describeDue(r.due, data.now, { isNew: r.isNew })}
+				<!-- Un sens mis de côté n'est présenté qu'à la fin de sa mise de côté. -->
+				{@const due = r.buriedUntil
+					? describeDue(r.buriedUntil, data.now)
+					: describeDue(r.due, data.now, { isNew: r.isNew })}
 				<article class="flex flex-col gap-3 rounded-2xl bg-surface p-4">
 					<h3 class="flex items-center gap-1.5 text-sm font-medium text-ink-2">
 						{directionLabels[r.direction].long}
@@ -91,8 +88,15 @@
 						>
 							{capitalize(due.long)}
 						</p>
-						{#if !r.isNew}
-							<p class="text-sm text-ink-3 tabular-nums">{dueDate.format(r.due)}</p>
+						{#if r.buriedUntil}
+							<p class="text-sm text-ink-3 tabular-nums">
+								{r.isNew ? 'Nouvelle, mise' : 'Mise'} de côté jusqu’à {formatDue(
+									r.buriedUntil,
+									data.now
+								)} : l’autre sens a été révisé il y a moins de 24 h.
+							</p>
+						{:else if !r.isNew}
+							<p class="text-sm text-ink-3 tabular-nums">{formatDue(r.due, data.now)}</p>
 						{/if}
 					</div>
 					<div class="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">

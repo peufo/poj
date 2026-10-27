@@ -1,4 +1,4 @@
-import { calendarDaysBetween } from '#lib/server/domain/index.js';
+import { calendarDaysBetween, presentations } from '#lib/server/domain/index.js';
 import { masteryOf, type MasteryLevel } from '#lib/format/mastery.js';
 import { cards, ownerOf, reviews } from '#lib/server/web/services.js';
 import type { PageServerLoad } from './$types';
@@ -17,6 +17,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		reviews.countDue(ownerId, now)
 	]);
 	const listed = query ? await cards.list(ownerId, { query }) : all;
+	// Quand chaque sens sera présenté (mise de côté du sens inverse comprise).
+	// La liste filtrée est incluse dans le paquet entier (au plus une entrée par carte).
+	const deck = new Map([...all, ...listed].map((card) => [card.id, card]));
+	const shown = presentations(
+		[...deck.values()].flatMap((card) => card.reviews),
+		now
+	);
 
 	// Maîtrise de tout le paquet, recherche ou pas.
 	const mastery: Record<MasteryLevel, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -32,13 +39,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			id: card.id,
 			french: card.french,
 			english: card.english,
-			reviews: card.reviews.map((review) => ({
-				direction: review.direction,
-				due: review.due,
-				isNew: review.state === 'new',
-				/** Jour de l'échéancier (0 : aujourd'hui, retard compris). */
-				day: Math.max(0, calendarDaysBetween(now, review.due))
-			}))
+			reviews: card.reviews.map((review) => {
+				const { buriedUntil, at } = shown.get(review.id) ?? { buriedUntil: null, at: review.due };
+				return {
+					direction: review.direction,
+					// Un sens mis de côté s'affiche à la fin de sa mise de côté.
+					due: buriedUntil ?? review.due,
+					isNew: review.state === 'new' && !buriedUntil,
+					/** Jour de l'échéancier où ce sens compte (0 : aujourd'hui, retard compris). */
+					day: Math.max(0, calendarDaysBetween(now, at))
+				};
+			})
 		}))
 	};
 };
