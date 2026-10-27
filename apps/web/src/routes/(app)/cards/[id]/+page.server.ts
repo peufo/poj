@@ -20,9 +20,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				due: review.due,
 				isNew: review.state === 'new',
 				mastery: masteryOf(review),
-				// Réponses de l'historique, réinitialisations comprises.
-				answers: review.logs.length,
-				lastRating: review.logs[0]?.rating ?? null
+				// Réponses depuis la dernière réinitialisation (`reps` FSRS, remis à 0 avec elle) ;
+				// l'historique complet reste affiché à part.
+				answers: review.reps,
+				lastRating: review.reps > 0 ? (review.logs[0]?.rating ?? null) : null
 			})),
 			history: card.reviews
 				.flatMap((review) =>
