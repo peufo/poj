@@ -16,10 +16,7 @@ function slot(
 
 describe('presentations', () => {
 	it('presents one direction of a fresh card now, the other 24 hours later', () => {
-		const result = presentations(
-			[slot('b', 'fr_to_en', now), slot('a', 'en_to_fr', now)],
-			now
-		);
+		const result = presentations([slot('b', 'fr_to_en', now), slot('a', 'en_to_fr', now)], now);
 
 		expect(result.get('a')).toEqual({ buriedUntil: null, at: now });
 		expect(result.get('b')).toEqual({ buriedUntil: null, at: at(24) });

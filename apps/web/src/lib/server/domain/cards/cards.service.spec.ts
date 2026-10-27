@@ -151,8 +151,7 @@ describe('cards service', () => {
 		await cards.softDelete(alice, deleted.id);
 		await cards.create(bob, { french: 'école', english: 'school' }, 'web', now);
 
-		const search = async (query: string) =>
-			(await cards.list(alice, { query })).map((c) => c.id);
+		const search = async (query: string) => (await cards.list(alice, { query })).map((c) => c.id);
 		expect(await search('ecole')).toEqual([ecole.id]);
 		expect(await search('ÉCOLE')).toEqual([ecole.id]);
 		expect(await search('reunion des eleves')).toEqual([ecole.id]);
