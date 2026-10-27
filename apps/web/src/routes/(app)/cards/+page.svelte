@@ -4,6 +4,7 @@
 	import Horizon from '#lib/components/Horizon.svelte';
 	import MasteryBar from '#lib/components/MasteryBar.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
+	import AccountMenu from '#lib/components/AccountMenu.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { formatWeekday, plural } from '#lib/format/labels.js';
@@ -43,6 +44,8 @@
 	<PageHeader title="Cartes" count={data.stats.totalCards}>
 		{#snippet actions()}
 			<Button href="/cards/new" icon="plus" size="sm" class="max-md:hidden">Nouvelle carte</Button>
+			<!-- Au téléphone, la barre latérale (et sa déconnexion) n'existe pas. -->
+			<AccountMenu email={data.user.email} class="md:hidden" />
 		{/snippet}
 	</PageHeader>
 
