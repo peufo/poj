@@ -1,3 +1,5 @@
+import { dayNumber } from './labels.js';
+
 // Échéances relatives, telles que l'interface les affiche (« dans 12 jours »).
 // Les jours se comptent en jours civils, pas en tranches de 24 h : une révision due
 // demain à 7 h est « demain », même s'il est 23 h.
@@ -15,14 +17,9 @@ export type DueLabel = {
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-function startOfDay(date: Date): number {
-	const d = new Date(date);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
+/** Écart en jours civils (Europe/Zurich, comme le domaine) : 0 le même jour, 1 le lendemain. */
 export function calendarDaysBetween(from: Date, to: Date): number {
-	return Math.round((startOfDay(to) - startOfDay(from)) / (24 * HOUR));
+	return dayNumber(to) - dayNumber(from);
 }
 
 export function describeDue(due: Date, now: Date, { isNew = false } = {}): DueLabel {

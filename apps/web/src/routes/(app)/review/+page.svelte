@@ -13,6 +13,7 @@
 	import {
 		directionLabels,
 		formatWeekday,
+		isSameDay,
 		plural,
 		ratingLabels,
 		type Rating
@@ -255,8 +256,10 @@
 				{#if data.upcoming}
 					{@const next = data.upcoming}
 					<p class="max-w-[50ch] text-ink-2">
-						Prochaine révision {describeDue(next.due, data.now).long},
-						{formatWeekday(next.due)}&nbsp;:
+						<!-- Pas de date pour une échéance du jour : « dans 4 min » suffit. -->
+						Prochaine révision {describeDue(next.due, data.now)
+							.long}{#if !isSameDay(next.due, data.now)},
+							{formatWeekday(next.due)}{/if}&nbsp;:
 						<span class="text-ink" lang={next.direction === 'en_to_fr' ? 'en' : 'fr'}
 							>{next.prompt}</span
 						>{endsWithPunctuation(next.prompt) ? '' : '.'}

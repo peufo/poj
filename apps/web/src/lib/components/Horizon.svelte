@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatWeekday, plural } from '#lib/format/labels.js';
+	import { formatWeekday, plural, TIME_ZONE } from '#lib/format/labels.js';
 
 	// Les révisions dues sur les prochains jours, une barre par jour civil.
 	// Le premier jour inclut le retard. Toucher un jour le sélectionne (filtre de la liste).
@@ -17,8 +17,12 @@
 	const max = $derived(Math.max(1, ...days.map((d) => d.count)));
 	const total = $derived(days.reduce((sum, d) => sum + d.count, 0));
 	const focus = $derived(hovered ?? selected);
-	const initial = (date: Date) =>
-		new Intl.DateTimeFormat('fr-FR', { weekday: 'narrow' }).format(date);
+	const initialFormat = new Intl.DateTimeFormat('fr-FR', {
+		weekday: 'narrow',
+		timeZone: TIME_ZONE
+	});
+	const dayFormat = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', timeZone: TIME_ZONE });
+	const initial = (date: Date) => initialFormat.format(date);
 
 	function toggle(index: number) {
 		selected = selected === index ? null : index;
@@ -87,7 +91,7 @@
 					]}
 					aria-hidden="true"
 				>
-					{i === 0 ? day.date.getDate() : initial(day.date)}
+					{i === 0 ? dayFormat.format(day.date) : initial(day.date)}
 				</span>
 			</button>
 		{/each}
