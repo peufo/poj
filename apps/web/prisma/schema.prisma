@@ -16,16 +16,17 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid(7)) @db.Uuid
+  id            String      @id @default(uuid(7)) @db.Uuid
   name          String
   email         String
-  emailVerified Boolean   @default(false) @map("email_verified")
+  emailVerified Boolean     @default(false) @map("email_verified")
   image         String?
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
   cards         Card[]
+  dailyGoals    DailyGoal[]
 
   oauthclients       OauthClient[]
   oauthrefreshtokens OauthRefreshToken[]
@@ -184,6 +185,27 @@ model ReviewLog {
 
   @@index([reviewId, reviewedAt])
   @@map("review_logs")
+}
+
+// ─── Objectif quotidien d'ajout de cartes (doc/story/ajout-quotidien.md) ───
+
+/// Historique de l'objectif : une ligne par jour où il a changé. Un jour est jugé avec
+/// l'objectif en vigueur ce jour-là (la dernière ligne dont `effectiveFrom` le précède) ;
+/// sans ligne, l'objectif vaut 2. Pas de `deletedAt` : l'historique ne fait que s'allonger,
+/// un second changement le même jour remplace la ligne du jour.
+model DailyGoal {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Nombre de cartes à ajouter par jour.
+  goal          Int
+  /// Minuit (Europe/Zurich) du jour à partir duquel l'objectif s'applique.
+  effectiveFrom DateTime @map("effective_from")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, effectiveFrom])
+  @@map("daily_goals")
 }
 
 // ─── Serveur d'autorisation OAuth du connecteur Claude (plugins jwt et @better-auth/mcp) ───
