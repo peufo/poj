@@ -18,3 +18,6 @@ apps/ios/Poj/Info.plist
 /.env
 /.env.*
 !/.env.example
+
+# Obsidian (config locale)
+doc/.obsidian/

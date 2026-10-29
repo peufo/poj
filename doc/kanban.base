@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.folder == "tickets"
+views:
+  - type: table
+    name: Vue
