@@ -2,6 +2,37 @@
 
 Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut.
 
+## 2026-10-29 — Calendrier des révisions et leviers de motivation
+
+**Décision :**
+- Un jour de révision est réussi quand je suis « à jour » : chaque carte due a reçu au moins une réponse, quelle que soit la note, ou bien j'ai fait 30 révisions dans la journée.
+- La série tolère un jour manqué.
+- Deux leviers seulement : un moment de célébration bref quand l'objectif du jour est atteint, et le record de série.
+
+Voir [story/ajout-quotidien.md](story/ajout-quotidien.md).
+
+**Rejeté :**
+- *Un objectif en nombre de révisions :* il récompense le volume plutôt que la régularité.
+- *Exiger les reprises du jour après Again :* le calendrier pousserait à noter Good par complaisance.
+- *Les badges et les trophées :* ils récompensent l'accumulation plutôt que l'habitude.
+
+## 2026-10-29 — Modèle ouvert à plusieurs decks
+
+**Décision :** les cartes appartiennent à un deck, qui a un type et une paire de langues. Les champs et les sens de révision deviennent génériques, au lieu de `french`/`english` et `fr_to_en`/`en_to_fr`. La paire n'est plus écrite en dur. Pour l'instant, il n'existe qu'un seul deck « Français → Anglais », sans changement de comportement. Un deck représente une autre langue ou un autre sujet, jamais un thème. Pas d'import de gros deck tout fait. Voir [story/decks.md](story/decks.md).
+
+**Rejeté :** attendre le premier vrai deuxième deck. C'était moins cher dans l'immédiat, mais ça laissait le code écrit en dur.
+
+**Écart avec [vision.md](vision.md) :** la vision prévoyait une seule paire. Elle devient le cas par défaut, et n'est plus une limite du modèle.
+
+## 2026-10-29 — Objectif quotidien d'ajout et série tolérante
+
+**Décision :** un objectif quotidien de cartes à ajouter, modifiable, avec une série affichée sur le web. Un jour manqué est toléré, deux jours manqués d'affilée arrêtent la série. Les cartes supprimées comptent toujours. Claude n'annonce pas l'objectif. Quand l'inspiration manque, il m'aide à retrouver des situations réelles. Voir [story/ajout-quotidien.md](story/ajout-quotidien.md).
+
+**Rejeté :**
+- les suggestions de cartes selon le niveau : une carte sans situation réelle est moins bonne, et elle coûte des révisions ;
+- les jokers et l'objectif hebdomadaire ;
+- les notifications.
+
 ## 2026-10-24 — Page de consentement OAuth conservée
 
 **Décision :** l'ajout du connecteur Claude passe par une page de consentement explicite. Voir [specs/mcp.md](specs/mcp.md#transport-et-authentification).
