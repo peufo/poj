@@ -10,7 +10,7 @@
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import LabStates from '#lib/lab/LabStates.svelte';
 	import { describeDue } from '#lib/format/due.js';
-	import { directionLabel } from '#lib/format/decks.js';
+	import { directionFaces, directionLabel } from '#lib/format/decks.js';
 	import { formatWeekday, plural, type Rating } from '#lib/format/labels.js';
 	import {
 		LAB_DECK,
@@ -60,7 +60,7 @@
 	const answer = $derived(
 		current && (current.review.direction === 'a_to_b' ? current.card.sideB : current.card.sideA)
 	);
-	const promptLang = $derived(current?.review.direction === 'b_to_a' ? 'en' : 'fr');
+	const sides = $derived(current && directionFaces(current.review.direction, LAB_DECK));
 
 	function start(withAhead: boolean) {
 		ahead = withAhead;
@@ -161,7 +161,7 @@
 						</p>
 
 						<div class="flex flex-1 flex-col justify-center gap-5 py-6">
-							<p class="text-3xl font-semibold tracking-tight md:text-4xl" lang={promptLang}>
+							<p class="text-3xl font-semibold tracking-tight md:text-4xl" lang={sides?.from.lang}>
 								{prompt}
 							</p>
 
@@ -185,7 +185,7 @@
 									<p class="text-sm text-ink-3">Réponse</p>
 									<p
 										class="text-3xl font-semibold tracking-tight text-accent-text md:text-4xl"
-										lang={promptLang === 'fr' ? 'en' : 'fr'}
+										lang={sides?.to.lang}
 									>
 										{answer}
 									</p>
@@ -261,7 +261,7 @@
 					<p class="max-w-[50ch] text-ink-2">
 						Prochaine révision {describeDue(next.review.due, now).long},
 						{formatWeekday(next.review.due)} :
-						<span class="text-ink" lang={next.review.direction === 'b_to_a' ? 'en' : 'fr'}
+						<span class="text-ink" lang={directionFaces(next.review.direction, LAB_DECK).from.lang}
 							>{next.review.direction === 'a_to_b' ? next.card.sideA : next.card.sideB}</span
 						>.
 					</p>

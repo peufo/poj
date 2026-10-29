@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { duplicateSide, resetsProgress } from '#lib/server/domain/index.js';
-import { readCardForm, translateAction } from '#lib/server/web/card-form.js';
+import { duplicateWarning, readCardForm, translateAction } from '#lib/server/web/card-form.js';
 import { cards, deckView, idOf, orNotFound, ownerOf } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -33,23 +33,15 @@ export const actions: Actions = {
 		}
 
 		// Modifier la face qui identifie la carte peut créer un doublon : même avertissement qu'à la création.
-		const side = duplicateSide(deck);
-		const key = values[side].trim();
-		if (key !== existing[side] && form.get('confirm') !== key) {
-			const [duplicate] = await cards.findDuplicates(ownerId, deck, input, { excludeId: id });
-			if (duplicate) {
-				return fail(409, {
-					values,
-					duplicate: {
-						id: duplicate.id,
-						sideA: duplicate.sideA,
-						sideB: duplicate.sideB,
-						context: duplicate.context,
-						forValue: key
-					}
-				});
-			}
-		}
+		const warning = await duplicateWarning(
+			cards,
+			ownerId,
+			deck,
+			form,
+			{ values, input },
+			{ excludeId: id, unchanged: existing[duplicateSide(deck)] }
+		);
+		if (warning) return warning;
 
 		await orNotFound(cards.update(ownerId, id, input));
 		redirect(303, `/cards/${id}`);

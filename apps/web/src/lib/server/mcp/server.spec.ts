@@ -177,7 +177,7 @@ describe('MCP server', () => {
 				side_a: { description: 'Texte en français de la carte.' },
 				side_b: { description: 'Texte en anglais de la carte (mot ou phrase entière).' }
 			});
-			expect(check.description).toContain('au même anglais');
+			expect(check.description).toContain('avec cet anglais');
 		});
 
 		it('gives no DeepL second opinion for a subject deck, but still finds duplicates', async () => {

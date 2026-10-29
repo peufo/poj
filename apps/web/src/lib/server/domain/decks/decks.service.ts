@@ -58,21 +58,31 @@ export async function resolveDeck(tx: Tx, ownerId: string, deckId?: string): Pro
 		if (!deck) throw new NotFoundError(`Deck ${deckId} not found`);
 		return deck;
 	}
-	const existing = await tx.deck.findFirst({
+	return (await findDefault(tx, ownerId)) ?? tx.deck.create({ data: { ...DEFAULT_DECK, ownerId } });
+}
+
+/** Le deck par défaut existant : le plus ancien non supprimé. */
+function findDefault(db: Db | Tx, ownerId: string): Promise<Deck | null> {
+	return db.deck.findFirst({
 		where: { ownerId, deletedAt: null },
 		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
 	});
-	return existing ?? tx.deck.create({ data: { ...DEFAULT_DECK, ownerId } });
 }
 
 export function createDecksService(db: Db) {
 	return {
-		/** Le deck par défaut du propriétaire, créé s'il n'en a aucun. Idempotent. */
-		ensureDefault(ownerId: string): Promise<Deck> {
-			return db.$transaction(async (tx) => {
-				await lockOwner(tx, ownerId);
-				return resolveDeck(tx, ownerId);
-			});
+		/**
+		 * Le deck par défaut du propriétaire, créé s'il n'en a aucun. Idempotent. Une simple
+		 * lecture quand il existe : le verrou n'est pris que pour le créer.
+		 */
+		async ensureDefault(ownerId: string): Promise<Deck> {
+			return (
+				(await findDefault(db, ownerId)) ??
+				db.$transaction(async (tx) => {
+					await lockOwner(tx, ownerId);
+					return resolveDeck(tx, ownerId);
+				})
+			);
 		}
 	};
 }

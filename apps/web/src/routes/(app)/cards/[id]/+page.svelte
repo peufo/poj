@@ -10,6 +10,7 @@
 	import { describeDue } from '#lib/format/due.js';
 	import { directionLabel, faces } from '#lib/format/decks.js';
 	import {
+		capitalize,
 		formatDate,
 		formatDateTime,
 		formatDue,
@@ -24,8 +25,6 @@
 
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
-
-	const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 	const submitDelete: SubmitFunction = () => {
 		deleting = true;

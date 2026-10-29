@@ -1,8 +1,11 @@
 import { fail } from '@sveltejs/kit';
-import { capitalize, faces, type DeckFaces } from '#lib/format/decks.js';
+import { faces, type DeckFaces } from '#lib/format/decks.js';
+import { capitalize } from '#lib/format/labels.js';
 import {
+	duplicateSide,
 	languagePair,
 	type CardInput,
+	type CardsService,
 	type Deck,
 	type Suggestion,
 	type TranslationFailure
@@ -60,6 +63,28 @@ export function readCardForm(
 	}
 	const valid = Object.keys(errors).length === 0;
 	return { values, errors, input: valid ? values : null };
+}
+
+/**
+ * Doublon en deux temps : un premier envoi avertit (échec 409 à renvoyer), un second
+ * enregistre si la face qui identifie la carte (`duplicateSide`) est confirmée telle quelle
+ * (`confirm`). `null` : rien à signaler. En modification, `unchanged` est la face
+ * enregistrée : la garder ne déclenche pas d'avertissement.
+ */
+export async function duplicateWarning(
+	cards: CardsService,
+	ownerId: string,
+	deck: Deck,
+	form: FormData,
+	{ values, input }: { values: CardValues; input: CardInput },
+	{ excludeId, unchanged }: { excludeId?: string; unchanged?: string } = {}
+) {
+	const key = values[duplicateSide(deck)].trim();
+	if (key === unchanged || form.get('confirm') === key) return null;
+	const [duplicate] = await cards.findDuplicates(ownerId, deck, input, { excludeId });
+	if (!duplicate) return null;
+	const { id, sideA, sideB, context } = duplicate;
+	return fail(409, { values, duplicate: { id, sideA, sideB, context, forValue: key } });
 }
 
 /**

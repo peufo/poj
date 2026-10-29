@@ -88,6 +88,8 @@ export function formatDue(date: Date, now: Date): string {
 	return (isSameDay(date, now) ? timeFormat : dueFormat).format(date);
 }
 
+export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 export function plural(count: number, one: string, many = `${one}s`): string {
 	return `${count} ${count > 1 ? many : one}`;
 }

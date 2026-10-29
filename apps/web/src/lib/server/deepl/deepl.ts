@@ -1,8 +1,9 @@
 // Client de l'API DeepL : https://developers.deepl.com/api-reference/translate
+import { baseLanguage } from '#lib/format/decks.js';
 import { TranslatorError, type Language, type Translator } from '#lib/server/domain/index.js';
 
 /** Langue source DeepL : la langue seule (`en-GB` → `EN`), DeepL n'accepte pas de variante. */
-export const deeplSource = (language: Language) => new Intl.Locale(language).language.toUpperCase();
+export const deeplSource = (language: Language) => baseLanguage(language).toUpperCase();
 
 /** Langue cible DeepL : l'étiquette entière, variante comprise (`en-GB` → `EN-GB`). */
 export const deeplTarget = (language: Language) => language.toUpperCase();

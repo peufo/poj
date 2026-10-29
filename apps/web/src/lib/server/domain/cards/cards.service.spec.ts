@@ -59,6 +59,21 @@ describe('cards service', () => {
 		expect(await db.deck.count()).toBe(1);
 	});
 
+	it('puts the card in an explicit deck of the owner, never in another owner’s', async () => {
+		const subject = await createDeck(db, alice, {
+			kind: 'subject',
+			languageA: null,
+			languageB: null
+		});
+		const theirs = await createDeck(db, bob);
+
+		const card = await cards.create(alice, input, 'web', now, { deckId: subject.id });
+		expect(card.deckId).toBe(subject.id);
+		await expect(
+			cards.createOnce(alice, input, 'claude', now, { deckId: theirs.id })
+		).rejects.toBeInstanceOf(NotFoundError);
+	});
+
 	it('creates only the a_to_b review in a one-way deck', async () => {
 		await createDeck(db, alice, {
 			kind: 'subject',

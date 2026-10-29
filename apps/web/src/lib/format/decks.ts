@@ -1,6 +1,6 @@
 // Noms des faces d'un deck et des sens de révision, partagés par le web et le serveur MCP.
 // Aucune paire n'est écrite ici : tout vient du deck (doc/decisions.md, 2026-10-29).
-import type { Direction } from './labels';
+import { capitalize, type Direction } from './labels';
 
 /** Ce qu'il faut d'un deck pour nommer ses faces (le `Deck` du domaine convient). */
 export interface DeckFaces {
@@ -39,12 +39,10 @@ export interface Face {
 const languageNames = new Intl.DisplayNames('fr', { type: 'language' });
 
 /** Langue seule d'une étiquette : `en-GB` → `en`. */
-const baseLanguage = (tag: string) => new Intl.Locale(tag).language;
+export const baseLanguage = (tag: string) => new Intl.Locale(tag).language;
 
 /** Nom français d'une langue, sans la variante : `en-GB` → « anglais ». */
 export const languageName = (tag: string) => languageNames.of(baseLanguage(tag)) ?? tag;
-
-export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const startsWithVowel = (name: string) => /^[aeiouyàâéèêîïôh]/i.test(name);
 
@@ -58,36 +56,28 @@ export const exampleFor = (face: Face) =>
 function face(deck: DeckFaces, side: 'A' | 'B'): Face {
 	const lang = deck.kind === 'language' ? deck[`language${side}`] : null;
 	const label = deck[`label${side}`];
-	if (label) {
+	// Libellé choisi, sinon « Question » / « Réponse » pour un sujet.
+	if (label !== null || lang === null) {
+		const text = label ?? (side === 'A' ? 'Question' : 'Réponse');
 		return {
-			label,
-			name: label,
-			the: `« ${label} »`,
-			same: `la même face « ${label} »`,
+			label: text,
+			name: text,
+			the: `« ${text} »`,
+			same: `la même face « ${text} »`,
 			lang,
-			short: label.charAt(0).toUpperCase()
+			short: text.charAt(0).toUpperCase()
 		};
 	}
-	if (lang) {
-		const name = languageName(lang);
-		return {
-			label: capitalize(name),
-			name,
-			// Les noms de langue sont masculins : « le français », « l’anglais ».
-			the: startsWithVowel(name) ? `l’${name}` : `le ${name}`,
-			same: startsWithVowel(name) ? `cet ${name}` : `ce ${name}`,
-			lang,
-			short: baseLanguage(lang).toUpperCase()
-		};
-	}
-	const fallback = side === 'A' ? 'Question' : 'Réponse';
+	// Sinon, le nom de la langue.
+	const name = languageName(lang);
 	return {
-		label: fallback,
-		name: fallback,
-		the: `« ${fallback} »`,
-		same: `la même face « ${fallback} »`,
-		lang: null,
-		short: fallback.charAt(0)
+		label: capitalize(name),
+		name,
+		// Les noms de langue sont masculins : « le français », « l’anglais ».
+		the: startsWithVowel(name) ? `l’${name}` : `le ${name}`,
+		same: startsWithVowel(name) ? `cet ${name}` : `ce ${name}`,
+		lang,
+		short: baseLanguage(lang).toUpperCase()
 	};
 }
 

@@ -65,18 +65,20 @@ export function createCardsService(db: Db) {
 
 	return {
 		/**
-		 * Crée la carte dans le deck par défaut, avec une révision neuve par sens révisé
-		 * (les deux, ou `a_to_b` seul pour un deck à sens unique), due immédiatement.
+		 * Crée la carte dans le deck `deckId` (le deck par défaut sans précision), avec une
+		 * révision neuve par sens révisé (les deux, ou `a_to_b` seul pour un deck à sens
+		 * unique), due immédiatement.
 		 */
 		create(
 			ownerId: string,
 			input: CardInput,
 			origin: Origin,
-			now = new Date()
+			now = new Date(),
+			{ deckId }: { deckId?: string } = {}
 		): Promise<CardWithReviews> {
 			return db.$transaction(async (tx) => {
 				await lockOwner(tx, ownerId);
-				const deck = await resolveDeck(tx, ownerId);
+				const deck = await resolveDeck(tx, ownerId, deckId);
 				return tx.card.create({
 					data: {
 						...clean(input),
@@ -99,14 +101,15 @@ export function createCardsService(db: Db) {
 			ownerId: string,
 			input: CardInput,
 			origin: Origin,
-			now = new Date()
+			now = new Date(),
+			{ deckId }: { deckId?: string } = {}
 		): Promise<{ card: CardWithReviews; created: boolean }> {
 			const data = clean(input);
 			return db.$transaction(async (tx) => {
 				// Sérialise les créations d'un même propriétaire : deux relances simultanées
 				// ne peuvent pas passer toutes les deux la recherche.
 				await lockOwner(tx, ownerId);
-				const deck = await resolveDeck(tx, ownerId);
+				const deck = await resolveDeck(tx, ownerId, deckId);
 				const existing = await tx.card.findFirst({
 					where: {
 						...data,

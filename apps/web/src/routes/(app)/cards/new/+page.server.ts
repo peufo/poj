@@ -1,6 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { duplicateSide } from '#lib/server/domain/index.js';
-import { readCardForm, translateAction } from '#lib/server/web/card-form.js';
+import { duplicateWarning, readCardForm, translateAction } from '#lib/server/web/card-form.js';
 import { cards, decks, deckView, ownerOf } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -22,25 +21,10 @@ export const actions: Actions = {
 		const { values, errors, input } = readCardForm(form, deck);
 		if (!input) return fail(400, { values, errors });
 
-		// Doublon en deux temps : on avertit, puis on enregistre si la face avertie est confirmée.
-		const key = values[duplicateSide(deck)].trim();
-		if (form.get('confirm') !== key) {
-			const [duplicate] = await cards.findDuplicates(ownerId, deck, input);
-			if (duplicate) {
-				return fail(409, {
-					values,
-					duplicate: {
-						id: duplicate.id,
-						sideA: duplicate.sideA,
-						sideB: duplicate.sideB,
-						context: duplicate.context,
-						forValue: key
-					}
-				});
-			}
-		}
+		const warning = await duplicateWarning(cards, ownerId, deck, form, { values, input });
+		if (warning) return warning;
 
-		await cards.create(ownerId, input, 'web');
+		await cards.create(ownerId, input, 'web', new Date(), { deckId: deck.id });
 		redirect(303, '/cards');
 	}
 };

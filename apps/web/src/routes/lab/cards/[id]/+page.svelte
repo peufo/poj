@@ -9,7 +9,13 @@
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue } from '#lib/format/due.js';
 	import { directionLabel } from '#lib/format/decks.js';
-	import { formatDate, formatDateTime, originLabels, plural } from '#lib/format/labels.js';
+	import {
+		capitalize,
+		formatDate,
+		formatDateTime,
+		originLabels,
+		plural
+	} from '#lib/format/labels.js';
 	import { LAB_DECK, LAB_NOW as now, cards, dueNow } from '#lib/lab/fixtures.js';
 	import type { PageProps } from './$types';
 
@@ -18,7 +24,6 @@
 
 	let confirmDelete = $state(false);
 
-	const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 	const dueDate = new Intl.DateTimeFormat('fr-FR', {
 		weekday: 'short',
 		day: 'numeric',

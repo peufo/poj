@@ -34,9 +34,8 @@ export interface PojMcpDeps {
 }
 
 /** Consignes du serveur, rendues avec les faces du deck. */
-function instructions(deck: Deck): string {
+function instructions(deck: Deck, isLanguage: boolean): string {
 	const { a, b } = faces(deck);
-	const isLanguage = languagePair(deck) !== null;
 	const subject = isLanguage ? `des expressions en ${b.name}` : `des cartes ${a.the} / ${b.the}`;
 	const directions = deck.bothDirections
 		? 'elle se révise dans les deux sens'
@@ -153,17 +152,14 @@ export function createPojMcpServer({
 	translation,
 	now = () => new Date()
 }: PojMcpDeps): McpServer {
+	const pair = languagePair(deck);
 	const server = new McpServer(
 		{ name: 'poj', version: '1.0.0' },
-		{ instructions: instructions(deck) }
+		{ instructions: instructions(deck, pair !== null) }
 	);
 	const { a, b } = faces(deck);
-	const pair = languagePair(deck);
 	const cardInput = cardInputSchema(deck);
-	const duplicateFace = duplicateSide(deck) === 'sideA' ? a : b;
-	const sameFace = pair
-		? `au même ${duplicateFace.name}`
-		: `avec la même face ${duplicateFace.the}`;
+	const sameFace = `avec ${(duplicateSide(deck) === 'sideA' ? a : b).same}`;
 
 	/** Révisions encore dues, mise de côté du sens inverse comprise. */
 	async function remainingDue(at: Date): Promise<number> {
@@ -248,7 +244,8 @@ export function createPojMcpServer({
 				ownerId,
 				toCardInput(input),
 				'claude',
-				now()
+				now(),
+				{ deckId: deck.id }
 			);
 			const summary = describeCard(card);
 			return result(
