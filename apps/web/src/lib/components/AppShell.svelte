@@ -5,11 +5,17 @@
 
 	// Cadre de l'application : barre latérale sur grand écran, barre d'onglets au pouce
 	// sur téléphone. En révision (`focus`), la navigation s'efface.
-	type Section = 'review' | 'cards' | 'new' | 'connect';
+	//
+	// La barre latérale liste chaque deck sous son nom ; la barre d'onglets garde un seul
+	// onglet « Cartes », les decks s'y choisissent en haut de `/cards`.
+	type Section = 'review' | 'cards' | 'new' | 'new-deck' | 'connect';
 	type Props = {
 		current?: Section;
 		dueCount?: number;
-		cardCount?: number;
+		/** Decks de l'utilisateur, du plus ancien au plus récent. */
+		decks?: { id: string; name: string; cardCount: number }[];
+		/** Deck affiché (`?deck=`) ; avec un seul deck, c'est lui. */
+		activeDeck?: string | null;
 		/** Préfixe des liens (« /lab » pour les maquettes). */
 		base?: string;
 		user?: { email: string; isAdmin?: boolean };
@@ -17,45 +23,99 @@
 		children: Snippet;
 	};
 
-	let { current, dueCount, cardCount, base = '', user, focus = false, children }: Props = $props();
+	let {
+		current,
+		dueCount,
+		decks = [],
+		activeDeck = null,
+		base = '',
+		user,
+		focus = false,
+		children
+	}: Props = $props();
 
 	// Pied de la barre latérale : administration et déconnexion.
 	const footerItem =
 		'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
 
-	const items = $derived<
-		{ id: Section; label: string; short: string; icon: IconName; href: string; count?: number }[]
-	>([
+	type Item = {
+		key: string;
+		label: string;
+		short: string;
+		icon: IconName;
+		href: string;
+		active: boolean;
+		count?: number;
+		/** Compteur mis en avant (révisions dues). */
+		accent?: boolean;
+	};
+
+	const shownDeck = $derived(activeDeck ?? (decks.length === 1 ? decks[0].id : null));
+	const deckQuery = $derived(shownDeck ? `?deck=${shownDeck}` : '');
+
+	const review = $derived<Item>({
+		key: 'review',
+		label: 'Réviser',
+		short: 'Réviser',
+		icon: 'review',
+		href: `${base}/review`,
+		active: current === 'review',
+		count: dueCount,
+		accent: true
+	});
+	const newCard = $derived<Item>({
+		key: 'new',
+		label: 'Nouvelle carte',
+		short: 'Nouvelle',
+		icon: 'plus',
+		// La carte ira dans le deck affiché.
+		href: `${base}/cards/new${deckQuery}`,
+		active: current === 'new'
+	});
+	const connect = $derived<Item>({
+		key: 'connect',
+		label: 'Connecter Claude',
+		short: 'Claude',
+		icon: 'claude',
+		href: `${base}/connect`,
+		active: current === 'connect'
+	});
+
+	const sidebar = $derived<Item[]>([
+		review,
+		...decks.map((deck) => ({
+			key: `deck-${deck.id}`,
+			label: deck.name,
+			short: deck.name,
+			icon: 'cards' as const,
+			href: `${base}/cards?deck=${deck.id}`,
+			active: current === 'cards' && shownDeck === deck.id,
+			count: deck.cardCount
+		})),
+		newCard,
 		{
-			id: 'review',
-			label: 'Réviser',
-			short: 'Réviser',
-			icon: 'review',
-			href: `${base}/review`,
-			count: dueCount
+			key: 'new-deck',
+			label: 'Nouveau deck',
+			short: 'Deck',
+			icon: 'deck-plus',
+			href: `${base}/decks/new`,
+			active: current === 'new-deck'
 		},
+		connect
+	]);
+
+	const tabs = $derived<Item[]>([
+		review,
 		{
-			id: 'cards',
+			key: 'cards',
 			label: 'Cartes',
 			short: 'Cartes',
 			icon: 'cards',
 			href: `${base}/cards`,
-			count: cardCount
+			active: current === 'cards'
 		},
-		{
-			id: 'new',
-			label: 'Nouvelle carte',
-			short: 'Nouvelle',
-			icon: 'plus',
-			href: `${base}/cards/new`
-		},
-		{
-			id: 'connect',
-			label: 'Connecter Claude',
-			short: 'Claude',
-			icon: 'claude',
-			href: `${base}/connect`
-		}
+		newCard,
+		connect
 	]);
 </script>
 
@@ -65,26 +125,29 @@
 		class="sticky top-(--chrome-top,0px) hidden h-[calc(100dvh-var(--chrome-top,0px))] flex-col gap-6 border-r border-line bg-surface px-3 py-4 md:flex"
 	>
 		<a href="{base}/cards" class="self-start rounded-md px-2 py-1"><Wordmark /></a>
-		<nav aria-label="Navigation principale">
+		<nav aria-label="Navigation principale" class="min-h-0 overflow-y-auto">
 			<ul class="flex flex-col gap-0.5">
-				{#each items as item (item.id)}
-					{@const active = current === item.id}
+				{#each sidebar as item (item.key)}
 					<li>
 						<a
 							href={item.href}
-							aria-current={active ? 'page' : undefined}
+							aria-current={item.active ? 'page' : undefined}
 							class={[
 								'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors duration-150',
-								active ? 'bg-hover text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink'
+								item.active ? 'bg-hover text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink'
 							]}
 						>
-							<Icon name={item.icon} size={17} class={active ? 'text-accent-text' : 'text-ink-3'} />
-							<span class="flex-1">{item.label}</span>
+							<Icon
+								name={item.icon}
+								size={17}
+								class={item.active ? 'text-accent-text' : 'text-ink-3'}
+							/>
+							<span class="min-w-0 flex-1 truncate">{item.label}</span>
 							{#if item.count !== undefined}
 								<span
 									class={[
 										'text-xs tabular-nums',
-										item.id === 'review' && item.count > 0
+										item.accent && item.count > 0
 											? 'rounded-full bg-accent px-1.5 py-px font-semibold text-on-accent'
 											: 'text-ink-3'
 									]}>{item.count}</span
@@ -129,20 +192,19 @@
 			class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-canvas/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl backdrop-saturate-150 md:hidden"
 		>
 			<ul class="mx-auto grid h-16 max-w-md grid-cols-4">
-				{#each items as item (item.id)}
-					{@const active = current === item.id}
+				{#each tabs as item (item.key)}
 					<li>
 						<a
 							href={item.href}
-							aria-current={active ? 'page' : undefined}
+							aria-current={item.active ? 'page' : undefined}
 							class={[
 								'flex h-full flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors duration-150',
-								active ? 'text-accent-text' : 'text-ink-3 hover:text-ink'
+								item.active ? 'text-accent-text' : 'text-ink-3 hover:text-ink'
 							]}
 						>
 							<span class="relative">
 								<Icon name={item.icon} size={22} />
-								{#if item.id === 'review' && item.count}
+								{#if item.accent && item.count}
 									<span
 										class="absolute -top-1.5 left-[calc(100%-0.5rem)] min-w-[1.125rem] rounded-full bg-accent px-1 text-center text-[0.6875rem] leading-[1.125rem] font-semibold text-on-accent tabular-nums ring-2 ring-canvas"
 										>{item.count}<span class="sr-only"> dues</span></span

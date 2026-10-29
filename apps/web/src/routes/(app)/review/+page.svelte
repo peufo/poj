@@ -40,7 +40,10 @@
 	const amendInline = $derived(Boolean(form && 'amendOpen' in form));
 
 	const endsWithPunctuation = (text: string) => /[.?!…]$/.test(text);
-	const query = $derived(data.ahead ? 'ahead=1&' : '');
+	// Paramètres de la session, gardés par les actions sans JavaScript et les liens.
+	const deckQuery = $derived(data.session ? `deck=${data.session.id}&` : '');
+	const query = $derived(`${deckQuery}${data.ahead ? 'ahead=1&' : ''}`);
+	const cardsHref = $derived(data.session ? `/cards?deck=${data.session.id}` : '/cards');
 	// Faces présentée et attendue : leur langue (attribut `lang`), `null` pour un sujet.
 	const sides = $derived(current && directionFaces(current.direction, current.deck));
 
@@ -112,14 +115,20 @@
 </script>
 
 <svelte:window {onkeydown} />
-<svelte:head><title>Réviser · Poj</title></svelte:head>
+<svelte:head><title>Réviser{data.session ? ` ${data.session.name}` : ''} · Poj</title></svelte:head>
 
 <div
 	class="mx-auto flex min-h-[calc(100dvh-var(--chrome-top,0px))] w-full max-w-xl flex-col px-4 md:px-8"
 >
 	<!-- Barre de session -->
 	<div class="flex h-14 shrink-0 items-center justify-between gap-3">
-		<Button href="/cards" variant="ghost" size="sm" icon="x" class="-ml-2.5">Quitter</Button>
+		<Button href={cardsHref} variant="ghost" size="sm" icon="x" class="-ml-2.5">Quitter</Button>
+		{#if data.session}
+			<!-- Session d'un seul deck (son bouton « Réviser »). -->
+			<p class="min-w-0 flex-1 truncate text-center text-sm font-medium text-ink-2">
+				{data.session.name}
+			</p>
+		{/if}
 		{#if current}
 			<p class="text-sm text-ink-2 tabular-nums" aria-live="polite">
 				{#if data.ahead}<span class="text-ink-3">En avance</span>{:else}{plural(
@@ -275,13 +284,11 @@
 			</div>
 			<div class="flex flex-col gap-2 sm:flex-row">
 				{#if data.upcoming}
-					<Button href="/review?ahead=1" variant="primary" size="lg" icon="clock"
+					<Button href="/review?{query}ahead=1" variant="primary" size="lg" icon="clock"
 						>Réviser en avance</Button
 					>
-					<Button size="lg" href="/cards">Voir les cartes</Button>
-				{:else}
-					<Button size="lg" href="/cards">Voir les cartes</Button>
 				{/if}
+				<Button size="lg" href={cardsHref}>Voir les cartes</Button>
 			</div>
 			{#if data.upcoming}
 				<p class="text-sm text-ink-3">

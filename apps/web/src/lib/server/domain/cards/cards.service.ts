@@ -1,7 +1,8 @@
 import type { Db } from '../db';
-import { directionsOf, lockOwner, resolveDeck } from '../decks/decks.service';
+import { directionsOf, findOwnedDeck, lockOwner, reviewedDirections } from '../decks/decks.service';
 import type { Deck } from '../decks/types';
 import { NotFoundError } from '../errors';
+import { comparisonKey } from '../text';
 import { presentations } from '../reviews/availability';
 import { emptyState } from '../reviews/scheduler';
 import { calendarDaysBetween, startOfDay, startOfNextDay } from '../time';
@@ -22,11 +23,6 @@ const REPLAY_WINDOW_MS = 10 * 60 * 1000;
 
 function clean({ sideA, sideB, context }: CardInput) {
 	return { sideA: sideA.trim(), sideB: sideB.trim(), context: context?.trim() || null };
-}
-
-/** Clé de comparaison des doublons : casse et espaces ignorés. */
-function duplicateKey(text: string): string {
-	return text.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 /** Modifier l'une des deux faces (après nettoyage) réinitialise la progression. */
@@ -55,30 +51,33 @@ export function createCardsService(db: Db) {
 		return card;
 	}
 
-	/** Les révisions des cartes non supprimées, de quoi calculer leur présentation. */
-	function reviewSlots(ownerId: string) {
+	/**
+	 * Les révisions des sens révisés des cartes non supprimées (du deck `deckId` s'il est
+	 * précisé), de quoi calculer leur présentation.
+	 */
+	function reviewSlots(ownerId: string, deckId?: string) {
 		return db.review.findMany({
-			where: { card: { ownerId, deletedAt: null } },
+			where: { card: { ownerId, deletedAt: null, deckId }, ...reviewedDirections },
 			select: { id: true, cardId: true, direction: true, due: true, lastReview: true }
 		});
 	}
 
 	return {
 		/**
-		 * Crée la carte dans le deck `deckId` (le deck par défaut sans précision), avec une
+		 * Crée la carte dans le deck `deckId` du propriétaire (`NotFoundError` sinon), avec une
 		 * révision neuve par sens révisé (les deux, ou `a_to_b` seul pour un deck à sens
 		 * unique), due immédiatement.
 		 */
 		create(
 			ownerId: string,
+			deckId: string,
 			input: CardInput,
 			origin: Origin,
-			now = new Date(),
-			{ deckId }: { deckId?: string } = {}
+			now = new Date()
 		): Promise<CardWithReviews> {
 			return db.$transaction(async (tx) => {
 				await lockOwner(tx, ownerId);
-				const deck = await resolveDeck(tx, ownerId, deckId);
+				const deck = await findOwnedDeck(tx, ownerId, deckId);
 				return tx.card.create({
 					data: {
 						...clean(input),
@@ -99,17 +98,17 @@ export function createCardsService(db: Db) {
 		 */
 		createOnce(
 			ownerId: string,
+			deckId: string,
 			input: CardInput,
 			origin: Origin,
-			now = new Date(),
-			{ deckId }: { deckId?: string } = {}
+			now = new Date()
 		): Promise<{ card: CardWithReviews; created: boolean }> {
 			const data = clean(input);
 			return db.$transaction(async (tx) => {
 				// Sérialise les créations d'un même propriétaire : deux relances simultanées
 				// ne peuvent pas passer toutes les deux la recherche.
 				await lockOwner(tx, ownerId);
-				const deck = await resolveDeck(tx, ownerId, deckId);
+				const deck = await findOwnedDeck(tx, ownerId, deckId);
 				const existing = await tx.card.findFirst({
 					where: {
 						...data,
@@ -150,7 +149,7 @@ export function createCardsService(db: Db) {
 			{ excludeId }: { excludeId?: string } = {}
 		): Promise<Card[]> {
 			const side = duplicateSide(deck);
-			const key = duplicateKey(input[side]);
+			const key = comparisonKey(input[side]);
 			const candidates = await db.card.findMany({
 				where: {
 					ownerId,
@@ -160,15 +159,19 @@ export function createCardsService(db: Db) {
 				},
 				orderBy: { createdAt: 'desc' }
 			});
-			return candidates.filter((card) => duplicateKey(card[side]) === key);
+			return candidates.filter((card) => comparisonKey(card[side]) === key);
 		},
 
 		/**
-		 * Cartes non supprimées, des plus récentes aux plus anciennes. La recherche porte sur
-		 * les deux faces et le contexte, sans tenir compte de la casse ni des accents
-		 * (extension `unaccent`) ; `%` et `_` s'y cherchent tels quels.
+		 * Cartes non supprimées (du deck `deckId` s'il est précisé), des plus récentes aux plus
+		 * anciennes, avec les révisions de leurs sens révisés. La recherche porte sur les deux
+		 * faces et le contexte, sans tenir compte de la casse ni des accents (extension
+		 * `unaccent`) ; `%` et `_` s'y cherchent tels quels.
 		 */
-		async list(ownerId: string, { query }: { query?: string } = {}): Promise<CardWithReviews[]> {
+		async list(
+			ownerId: string,
+			{ query, deckId }: { query?: string; deckId?: string } = {}
+		): Promise<CardWithReviews[]> {
 			const q = query?.trim();
 			let ids: string[] | undefined;
 			if (q) {
@@ -184,8 +187,11 @@ export function createCardsService(db: Db) {
 				ids = rows.map((row) => row.id);
 			}
 			return db.card.findMany({
-				where: { ownerId, deletedAt: null, ...(ids && { id: { in: ids } }) },
-				include: { deck: true, reviews: { orderBy: { direction: 'asc' } } },
+				where: { ownerId, deletedAt: null, deckId, ...(ids && { id: { in: ids } }) },
+				include: {
+					deck: true,
+					reviews: { where: reviewedDirections, orderBy: { direction: 'asc' } }
+				},
 				orderBy: { createdAt: 'desc' }
 			});
 		},
@@ -196,6 +202,7 @@ export function createCardsService(db: Db) {
 				include: {
 					deck: true,
 					reviews: {
+						where: reviewedDirections,
 						orderBy: { direction: 'asc' },
 						include: { logs: { orderBy: { reviewedAt: 'desc' } } }
 					}
@@ -244,12 +251,17 @@ export function createCardsService(db: Db) {
 		/**
 		 * Nombre de cartes, et révisions qui seront présentées d'ici la fin du jour civil
 		 * (Europe/Zurich) : sans les sens mis de côté jusqu'à demain, et au plus un sens par
-		 * carte quand les deux viendraient aujourd'hui (voir `presentations`).
+		 * carte quand les deux viendraient aujourd'hui (voir `presentations`). Tous les decks,
+		 * ou le deck `deckId`.
 		 */
-		async stats(ownerId: string, now = new Date()): Promise<CardStats> {
+		async stats(
+			ownerId: string,
+			now = new Date(),
+			{ deckId }: { deckId?: string } = {}
+		): Promise<CardStats> {
 			const [totalCards, slots] = await Promise.all([
-				db.card.count({ where: { ownerId, deletedAt: null } }),
-				reviewSlots(ownerId)
+				db.card.count({ where: { ownerId, deletedAt: null, deckId } }),
+				reviewSlots(ownerId, deckId)
 			]);
 			const endOfDay = startOfNextDay(now).getTime();
 			let dueToday = 0;
@@ -262,10 +274,16 @@ export function createCardsService(db: Db) {
 		/**
 		 * Révisions présentées sur les `days` prochains jours civils (Europe/Zurich), une entrée
 		 * par jour à partir d'aujourd'hui ; le premier jour inclut le retard. Un sens mis de
-		 * côté compte au jour où sa mise de côté se termine, comme dans `stats`.
+		 * côté compte au jour où sa mise de côté se termine, comme dans `stats`. Tous les decks,
+		 * ou le deck `deckId`.
 		 */
-		async horizon(ownerId: string, now = new Date(), days = 14): Promise<HorizonDay[]> {
-			const slots = await reviewSlots(ownerId);
+		async horizon(
+			ownerId: string,
+			now = new Date(),
+			days = 14,
+			{ deckId }: { deckId?: string } = {}
+		): Promise<HorizonDay[]> {
+			const slots = await reviewSlots(ownerId, deckId);
 			const end = startOfDay(now, days).getTime();
 			const counts = Array.from({ length: days }, () => 0);
 			for (const { at } of presentations(slots, now).values()) {

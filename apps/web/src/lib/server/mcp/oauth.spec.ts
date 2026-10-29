@@ -14,6 +14,7 @@ import {
 import { oauthApiContext, oauthQuery, oauthRedirect } from '../oauth-flow';
 import { createTestAuth, TEST_ORIGIN, type TestAuth } from '../testing/auth';
 import { useTestDatabase } from '../testing/db';
+import { createCard } from '../testing/factories';
 import { createMcpEndpoint } from './endpoint';
 import { createMcpRequestHandler } from './handler';
 
@@ -389,11 +390,7 @@ describe('Claude connector flow', () => {
 	it('serves the MCP tools for the token user', async () => {
 		const { tokens } = await connectClaude();
 		const user = await db.user.findUniqueOrThrow({ where: { email } });
-		await createCardsService(db).create(
-			user.id,
-			{ sideA: 'tenir pour acquis', sideB: 'to take for granted' },
-			'web'
-		);
+		await createCard(db, user.id, { sideA: 'tenir pour acquis', sideB: 'to take for granted' });
 
 		const client = await mcpClient(tokens.access_token);
 		const result = await client.callTool({ name: 'next_review', arguments: {} });

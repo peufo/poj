@@ -16,7 +16,8 @@ import { translation } from './services';
 
 export const LIMITS = { sideA: 300, sideB: 300, context: 1000 } as const;
 
-export type CardValues = { sideA: string; sideB: string; context: string };
+/** Champs saisis ; `deckId` : le deck choisi à la création (vide en modification). */
+export type CardValues = { sideA: string; sideB: string; context: string; deckId: string };
 export type CardErrors = Partial<Record<keyof CardValues, string>>;
 
 /** Suggestion telle que la page l'affiche. */
@@ -37,7 +38,8 @@ export function suggestionView(suggestion: Suggestion): SuggestionView {
 		: { status: 'error', message: failureMessages[suggestion.reason] };
 }
 
-const text = (form: FormData, name: string) => form.get(name)?.toString() ?? '';
+/** Champ texte d'un formulaire posté, vide s'il est absent. */
+export const text = (form: FormData, name: string) => form.get(name)?.toString() ?? '';
 
 export function readCardForm(
 	form: FormData,
@@ -51,7 +53,8 @@ export function readCardForm(
 	const values = {
 		sideA: text(form, 'sideA'),
 		sideB: text(form, 'sideB'),
-		context: text(form, 'context')
+		context: text(form, 'context'),
+		deckId: text(form, 'deckId')
 	};
 	const errors: CardErrors = {};
 	if (!values.sideA.trim()) errors.sideA = `${capitalize(a.the)} est obligatoire.`;
@@ -93,21 +96,12 @@ export async function duplicateWarning(
  */
 export async function translateAction(form: FormData, deck: Deck) {
 	const { values } = readCardForm(form, deck);
+	const refuse = (sideA: string) => fail(400, { values, errors: { sideA } as CardErrors });
 	const pair = languagePair(deck);
-	if (!pair) {
-		return fail(400, {
-			values,
-			errors: { sideA: 'Pas de traduction DeepL pour ce deck.' } as CardErrors
-		});
-	}
-	if (!values.sideA.trim()) {
-		return fail(400, {
-			values,
-			errors: { sideA: `Écris d’abord ${faces(deck).a.the} à traduire.` } as CardErrors
-		});
-	}
+	if (!pair) return refuse('Pas de traduction DeepL pour ce deck.');
+	if (!values.sideA.trim()) return refuse(`Écris d’abord ${faces(deck).a.the} à traduire.`);
 	if (values.sideA.trim().length > LIMITS.sideA || values.context.trim().length > LIMITS.context) {
-		return fail(400, { values, errors: { sideA: 'Texte trop long pour DeepL.' } as CardErrors });
+		return refuse('Texte trop long pour DeepL.');
 	}
 	const suggestion = await translation.suggest(pair, values.sideA, values.context);
 	return { values, suggestion: suggestionView(suggestion) };

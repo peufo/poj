@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
-import { createUser } from '../../testing/factories';
-import { createDecksService } from '../decks/decks.service';
+import { createDeck, createUser } from '../../testing/factories';
 import { createCardsService } from './cards.service';
 import { createDailyGoalService, DEFAULT_DAILY_GOAL } from './daily-goal.service';
 
 const db = useTestDatabase();
 const goals = createDailyGoalService(db);
 const cards = createCardsService(db);
-const decks = createDecksService(db);
 
 const DAY = 24 * 60 * 60 * 1000;
 // Lundi 12 janvier 2026, 11:00 à Zurich (UTC+1).
@@ -19,9 +17,10 @@ const daysAgo = (n: number) => new Date(now.getTime() - n * DAY);
 let alice: string;
 let bob: string;
 
-/** `n` cartes créées à l'instant `at`, dans le deck par défaut. */
+/** `n` cartes créées à l'instant `at`, dans le premier deck du propriétaire (créé au besoin). */
 async function addCards(ownerId: string, at: Date, n = 1) {
-	const { id: deckId } = await decks.ensureDefault(ownerId);
+	const { id: deckId } =
+		(await db.deck.findFirst({ where: { ownerId } })) ?? (await createDeck(db, ownerId));
 	for (let i = 0; i < n; i += 1) {
 		await db.card.create({
 			data: { ownerId, deckId, sideA: `a ${i}`, sideB: `b ${i}`, origin: 'web', createdAt: at }

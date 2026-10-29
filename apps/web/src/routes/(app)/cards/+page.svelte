@@ -5,6 +5,7 @@
 	import GoalCalendar from '#lib/components/GoalCalendar.svelte';
 	import MasteryBar from '#lib/components/MasteryBar.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
+	import DeckChips from '#lib/components/DeckChips.svelte';
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -13,7 +14,10 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
-	const face = $derived(faces(data.defaultDeck));
+	// Deck affiché, `null` pour tous les decks : ses liens gardent `?deck=`.
+	const deck = $derived(data.deck);
+	const deckQuery = $derived(deck ? `?deck=${deck.id}` : '');
+	const face = $derived(deck && faces(deck));
 
 	let day: number | null = $state(null);
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -36,20 +40,28 @@
 		clearTimeout(timer);
 		timer = setTimeout(() => {
 			const q = value.trim();
-			goto(q ? `?q=${encodeURIComponent(q)}` : '/cards', { replace: true, reset: false });
+			const params = new URLSearchParams(deck ? { deck: deck.id, q } : { q });
+			goto(q ? `?${params}` : `/cards${deckQuery}`, { replace: true, reset: false });
 		}, delay);
 	}
 </script>
 
-<svelte:head><title>Cartes · Poj</title></svelte:head>
+<svelte:head><title>{deck?.name ?? 'Cartes'} · Poj</title></svelte:head>
 
 <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-10 md:px-8">
-	<PageHeader title="Cartes" count={data.stats.totalCards}>
+	<PageHeader title={deck?.name ?? 'Cartes'} count={data.stats.totalCards}>
 		{#snippet actions()}
-			<Button href="/cards/new" icon="plus" size="sm" class="max-md:hidden">Nouvelle carte</Button>
+			{#if deck}
+				<Button href="/decks/{deck.id}/edit" icon="pencil" size="sm">Modifier le deck</Button>
+			{/if}
+			<Button href="/cards/new{deckQuery}" icon="plus" size="sm" class="max-md:hidden"
+				>Nouvelle carte</Button
+			>
 			<!-- Au téléphone, la barre latérale (et sa déconnexion) n'existe pas. -->
 			<AccountMenu email={data.user.email} isAdmin={data.user.isAdmin} class="md:hidden" />
 		{/snippet}
+		<!-- Au téléphone, la barre latérale (et ses decks) n'existe pas : les decks en puces. -->
+		<DeckChips decks={data.nav.decks} active={deck?.id ?? null} class="pt-2 md:hidden" />
 	</PageHeader>
 
 	<GoalCalendar
@@ -63,10 +75,12 @@
 		<div class="flex flex-col items-start gap-3 py-8">
 			<p class="text-lg font-semibold">Aucune carte pour l'instant</p>
 			<p class="max-w-[50ch] text-ink-2">
-				Capture une expression entendue, avec son contexte d'origine : elle sera à réviser dans les
-				deux sens.
+				Capture une expression entendue, avec son contexte d'origine : elle sera à réviser{deck?.bothDirections ===
+				false
+					? '.'
+					: ' dans les deux sens.'}
 			</p>
-			<Button href="/cards/new" variant="primary" icon="plus">Créer une carte</Button>
+			<Button href="/cards/new{deckQuery}" variant="primary" icon="plus">Créer une carte</Button>
 		</div>
 	{:else}
 		<!-- L'échéancier : ce qui est dû, ce qui vient, où en est le paquet -->
@@ -81,7 +95,7 @@
 						{data.stats.dueNow} maintenant{#if later > 0}, {later} plus tard{/if}
 					</p>
 				</div>
-				<Button href="/review" variant="primary" icon="review">Réviser</Button>
+				<Button href="/review{deckQuery}" variant="primary" icon="review">Réviser</Button>
 			</div>
 
 			<Horizon days={data.horizon} bind:selected={day} />
@@ -101,6 +115,7 @@
 					search(new FormData(e.currentTarget).get('q')?.toString() ?? '', 0);
 				}}
 			>
+				{#if deck}<input type="hidden" name="deck" value={deck.id} />{/if}
 				<label class="relative block">
 					<span class="sr-only">Rechercher dans les cartes</span>
 					<Icon
@@ -152,11 +167,14 @@
 				<div class="flex flex-col items-start gap-3 py-8">
 					<p class="text-ink">Aucune carte ne contient « {data.query} ».</p>
 					<p class="text-sm text-ink-2">
-						La recherche porte sur {face.a.the}, {face.b.the} et le contexte d'origine.
+						La recherche porte sur {face ? `${face.a.the}, ${face.b.the}` : 'les deux faces'} et le contexte
+						d'origine.
 					</p>
 					<div class="flex gap-2">
-						<Button size="sm" href="/cards">Effacer la recherche</Button>
-						<Button size="sm" variant="ghost" icon="plus" href="/cards/new">Créer la carte</Button>
+						<Button size="sm" href="/cards{deckQuery}">Effacer la recherche</Button>
+						<Button size="sm" variant="ghost" icon="plus" href="/cards/new{deckQuery}"
+							>Créer la carte</Button
+						>
 					</div>
 				</div>
 			{:else}

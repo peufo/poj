@@ -16,7 +16,7 @@
 		originLabels,
 		plural
 	} from '#lib/format/labels.js';
-	import { LAB_DECK, LAB_NOW as now, cards, dueNow } from '#lib/lab/fixtures.js';
+	import { LAB_DECK, LAB_NOW as now, dueNow, LAB_NAV_DECKS } from '#lib/lab/fixtures.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -35,7 +35,7 @@
 
 <svelte:head><title>{card.sideA} · Poj</title></svelte:head>
 
-<AppShell current="cards" base="/lab" dueCount={dueNow.length} cardCount={cards.length}>
+<AppShell current="cards" base="/lab" dueCount={dueNow.length} decks={LAB_NAV_DECKS}>
 	<div class="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pb-12 md:px-8">
 		<PageHeader title="Carte : {card.sideA}" compact back={{ href: '/lab/cards', label: 'Cartes' }}>
 			{#snippet actions()}

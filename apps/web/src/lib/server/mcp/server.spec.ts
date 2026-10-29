@@ -48,11 +48,16 @@ const capitals = {
 
 let alice: string;
 let bob: string;
+/** Deck français → anglais de chacun, celui des cartes capturées. */
+let aliceDeck: string;
+let bobDeck: string;
 let clock: Date;
 
 beforeEach(async () => {
 	alice = await createUser(db, 'Alice');
 	bob = await createUser(db, 'Bob');
+	aliceDeck = (await createDeck(db, alice)).id;
+	bobDeck = (await createDeck(db, bob)).id;
 	clock = t0;
 });
 
@@ -64,11 +69,15 @@ const deps = (translator: Translator | null = echo) => ({
 	now: () => clock
 });
 
-/** Client MCP relié en mémoire à un serveur Poj pour ce propriétaire (deck par défaut). */
-async function connect(ownerId: string, translator?: Translator | null, deck?: Deck) {
+/**
+ * Client MCP relié en mémoire à un serveur Poj pour ce propriétaire, sur son plus ancien
+ * deck sauf mention contraire (`null` : aucun deck).
+ */
+async function connect(ownerId: string, translator?: Translator | null, deck?: Deck | null) {
 	const server = createPojMcpServer({
 		ownerId,
-		deck: deck ?? (await decks.ensureDefault(ownerId)),
+		deck: deck === undefined ? await decks.first(ownerId) : deck,
+		newDeckUrl: 'https://poj.test/decks/new',
 		...deps(translator)
 	});
 	const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
@@ -133,8 +142,14 @@ describe('MCP server', () => {
 		});
 
 		it('reports existing cards with the same side B', async () => {
-			const existing = await cards.create(alice, { ...card, context: 'podcast' }, 'web', t0);
-			await cards.create(bob, card, 'web', t0);
+			const existing = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'podcast' },
+				'web',
+				t0
+			);
+			await cards.create(bob, bobDeck, card, 'web', t0);
 			const client = await connect(alice);
 
 			const result = await call(client, 'check_card', {
@@ -206,11 +221,40 @@ describe('MCP server', () => {
 			expect(data(result).duplicates).toHaveLength(1);
 			expect(text(result)).toContain('Pas de second avis DeepL');
 		});
+
+		it('refuses to capture without any deck, pointing to the deck creation page', async () => {
+			const carol = await createUser(db, 'Carol');
+			const client = await connect(carol);
+
+			expect(client.getInstructions()).toContain('https://poj.test/decks/new');
+			for (const tool of ['check_card', 'create_card']) {
+				const result = await call(client, tool, args);
+				expect(result.isError).toBe(true);
+				expect(text(result)).toContain('aucun deck');
+				expect(text(result)).toContain('https://poj.test/decks/new');
+			}
+			expect(await db.card.count({ where: { ownerId: carol } })).toBe(0);
+			expect(await db.deck.count({ where: { ownerId: carol } })).toBe(0);
+		});
+
+		it('links to the deck creation page of the site serving the request', async () => {
+			const carol = await createUser(db, 'Carol');
+			const handle = createMcpRequestHandler(deps());
+			const transport = new StreamableHTTPClientTransport(new URL('http://poj.test/mcp'), {
+				fetch: (input, init) => handle(new Request(input, init), carol)
+			});
+			const client = new Client({ name: 'test', version: '1.0.0' });
+			await client.connect(transport);
+
+			const result = await call(client, 'create_card', args);
+			expect(text(result)).toContain('http://poj.test/decks/new');
+			await client.close();
+		});
 	});
 
 	describe('review', () => {
 		it('runs next, hint and submit, capping at hard after a hint', async () => {
-			await cards.create(alice, { ...card, context: 'réunion budget' }, 'web', t0);
+			await cards.create(alice, aliceDeck, { ...card, context: 'réunion budget' }, 'web', t0);
 			const client = await connect(alice);
 
 			const next = data(await call(client, 'next_review'));
@@ -242,19 +286,19 @@ describe('MCP server', () => {
 		});
 
 		it('asks for the face to produce, in its language or by its label', async () => {
-			await cards.create(alice, card, 'web', t0);
+			await cards.create(alice, aliceDeck, card, 'web', t0);
 			const next = await call(await connect(alice), 'next_review');
 			expect(text(next)).toMatch(/^À demander en (anglais|français) : /);
 
 			const deck = await createDeck(db, bob, capitals);
-			await cards.create(bob, { sideA: 'Suisse', sideB: 'Berne' }, 'web', t0);
+			await cards.create(bob, deck.id, { sideA: 'Suisse', sideB: 'Berne' }, 'web', t0);
 			const subject = await call(await connect(bob, echo, deck), 'next_review');
 			expect(data(subject)).toMatchObject({ direction: 'a_to_b', prompt: 'Suisse', remaining: 1 });
 			expect(text(subject)).toContain('À demander (Pays → Capitale) : « Suisse ».');
 		});
 
 		it('ignores a replayed submit with a stale version', async () => {
-			await cards.create(alice, card, 'web', t0);
+			await cards.create(alice, aliceDeck, card, 'web', t0);
 			const client = await connect(alice);
 			const next = data(await call(client, 'next_review'));
 			const submit = { review_id: next.review_id, version: next.version };
@@ -274,7 +318,7 @@ describe('MCP server', () => {
 		});
 
 		it('amends the last answer within the hour, and refuses otherwise', async () => {
-			const created = await cards.create(alice, card, 'web', t0);
+			const created = await cards.create(alice, aliceDeck, card, 'web', t0);
 			const client = await connect(alice);
 			const next = data(await call(client, 'next_review'));
 			await call(client, 'submit_review', {
@@ -314,7 +358,7 @@ describe('MCP server', () => {
 		});
 
 		it('reports nothing due with the next due date, then reviews ahead', async () => {
-			const { id } = await cards.create(alice, card, 'web', t0);
+			const { id } = await cards.create(alice, aliceDeck, card, 'web', t0);
 			await db.review.updateMany({ where: { cardId: id }, data: { due: at(3 * DAY) } });
 			const client = await connect(alice);
 
@@ -331,7 +375,7 @@ describe('MCP server', () => {
 		});
 
 		it('isolates users from each other', async () => {
-			const other = await cards.create(bob, { ...card, context: 'secret' }, 'web', t0);
+			const other = await cards.create(bob, bobDeck, { ...card, context: 'secret' }, 'web', t0);
 			const [review] = other.reviews;
 			const client = await connect(alice);
 
@@ -361,7 +405,7 @@ describe('MCP server', () => {
 	});
 
 	it('serves stateless Streamable HTTP from a Request', async () => {
-		await cards.create(alice, card, 'web', t0);
+		await cards.create(alice, aliceDeck, card, 'web', t0);
 		const handle = createMcpRequestHandler(deps());
 		// Le transport HTTP du client envoie ses requêtes directement au handler.
 		const transport = new StreamableHTTPClientTransport(new URL('http://poj.test/mcp'), {

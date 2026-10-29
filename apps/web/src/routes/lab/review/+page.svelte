@@ -16,8 +16,8 @@
 		LAB_DECK,
 		LAB_NOW as now,
 		allReviews,
-		cards,
 		dueNow,
+		LAB_NAV_DECKS,
 		type SampleCard,
 		type SampleReview
 	} from '#lib/lab/fixtures.js';
@@ -116,7 +116,7 @@
 <svelte:window {onkeydown} />
 <svelte:head><title>Réviser · Poj</title></svelte:head>
 
-<AppShell current="review" base="/lab" dueCount={dueNow.length} cardCount={cards.length} focus>
+<AppShell current="review" base="/lab" dueCount={dueNow.length} decks={LAB_NAV_DECKS} focus>
 	<div
 		class="mx-auto flex min-h-[calc(100dvh-var(--chrome-top,0px))] w-full max-w-xl flex-col px-4 md:px-8"
 	>

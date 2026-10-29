@@ -1,6 +1,6 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { directionFaces, faces, type Face } from '#lib/format/decks.js';
+import { directionFaces, faces, NO_DECK, type DeckFaces, type Face } from '#lib/format/decks.js';
 import {
 	ConflictError,
 	directionsOf,
@@ -20,12 +20,14 @@ import {
 
 /**
  * Dépendances du serveur MCP : un propriétaire déjà authentifié, le deck des cartes
- * capturées (son deck par défaut tant qu'il n'y a pas de choix de deck) et les services
- * du domaine.
+ * capturées (son plus ancien deck tant que Claude ne choisit pas, `null` s'il n'en a
+ * aucun) et les services du domaine.
  */
 export interface PojMcpDeps {
 	ownerId: string;
-	deck: Deck;
+	deck: Deck | null;
+	/** Page de création d'un deck, proposée quand l'utilisateur n'en a aucun. */
+	newDeckUrl: string;
 	cards: CardsService;
 	reviews: ReviewsService;
 	translation: TranslationService;
@@ -33,8 +35,12 @@ export interface PojMcpDeps {
 	now?: () => Date;
 }
 
+/** Erreur d'outil de capture sans deck : la carte n'aurait nulle part où aller. */
+const noDeckMessage = (newDeckUrl: string) =>
+	`L'utilisateur n'a encore aucun deck : aucune carte ne peut être créée. Invite-le à créer un deck sur ${newDeckUrl}, puis recommence.`;
+
 /** Consignes du serveur, rendues avec les faces du deck. */
-function instructions(deck: Deck, isLanguage: boolean): string {
+function instructions(deck: DeckFaces, isLanguage: boolean): string {
 	const { a, b } = faces(deck);
 	const subject = isLanguage ? `des expressions en ${b.name}` : `des cartes ${a.the} / ${b.the}`;
 	const directions = deck.bothDirections
@@ -64,7 +70,7 @@ const ratingSchema = z
 const fieldOf = (face: Face) =>
 	face.lang ? `Texte en ${face.name} de la carte` : `Face ${face.the} de la carte`;
 
-function cardInputSchema(deck: Deck) {
+function cardInputSchema(deck: DeckFaces) {
 	const { a, b } = faces(deck);
 	return z.object({
 		side_a: z
@@ -146,16 +152,22 @@ async function guard(
 
 export function createPojMcpServer({
 	ownerId,
-	deck,
+	deck: captureDeck,
+	newDeckUrl,
 	cards,
 	reviews,
 	translation,
 	now = () => new Date()
 }: PojMcpDeps): McpServer {
+	// Sans deck, les schémas gardent des faces neutres et les outils de capture refusent.
+	const deck = captureDeck ?? NO_DECK;
 	const pair = languagePair(deck);
+	const noDeck = noDeckMessage(newDeckUrl);
 	const server = new McpServer(
 		{ name: 'poj', version: '1.0.0' },
-		{ instructions: instructions(deck, pair !== null) }
+		{
+			instructions: instructions(deck, pair !== null) + (captureDeck ? '' : `\n\n${noDeck}`)
+		}
 	);
 	const { a, b } = faces(deck);
 	const cardInput = cardInputSchema(deck);
@@ -191,10 +203,11 @@ export function createPojMcpServer({
 			annotations: { readOnlyHint: true, openWorldHint: pair !== null }
 		},
 		async (input) => {
+			if (!captureDeck) return toolError(noDeck);
 			const proposed = toCardInput(input);
 			const [check, duplicates] = await Promise.all([
 				pair && translation.check(pair, proposed),
-				cards.findDuplicates(ownerId, deck, proposed)
+				cards.findDuplicates(ownerId, captureDeck, proposed)
 			]);
 			const text = (s: Suggestion | undefined) => (s?.ok ? s.text : null);
 			const failure = check && [check.aToB, check.bToA].find((s) => !s.ok);
@@ -240,12 +253,13 @@ export function createPojMcpServer({
 			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 		},
 		async (input) => {
+			if (!captureDeck) return toolError(noDeck);
 			const { card, created } = await cards.createOnce(
 				ownerId,
+				captureDeck.id,
 				toCardInput(input),
 				'claude',
-				now(),
-				{ deckId: deck.id }
+				now()
 			);
 			const summary = describeCard(card);
 			return result(

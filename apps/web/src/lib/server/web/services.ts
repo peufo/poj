@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { hashPassword } from 'better-auth/crypto';
 import { db } from '#lib/server/db/index.js';
 import { translator } from '#lib/server/deepl/index.js';
-import type { DeckView } from '#lib/format/decks.js';
+import type { DeckSummary, DeckView } from '#lib/format/decks.js';
 import {
 	createAccountsService,
 	createCardsService,
@@ -13,7 +13,8 @@ import {
 	createReviewsService,
 	createTranslationService,
 	NotFoundError,
-	type Deck
+	type Deck,
+	type DeckWithCount
 } from '#lib/server/domain/index.js';
 
 // Services du domaine partagés par les pages web (origine `web`). `accounts`, sans origine,
@@ -40,12 +41,27 @@ export function deckView(deck: Deck): DeckView {
 	};
 }
 
+/** Ce que la navigation et les choix de deck savent d'un deck. */
+export function deckSummary(deck: DeckWithCount): DeckSummary {
+	return { ...deckView(deck), id: deck.id, name: deck.name, cardCount: deck.cardCount };
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Identifiant venu de l'URL ou d'un formulaire : autre chose qu'un UUID donne une 404. */
 export function idOf(value: unknown, what = 'Carte'): string {
 	if (typeof value !== 'string' || !UUID.test(value)) error(404, `${what} introuvable`);
 	return value;
+}
+
+/**
+ * Deck demandé par `?deck=`, à passer tel quel aux requêtes du domaine (`undefined` : tous
+ * les decks). Autre chose qu'un UUID donne une 404 ; un deck étranger ne renvoie rien, et
+ * `deckInScope` en fait une 404.
+ */
+export function deckParam(url: URL): string | undefined {
+	const value = url.searchParams.get('deck');
+	return value === null ? undefined : idOf(value, 'Deck');
 }
 
 /** Traduit la `NotFoundError` du domaine en 404. */

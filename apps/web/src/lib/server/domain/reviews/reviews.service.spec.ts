@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
-import { createCard, createUser } from '../../testing/factories';
+import { createCard, createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
 import { createCardsService } from '../cards/cards.service';
+import { createDecksService } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 import { createReviewsService } from './reviews.service';
 import type { NextReview, NextResult } from './types';
@@ -17,10 +18,13 @@ const DAY = 24 * HOUR;
 
 let alice: string;
 let bob: string;
+/** Deck français → anglais d'Alice, celui de `createCard`. */
+let aliceDeck: string;
 
 beforeEach(async () => {
 	alice = await createUser(db, 'Alice');
 	bob = await createUser(db, 'Bob');
+	aliceDeck = (await createDeck(db, alice)).id;
 });
 
 function presented(result: NextResult): NextReview {
@@ -34,9 +38,16 @@ async function setDue(cardId: string, due: Date) {
 
 describe('reviews service', () => {
 	it('presents the most overdue review first, with prompt and expected answer', async () => {
-		const recent = await cards.create(alice, { sideA: 'récent', sideB: 'recent' }, 'web', t0);
+		const recent = await cards.create(
+			alice,
+			aliceDeck,
+			{ sideA: 'récent', sideB: 'recent' },
+			'web',
+			t0
+		);
 		const old = await cards.create(
 			alice,
+			aliceDeck,
 			{ sideA: 'ancien', sideB: 'old', context: 'ctx' },
 			'web',
 			t0
@@ -351,5 +362,52 @@ describe('reviews service', () => {
 			reviews.answer(alice, review.id, { rating: 'good', version: 'new', origin: 'web' }, t0)
 		).rejects.toBeInstanceOf(NotFoundError);
 		await expect(reviews.amend(alice, review.id, 'good', t0)).rejects.toBeInstanceOf(NotFoundError);
+	});
+
+	describe('per deck', () => {
+		it('limits the session, its count and the last answer to one deck', async () => {
+			const subject = await createDeck(db, alice, SUBJECT_DECK);
+			const english = await createCard(db, alice, { now: t0 });
+			const capital = await createCard(db, alice, {
+				sideA: 'Suisse',
+				sideB: 'Berne',
+				deckId: subject.id,
+				now: t0
+			});
+			await setDue(english.id, at(-DAY));
+			const scope = { deckId: subject.id };
+
+			// Tous les decks : la plus en retard d'abord ; le deck seul : ses cartes.
+			expect(presented(await reviews.next(alice, t0)).cardId).toBe(english.id);
+			const review = presented(await reviews.next(alice, t0, scope));
+			expect(review).toMatchObject({ cardId: capital.id, deck: { id: subject.id } });
+			expect(await reviews.countDue(alice, t0)).toBe(2);
+			expect(await reviews.countDue(alice, t0, scope)).toBe(1);
+
+			await reviews.answer(
+				alice,
+				review.id,
+				{ rating: 'again', version: review.version, origin: 'web' },
+				t0
+			);
+			expect(await reviews.lastAnswer(alice, at(1), scope)).toMatchObject({ cardId: capital.id });
+			expect(await reviews.lastAnswer(alice, at(1), { deckId: aliceDeck })).toBeNull();
+		});
+
+		it('never presents the b_to_a reviews of a deck turned one-way', async () => {
+			const { id } = await createCard(db, alice, { now: t0 });
+			await db.review.updateMany({
+				where: { cardId: id, direction: 'a_to_b' },
+				data: { due: at(DAY) }
+			});
+			await createDecksService(db).update(alice, aliceDeck, {
+				name: 'Anglais',
+				bothDirections: false
+			});
+
+			expect(await reviews.countDue(alice, t0)).toBe(0);
+			expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY) });
+			expect(presented(await reviews.next(alice, t0, { ahead: true })).direction).toBe('a_to_b');
+		});
 	});
 });

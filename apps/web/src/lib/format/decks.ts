@@ -21,6 +21,28 @@ export interface DeckView extends DeckFaces {
 	duplicateSide: 'sideA' | 'sideB';
 }
 
+/**
+ * Faces neutres (« Question » / « Réponse »), quand aucun deck n'est encore choisi : un
+ * formulaire de carte sans deck, un serveur MCP pour un utilisateur sans deck.
+ */
+export const NO_DECK: DeckView = {
+	kind: 'subject',
+	languageA: null,
+	languageB: null,
+	labelA: null,
+	labelB: null,
+	bothDirections: true,
+	duplicateSide: 'sideA'
+};
+
+/** Deck de la navigation et des choix de deck (`deckSummary`). */
+export interface DeckSummary extends DeckView {
+	id: string;
+	name: string;
+	/** Cartes non supprimées. */
+	cardCount: number;
+}
+
 export interface Face {
 	/** Libellé de champ : « Français », « Pays », « Question ». */
 	label: string;
@@ -97,3 +119,27 @@ export function directionLabel(direction: Direction, deck: DeckFaces): string {
 	const { from, to } = directionFaces(direction, deck);
 	return `${from.label} → ${to.name}`;
 }
+
+/** Champs du formulaire de deck (création et modification), tels que saisis. */
+export interface DeckFormValues {
+	name: string;
+	kind: 'language' | 'subject';
+	/** Langue connue (face A) et langue apprise (face B), pour une langue. */
+	languageA: string;
+	languageB: string;
+	/** Noms des faces, pour un sujet. */
+	labelA: string;
+	labelB: string;
+	bothDirections: boolean;
+}
+
+/** Un nouveau deck : une langue depuis le français, révisée dans les deux sens. */
+export const NEW_DECK_VALUES: DeckFormValues = {
+	name: '',
+	kind: 'language',
+	languageA: 'fr',
+	languageB: '',
+	labelA: 'Question',
+	labelB: 'Réponse',
+	bothDirections: true
+};

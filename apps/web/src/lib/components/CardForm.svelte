@@ -10,7 +10,7 @@
 
 <script lang="ts">
 	import type { SubmitFunction } from '$app/forms';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { fromAction } from 'svelte/attachments';
 	import { enhance as kitEnhance } from '$app/forms';
 	import { exampleFor, faces, type DeckView } from '#lib/format/decks.js';
@@ -47,6 +47,8 @@
 		/** Amélioration progressive des actions serveur (`use:enhance`). */
 		enhance?: SubmitFunction;
 		cancelHref: string;
+		/** Champs en tête du formulaire (ex. le choix du deck). */
+		header?: Snippet;
 		ontranslate?: () => void;
 		onsubmit?: (event: SubmitEvent) => void;
 	};
@@ -67,6 +69,7 @@
 		confirmValue = '1',
 		enhance,
 		cancelHref,
+		header,
 		ontranslate,
 		onsubmit
 	}: Props = $props();
@@ -94,6 +97,8 @@
 	{@attach enhance && fromAction(enhanceForm, () => enhance)}
 	class="flex flex-col gap-6"
 >
+	{@render header?.()}
+
 	<TextField
 		label={face.a.label}
 		name="sideA"

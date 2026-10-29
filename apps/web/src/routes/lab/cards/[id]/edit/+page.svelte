@@ -3,7 +3,7 @@
 	import AppShell from '#lib/components/AppShell.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import CardForm, { type Suggestion } from '#lib/components/CardForm.svelte';
-	import { LAB_DECK, cards, dueNow, fakeDeepL } from '#lib/lab/fixtures.js';
+	import { LAB_DECK, dueNow, fakeDeepL, LAB_NAV_DECKS } from '#lib/lab/fixtures.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -31,7 +31,7 @@
 
 <svelte:head><title>Modifier · Poj</title></svelte:head>
 
-<AppShell current="cards" base="/lab" dueCount={dueNow.length} cardCount={cards.length} focus>
+<AppShell current="cards" base="/lab" dueCount={dueNow.length} decks={LAB_NAV_DECKS} focus>
 	<div class="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 md:px-8">
 		<PageHeader
 			title="Modifier la carte"

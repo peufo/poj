@@ -279,6 +279,11 @@ export const cards: SampleCard[] = [
 	)
 ];
 
+/** Decks de la navigation du lab : le seul deck des cartes d'exemple. */
+export const LAB_NAV_DECKS = [
+	{ id: 'lab-deck', name: 'Français → Anglais', cardCount: cards.length }
+];
+
 export const findCard = (id: string) => cards.find((c) => c.id === id);
 
 export const allReviews = cards.flatMap((c) => c.reviews.map((r) => ({ card: c, review: r })));

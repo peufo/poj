@@ -9,15 +9,25 @@
 		const path = page.url.pathname;
 		if (path.startsWith('/review')) return 'review';
 		if (path === '/cards/new') return 'new';
+		if (path === '/decks/new') return 'new-deck';
 		if (path.startsWith('/connect')) return 'connect';
 		// Administration : hors des onglets, aucun n'est actif.
 		if (path.startsWith('/admin')) return undefined;
 		return 'cards';
 	});
 
+	// Deck affiché : `?deck=`, ou celui qu'on modifie.
+	const activeDeck = $derived(
+		page.url.searchParams.get('deck') ??
+			(page.route.id === '/(app)/decks/[id]/edit' ? (page.params.id ?? null) : null)
+	);
+
 	// Révision et formulaires : la barre d'onglets s'efface (barre d'action au pouce).
 	const focus = $derived(
-		current === 'review' || current === 'new' || (page.route.id?.endsWith('/edit') ?? false)
+		current === 'review' ||
+			current === 'new' ||
+			current === 'new-deck' ||
+			(page.route.id?.endsWith('/edit') ?? false)
 	);
 </script>
 
@@ -25,7 +35,8 @@
 	{current}
 	user={data.user}
 	dueCount={data.nav.dueCount}
-	cardCount={data.nav.cardCount}
+	decks={data.nav.decks}
+	{activeDeck}
 	{focus}
 >
 	{@render children()}

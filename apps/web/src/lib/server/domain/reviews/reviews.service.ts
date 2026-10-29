@@ -1,4 +1,5 @@
 import type { Db } from '../db';
+import { reviewedDirections } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 import type { Card, Direction, Origin, Rating, Review, ReviewLog } from '../cards/types';
 import {
@@ -42,8 +43,20 @@ const promptOf = (direction: Direction, card: Pick<Card, 'sideA' | 'sideB'>) =>
 
 const withDeck = { card: { include: { deck: true } } } as const;
 
+/** Portée d'une session : tous les decks, ou le deck `deckId`. */
+export interface ReviewScope {
+	deckId?: string;
+}
+
 export function createReviewsService(db: Db) {
-	const owned = (ownerId: string) => ({ card: { ownerId, deletedAt: null } });
+	/**
+	 * Révisions du propriétaire : sens révisés des cartes non supprimées (du deck `deckId`
+	 * s'il est précisé). Une `b_to_a` d'un deck passé à sens unique n'en fait plus partie.
+	 */
+	const owned = (ownerId: string, deckId?: string) => ({
+		card: { ownerId, deletedAt: null, deckId },
+		...reviewedDirections
+	});
 
 	async function findOwned(ownerId: string, id: string) {
 		const review = await db.review.findFirst({
@@ -57,7 +70,10 @@ export function createReviewsService(db: Db) {
 	/** Filtre excluant le sens inverse des cartes notées dans les dernières 24 h. */
 	async function buriedFilter(ownerId: string, now: Date) {
 		const recent = await db.review.findMany({
-			where: { lastReview: { gt: new Date(now.getTime() - SIBLING_BURY_MS) }, ...owned(ownerId) },
+			where: {
+				lastReview: { gt: new Date(now.getTime() - SIBLING_BURY_MS) },
+				...owned(ownerId)
+			},
 			select: { cardId: true, direction: true }
 		});
 		if (recent.length === 0) return {};
@@ -68,9 +84,15 @@ export function createReviewsService(db: Db) {
 		};
 	}
 
-	/** Révisions présentables : cartes non supprimées, sens inverse mis de côté. */
-	async function availableFilter(ownerId: string, now: Date) {
-		return { ...owned(ownerId), ...(await buriedFilter(ownerId, now)) };
+	/**
+	 * Révisions présentables : sens révisés des cartes non supprimées (du deck de la
+	 * session), sens inverse mis de côté.
+	 */
+	async function availableFilter(ownerId: string, now: Date, { deckId }: ReviewScope) {
+		return {
+			...owned(ownerId, deckId),
+			...(await buriedFilter(ownerId, now))
+		};
 	}
 
 	/**
@@ -78,10 +100,19 @@ export function createReviewsService(db: Db) {
 	 * répondre à un sens met l'autre de côté (et les sens déjà mis de côté sont exclus).
 	 * C'est donc le nombre de cartes ayant une révision présentable maintenant.
 	 */
-	async function countPresentable(ownerId: string, now: Date): Promise<number> {
+	async function countPresentable(
+		ownerId: string,
+		now: Date,
+		{ deckId }: ReviewScope
+	): Promise<number> {
 		const buried = await buriedFilter(ownerId, now);
 		return db.card.count({
-			where: { ownerId, deletedAt: null, reviews: { some: { ...buried, due: { lte: now } } } }
+			where: {
+				ownerId,
+				deletedAt: null,
+				deckId,
+				reviews: { some: { ...buried, ...reviewedDirections, due: { lte: now } } }
+			}
 		});
 	}
 
@@ -90,16 +121,21 @@ export function createReviewsService(db: Db) {
 		 * Nombre de révisions à présenter maintenant : dues, hors sens mis de côté, et au plus
 		 * une par carte (l'autre sens sera mis de côté après la réponse).
 		 */
-		countDue(ownerId: string, now = new Date()): Promise<number> {
-			return countPresentable(ownerId, now);
+		countDue(ownerId: string, now = new Date(), scope: ReviewScope = {}): Promise<number> {
+			return countPresentable(ownerId, now, scope);
 		},
 
 		/**
 		 * Prochaine révision à présenter : la plus en retard d'abord. Avec `ahead`, les
-		 * révisions à venir sont aussi candidates (révision en avance).
+		 * révisions à venir sont aussi candidates (révision en avance). Avec `deckId`, seules
+		 * les cartes de ce deck.
 		 */
-		async next(ownerId: string, now = new Date(), { ahead = false } = {}): Promise<NextResult> {
-			const available = await availableFilter(ownerId, now);
+		async next(
+			ownerId: string,
+			now = new Date(),
+			{ ahead = false, ...scope }: { ahead?: boolean } & ReviewScope = {}
+		): Promise<NextResult> {
+			const available = await availableFilter(ownerId, now, scope);
 			const dueNow = { ...available, due: { lte: now } };
 
 			const [review, remaining] = await Promise.all([
@@ -108,7 +144,7 @@ export function createReviewsService(db: Db) {
 					orderBy: [{ due: 'asc' }, { id: 'asc' }],
 					include: withDeck
 				}),
-				countPresentable(ownerId, now)
+				countPresentable(ownerId, now, scope)
 			]);
 
 			if (!review) {
@@ -143,13 +179,18 @@ export function createReviewsService(db: Db) {
 
 		/**
 		 * La réponse la plus récente de l'utilisateur, si elle peut encore être corrigée
-		 * (dans l'heure, et révision inchangée depuis) ; sinon `null`.
+		 * (dans l'heure, et révision inchangée depuis) ; sinon `null`. Avec `deckId`, la plus
+		 * récente sur ce deck.
 		 */
-		async lastAnswer(ownerId: string, now = new Date()): Promise<LastAnswer | null> {
+		async lastAnswer(
+			ownerId: string,
+			now = new Date(),
+			{ deckId }: ReviewScope = {}
+		): Promise<LastAnswer | null> {
 			const log = await db.reviewLog.findFirst({
 				where: {
 					reviewedAt: { gte: new Date(now.getTime() - AMEND_WINDOW_MS) },
-					review: owned(ownerId)
+					review: owned(ownerId, deckId)
 				},
 				orderBy: { reviewedAt: 'desc' },
 				include: { review: { include: withDeck } }

@@ -12,6 +12,7 @@ import {
 	type Rating
 } from '../domain/index';
 import { assertDisposableName, resetDatabase } from './database';
+import { FR_EN_DECK } from './factories';
 
 export const SANDBOX_ACCOUNT = {
 	name: 'Sandbox',
@@ -48,7 +49,7 @@ export interface SeedCard extends CardInput {
 	deleted?: true;
 }
 
-// Cartes du deck par défaut : la face A est le français, la face B l'anglais.
+// Cartes du deck « Français → Anglais » : la face A est le français, la face B l'anglais.
 const fr = 'a_to_b';
 const en = 'b_to_a';
 
@@ -416,10 +417,16 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 		}
 	});
 
+	// Le deck des cartes, créé explicitement comme le ferait l'utilisateur.
+	const deck = await db.deck.create({
+		data: { ...FR_EN_DECK, ownerId: user.id, createdAt: at(365 * DAY) }
+	});
+
 	for (const seed of SANDBOX_CARDS) {
 		const { sideA, sideB, context, origin } = seed;
 		const { card, created } = await cards.createOnce(
 			user.id,
+			deck.id,
 			{ sideA, sideB, context },
 			origin,
 			at(seed.createdAgo)

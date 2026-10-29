@@ -1,0 +1,59 @@
+import { page } from 'vitest/browser';
+import { describe, expect, it } from 'vitest';
+import { render } from 'vitest-browser-svelte';
+import { NEW_DECK_VALUES } from '#lib/format/decks.js';
+import DeckForm from './DeckForm.svelte';
+
+describe('DeckForm', () => {
+	it('asks for the two languages of a language deck, both directions checked', async () => {
+		render(DeckForm, { mode: 'create', values: NEW_DECK_VALUES });
+
+		await expect.element(page.getByRole('radio', { name: /Langue/ })).toBeChecked();
+		await expect.element(page.getByLabelText('Langue connue')).toHaveValue('fr');
+		await expect.element(page.getByLabelText('Langue apprise')).toBeVisible();
+		await expect.element(page.getByLabelText('Première face')).not.toBeVisible();
+		await expect
+			.element(page.getByRole('checkbox', { name: /Réviser dans les deux sens/ }))
+			.toBeChecked();
+	});
+
+	it('switches to the faces of a subject, Question / Réponse, one way by default', async () => {
+		render(DeckForm, { mode: 'create', values: NEW_DECK_VALUES });
+
+		await page.getByRole('radio', { name: /Sujet/ }).click();
+
+		await expect.element(page.getByLabelText('Langue connue')).not.toBeVisible();
+		await expect.element(page.getByLabelText('Première face')).toHaveValue('Question');
+		await expect.element(page.getByLabelText('Seconde face')).toHaveValue('Réponse');
+		await expect
+			.element(page.getByRole('checkbox', { name: /Réviser dans les deux sens/ }))
+			.not.toBeChecked();
+	});
+
+	it('keeps the directions chosen by hand when the kind changes', async () => {
+		render(DeckForm, { mode: 'create', values: NEW_DECK_VALUES });
+		const both = page.getByRole('checkbox', { name: /Réviser dans les deux sens/ });
+
+		await both.click();
+		await page.getByRole('radio', { name: /Sujet/ }).click();
+		await page.getByRole('radio', { name: /Langue/ }).click();
+
+		await expect.element(both).not.toBeChecked();
+	});
+
+	it('does not offer to change the kind or the languages of a saved deck', async () => {
+		render(DeckForm, {
+			mode: 'edit',
+			values: { ...NEW_DECK_VALUES, name: 'Anglais', languageB: 'en-GB' },
+			cancelHref: '/cards?deck=d1'
+		});
+
+		await expect.element(page.getByLabelText('Nom')).toHaveValue('Anglais');
+		await expect.element(page.getByRole('radio')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('combobox')).not.toBeInTheDocument();
+		await expect.element(page.getByText(/ne se modifient pas/)).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Enregistrer les modifications' }))
+			.toBeInTheDocument();
+	});
+});

@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { ConflictError, type Rating } from '#lib/server/domain/index.js';
-import { deckView, idOf, orNotFound, reviews } from '#lib/server/web/services.js';
-import { ownerOf } from '#lib/server/web/guards.js';
+import { deckParam, decks, deckView, idOf, orNotFound, reviews } from '#lib/server/web/services.js';
+import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const RATINGS: readonly string[] = ['again', 'hard', 'good', 'easy'];
@@ -13,20 +13,31 @@ export const load: PageServerLoad = async (event) => {
 	const ownerId = ownerOf(event);
 	const ahead = url.searchParams.get('ahead') === '1';
 	const now = new Date();
+	// `?deck=` : la session ne propose que les cartes de ce deck ; sans lui, tous les decks.
+	const scope = { deckId: deckParam(url) };
 
-	const [next, last] = await Promise.all([
-		reviews.next(ownerId, now, { ahead }),
-		reviews.lastAnswer(ownerId, now)
+	const [owned, next, last] = await Promise.all([
+		decks.list(ownerId),
+		reviews.next(ownerId, now, { ahead, ...scope }),
+		reviews.lastAnswer(ownerId, now, scope)
 	]);
+	const { deck, explicit } = deckInScope(url, owned);
 
 	const current = next.review;
 	// Rien à réviser : la prochaine révision à venir, pour l'annoncer et réviser en avance.
 	const upcoming =
-		!current && !ahead ? (await reviews.next(ownerId, now, { ahead: true })).review : null;
+		!current && !ahead
+			? (await reviews.next(ownerId, now, { ahead: true, ...scope })).review
+			: null;
 
 	return {
 		now,
 		ahead,
+		/**
+		 * Deck demandé par `?deck=` (le bouton « Réviser » d'un deck) : la session l'affiche,
+		 * ses liens et ses actions le gardent. `null` pour l'entrée « Réviser » globale.
+		 */
+		session: explicit && deck ? { id: deck.id, name: deck.name } : null,
 		/** Réponse déjà affichée (sans JavaScript, via `?reveal=1`). */
 		revealed: url.searchParams.get('reveal') === '1',
 		remaining: next.review ? next.remaining : 0,

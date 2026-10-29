@@ -1,7 +1,7 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
 import type { UserRole } from '../domain/index';
-import { ownerOf, requireAdmin, type GuardEvent } from './guards';
+import { deckInScope, ownerOf, requireAdmin, type GuardEvent } from './guards';
 
 /** Faux event sur `path`, avec un utilisateur du rôle donné (aucun sans rôle). */
 const eventOf = (path = '/cards', role?: UserRole): GuardEvent => ({
@@ -58,5 +58,36 @@ describe('admin guard', () => {
 
 	it('lets an administrator through', () => {
 		expect(run(requireAdmin, eventOf('/admin', 'admin'))).toBe('u1');
+	});
+});
+
+describe('deck in scope', () => {
+	const english = { id: 'd1' };
+	const capitals = { id: 'd2' };
+	const at = (path: string) => new URL(path, 'http://poj.test');
+	const scope = (path: string, decks: { id: string }[]) => {
+		try {
+			return deckInScope(at(path), decks).deck;
+		} catch (thrown) {
+			return thrown;
+		}
+	};
+
+	it('sends a user without any deck to the deck creation page', () => {
+		expect(redirectOf(scope('/cards', []))).toBe('/decks/new');
+		expect(redirectOf(scope('/review?deck=d1', []))).toBe('/decks/new');
+	});
+
+	it('takes the deck of ?deck, or the only deck, or none for all decks', () => {
+		expect(scope('/cards?deck=d2', [english, capitals])).toBe(capitals);
+		expect(scope('/cards', [english])).toBe(english);
+		expect(scope('/cards', [english, capitals])).toBeNull();
+		expect(deckInScope(at('/cards?deck=d1'), [english]).explicit).toBe(true);
+		expect(deckInScope(at('/cards'), [english]).explicit).toBe(false);
+	});
+
+	it('gives a 404 for a deck the user does not have', () => {
+		const thrown = scope('/cards?deck=other', [english, capitals]);
+		expect(isHttpError(thrown) && thrown.status).toBe(404);
 	});
 });

@@ -4,7 +4,14 @@
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import CardForm, { type Duplicate, type Suggestion } from '#lib/components/CardForm.svelte';
 	import LabStates from '#lib/lab/LabStates.svelte';
-	import { LAB_DECK, cards, dueNow, fakeDeepL, normalize } from '#lib/lab/fixtures.js';
+	import {
+		LAB_DECK,
+		cards,
+		dueNow,
+		fakeDeepL,
+		normalize,
+		LAB_NAV_DECKS
+	} from '#lib/lab/fixtures.js';
 
 	type State = 'empty' | 'filled' | 'duplicate' | 'deepl-down';
 
@@ -76,7 +83,7 @@
 
 <svelte:head><title>Nouvelle carte · Poj</title></svelte:head>
 
-<AppShell current="new" base="/lab" dueCount={dueNow.length} cardCount={cards.length} focus>
+<AppShell current="new" base="/lab" dueCount={dueNow.length} decks={LAB_NAV_DECKS} focus>
 	<div class="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 md:px-8">
 		<PageHeader title="Nouvelle carte" back={{ href: '/lab/cards', label: 'Cartes' }} />
 

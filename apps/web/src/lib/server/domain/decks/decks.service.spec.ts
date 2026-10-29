@@ -1,18 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
-import { createDeck, createUser } from '../../testing/factories';
 import {
-	createDecksService,
-	DEFAULT_DECK,
-	directionsOf,
-	languagePair,
-	lockOwner,
-	resolveDeck
-} from './decks.service';
-import { NotFoundError } from '../errors';
+	createCard,
+	createDeck,
+	createUser,
+	FR_EN_DECK,
+	SUBJECT_DECK
+} from '../../testing/factories';
+import { createDecksService, directionsOf, languagePair } from './decks.service';
+import { ConflictError, NotFoundError } from '../errors';
 
 const db = useTestDatabase();
 const decks = createDecksService(db);
+
+const now = new Date('2026-01-05T08:00:00Z');
 
 let alice: string;
 let bob: string;
@@ -24,51 +25,113 @@ beforeEach(async () => {
 
 const subject = { kind: 'subject', languageA: null, languageB: null } as const;
 
+/** Nouveau deck de sujet « Pays » / « Capitale ». */
+const capitals = {
+	name: 'Capitales',
+	kind: 'subject',
+	languageA: null,
+	languageB: null,
+	labelA: 'Pays',
+	labelB: 'Capitale',
+	bothDirections: false
+} as const;
+
 describe('decks service', () => {
-	it('creates the default deck on first use, then returns it', async () => {
-		const first = await decks.ensureDefault(alice);
-		const again = await decks.ensureDefault(alice);
+	it('creates no deck implicitly: a new owner has none', async () => {
+		expect(await decks.list(alice)).toEqual([]);
+		expect(await decks.first(alice)).toBeNull();
+		expect(await db.deck.count()).toBe(0);
+	});
 
-		expect(first).toMatchObject({
-			...DEFAULT_DECK,
-			ownerId: alice,
-			labelA: null,
-			labelB: null,
-			deletedAt: null
+	it('lists the owner’s decks, oldest first, with their cards not deleted', async () => {
+		const english = await createDeck(db, alice, { createdAt: new Date('2026-01-01') });
+		const other = await createDeck(db, alice, {
+			...SUBJECT_DECK,
+			createdAt: new Date('2026-02-01')
 		});
-		expect(first.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
-		expect(again.id).toBe(first.id);
-		expect((await decks.ensureDefault(bob)).id).not.toBe(first.id);
+		await createDeck(db, alice, { name: 'Supprimé', deletedAt: new Date() });
+		await createDeck(db, bob);
+		await createCard(db, alice, { deckId: english.id });
+		const deleted = await createCard(db, alice, { deckId: english.id });
+		await db.card.update({ where: { id: deleted.id }, data: { deletedAt: new Date() } });
+
+		const listed = await decks.list(alice);
+		expect(listed.map((d) => [d.id, d.cardCount])).toEqual([
+			[english.id, 1],
+			[other.id, 0]
+		]);
+		expect(listed[0]).toMatchObject({ ...FR_EN_DECK, ownerId: alice });
+		expect((await decks.first(alice))?.id).toBe(english.id);
 	});
 
-	it('creates a single default deck under concurrent calls', async () => {
-		const results = await Promise.all([1, 2, 3].map(() => decks.ensureDefault(alice)));
-
-		expect(new Set(results.map((d) => d.id)).size).toBe(1);
-		expect(await db.deck.count({ where: { ownerId: alice } })).toBe(1);
-	});
-
-	it('takes the oldest deck that is not deleted', async () => {
-		const deleted = await createDeck(db, alice, { deletedAt: new Date() });
-		const oldest = await createDeck(db, alice, { ...subject, createdAt: new Date('2026-01-01') });
-		await createDeck(db, alice, { createdAt: new Date('2026-02-01') });
-
-		expect((await decks.ensureDefault(alice)).id).toBe(oldest.id);
-		expect((await decks.ensureDefault(alice)).id).not.toBe(deleted.id);
-	});
-
-	it('resolves an explicit deck only if the owner has it', async () => {
-		const mine = await createDeck(db, alice, subject);
+	it('gets a deck of the owner only', async () => {
+		const mine = await createDeck(db, alice);
 		const theirs = await createDeck(db, bob);
-		const resolve = (deckId?: string) =>
-			db.$transaction(async (tx) => {
-				await lockOwner(tx, alice);
-				return resolveDeck(tx, alice, deckId);
-			});
+		const deleted = await createDeck(db, alice, { name: 'x', deletedAt: new Date() });
 
-		expect((await resolve(mine.id)).id).toBe(mine.id);
-		await expect(resolve(theirs.id)).rejects.toBeInstanceOf(NotFoundError);
-		expect((await resolve()).id).toBe(mine.id);
+		expect((await decks.get(alice, mine.id)).id).toBe(mine.id);
+		await expect(decks.get(alice, theirs.id)).rejects.toBeInstanceOf(NotFoundError);
+		await expect(decks.get(alice, deleted.id)).rejects.toBeInstanceOf(NotFoundError);
+	});
+
+	it('creates a language or subject deck, refusing a name already taken', async () => {
+		const english = await decks.create(alice, {
+			...FR_EN_DECK,
+			name: '  Anglais ',
+			labelA: null,
+			labelB: null
+		});
+		const created = await decks.create(alice, capitals);
+
+		expect(english).toMatchObject({ name: 'Anglais', kind: 'language', ownerId: alice });
+		expect(english.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
+		expect(created).toMatchObject(capitals);
+		await expect(decks.create(alice, { ...capitals, name: 'CAPITALES' })).rejects.toBeInstanceOf(
+			ConflictError
+		);
+		// Un autre propriétaire, ou un deck supprimé, ne bloque pas le nom.
+		await expect(decks.create(bob, capitals)).resolves.toMatchObject({ ownerId: bob });
+		await db.deck.update({ where: { id: created.id }, data: { deletedAt: new Date() } });
+		await expect(decks.create(alice, capitals)).resolves.toMatchObject({ name: 'Capitales' });
+	});
+
+	it('updates name, labels and directions, but not the kind nor the languages', async () => {
+		const deck = await decks.create(alice, capitals);
+		await decks.create(alice, { ...capitals, name: 'Autre' });
+
+		const updated = await decks.update(alice, deck.id, {
+			name: 'Pays du monde',
+			labelA: 'État',
+			bothDirections: false
+		});
+		expect(updated).toMatchObject({ ...capitals, name: 'Pays du monde', labelA: 'État' });
+		await expect(
+			decks.update(alice, deck.id, { name: 'autre', bothDirections: false })
+		).rejects.toBeInstanceOf(ConflictError);
+		await expect(
+			decks.update(bob, deck.id, { name: 'x', bothDirections: false })
+		).rejects.toBeInstanceOf(NotFoundError);
+		// Garder son propre nom n'est pas un conflit.
+		await expect(
+			decks.update(alice, deck.id, { name: 'Pays du monde', bothDirections: false })
+		).resolves.toMatchObject({ name: 'Pays du monde' });
+	});
+
+	it('adds the missing b_to_a reviews, due now, when both directions are turned on', async () => {
+		const deck = await decks.create(alice, capitals);
+		const card = await createCard(db, alice, { deckId: deck.id, now });
+		const later = new Date('2026-01-06T08:00:00Z');
+
+		await decks.update(alice, deck.id, { name: 'Capitales', bothDirections: true }, later);
+		await decks.update(alice, deck.id, { name: 'Capitales', bothDirections: false }, later);
+		await decks.update(alice, deck.id, { name: 'Capitales', bothDirections: true }, later);
+
+		const reviews = await db.review.findMany({
+			where: { cardId: card.id },
+			orderBy: { direction: 'asc' }
+		});
+		expect(reviews.map((r) => r.direction)).toEqual(['a_to_b', 'b_to_a']);
+		expect(reviews[1]).toMatchObject({ state: 'new', due: later, reps: 0 });
 	});
 
 	it('requires a language pair for a language deck and none for a subject', async () => {
@@ -78,7 +141,7 @@ describe('decks service', () => {
 	});
 
 	it('gives the language pair of a language deck only', () => {
-		expect(languagePair(DEFAULT_DECK)).toEqual({ languageA: 'fr', languageB: 'en-GB' });
+		expect(languagePair(FR_EN_DECK)).toEqual({ languageA: 'fr', languageB: 'en-GB' });
 		expect(languagePair(subject)).toBeNull();
 	});
 

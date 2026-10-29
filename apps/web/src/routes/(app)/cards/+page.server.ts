@@ -7,8 +7,16 @@ import {
 	weekdayIndex
 } from '#lib/server/domain/index.js';
 import { masteryOf, type MasteryLevel } from '#lib/format/mastery.js';
-import { cards, dailyGoal, decks, deckView, reviews } from '#lib/server/web/services.js';
-import { ownerOf } from '#lib/server/web/guards.js';
+import {
+	cards,
+	dailyGoal,
+	deckParam,
+	decks,
+	deckSummary,
+	deckView,
+	reviews
+} from '#lib/server/web/services.js';
+import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;
@@ -20,22 +28,26 @@ export const load: PageServerLoad = async (event) => {
 	const ownerId = ownerOf(event);
 	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
 	const now = new Date();
+	// Le deck de `?deck=` : liste, recherche, échéancier, maîtrise et révision ne portent que
+	// sur lui ; sans lui, sur tous (le seul deck s'il n'y en a qu'un). L'objectif reste global.
+	const scope = { deckId: deckParam(url) };
 
-	const [all, stats, horizon, dueNow, goal, defaultDeck] = await Promise.all([
-		cards.list(ownerId),
-		cards.stats(ownerId, now),
-		cards.horizon(ownerId, now, HORIZON_DAYS),
-		reviews.countDue(ownerId, now),
+	const [owned, all, stats, horizon, dueNow, goal] = await Promise.all([
+		decks.list(ownerId),
+		cards.list(ownerId, scope),
+		cards.stats(ownerId, now, scope),
+		cards.horizon(ownerId, now, HORIZON_DAYS, scope),
+		reviews.countDue(ownerId, now, scope),
 		// Du lundi d'il y a sept semaines jusqu'à aujourd'hui.
-		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1),
-		decks.ensureDefault(ownerId)
+		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1)
 	]);
-	const listed = query ? await cards.list(ownerId, { query }) : all;
+	const { deck } = deckInScope(url, owned.map(deckSummary));
+	const listed = query ? await cards.list(ownerId, { ...scope, query }) : all;
 	// Quand chaque sens sera présenté (mise de côté du sens inverse comprise).
 	// La liste filtrée est incluse dans le paquet entier (au plus une entrée par carte).
-	const deck = new Map([...all, ...listed].map((card) => [card.id, card]));
+	const byId = new Map([...all, ...listed].map((card) => [card.id, card]));
 	const shown = presentations(
-		[...deck.values()].flatMap((card) => card.reviews),
+		[...byId.values()].flatMap((card) => card.reviews),
 		now
 	);
 
@@ -51,8 +63,8 @@ export const load: PageServerLoad = async (event) => {
 		goal,
 		goalBounds: { min: MIN_DAILY_GOAL, max: MAX_DAILY_GOAL },
 		mastery,
-		/** Deck des nouvelles cartes : nomme les faces dans l'aide de la recherche. */
-		defaultDeck: deckView(defaultDeck),
+		/** Deck affiché, `null` pour tous les decks. */
+		deck,
 		cards: listed.map((card) => ({
 			id: card.id,
 			sideA: card.sideA,

@@ -16,7 +16,8 @@
 		horizon,
 		isDueOnDay,
 		masteryCounts,
-		normalize
+		normalize,
+		LAB_NAV_DECKS
 	} from '#lib/lab/fixtures.js';
 
 	let query = $state('');
@@ -42,7 +43,7 @@
 
 <svelte:head><title>Cartes · Poj</title></svelte:head>
 
-<AppShell current="cards" base="/lab" dueCount={dueNow.length} cardCount={cards.length}>
+<AppShell current="cards" base="/lab" dueCount={dueNow.length} decks={LAB_NAV_DECKS}>
 	<div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-10 md:px-8">
 		<PageHeader title="Cartes" count={cards.length}>
 			{#snippet actions()}

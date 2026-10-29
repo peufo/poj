@@ -16,12 +16,17 @@ export type McpRequestHandler = (
 export function createMcpRequestHandler({
 	decks,
 	...deps
-}: Omit<PojMcpDeps, 'ownerId' | 'deck'> & { decks: DecksService }): McpRequestHandler {
+}: Omit<PojMcpDeps, 'ownerId' | 'deck' | 'newDeckUrl'> & {
+	decks: DecksService;
+}): McpRequestHandler {
 	return async (request, ownerId, authInfo) => {
-		// Consignes et schémas d'outils sont rendus avec les faces du deck par défaut.
-		const deck = await decks.ensureDefault(ownerId);
-		return createMcpHandler(() => createPojMcpServer({ ...deps, ownerId, deck })).fetch(request, {
-			authInfo
-		});
+		// Consignes et schémas d'outils sont rendus avec les faces du plus ancien deck ; sans
+		// deck, la capture renvoie vers la page de création, sur le même site.
+		const deck = await decks.first(ownerId);
+		const newDeckUrl = new URL('/decks/new', request.url).href;
+		return createMcpHandler(() => createPojMcpServer({ ...deps, ownerId, deck, newDeckUrl })).fetch(
+			request,
+			{ authInfo }
+		);
 	};
 }
