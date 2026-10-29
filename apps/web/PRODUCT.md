@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-SvelteKit 3 (`next`) + Svelte 5 (runes), déjà en place ; Tailwind 4 installé par le scaffold. Le choix de l'approche de style (Tailwind, CSS vanilla, ou hybride) et l'architecture des composants d'interface sont **délégués** : à trancher pendant l'initialisation du design et à consigner dans DESIGN.md.
+SvelteKit 3 + Svelte 5 (runes), déjà en place ; Tailwind 4 installé par le scaffold. Le choix de l'approche de style (Tailwind, CSS vanilla, ou hybride) et l'architecture des composants d'interface sont **délégués** : à trancher pendant l'initialisation du design et à consigner dans DESIGN.md.
 
 ## Users
 

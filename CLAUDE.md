@@ -86,8 +86,9 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 - **Export :** `scripts/export-openapi.ts` charge le module de l'API via un serveur Vite en `middlewareMode` (`ssrLoadModule`). C'est nécessaire pour que `$app/*` et `#lib/*` soient résolus.
 - **Après toute modification d'une route ou d'un schéma :** `bun run api:export`, puis commiter `openapi.json` avec le changement.
 
-### Pièges SvelteKit 3 (version `next`)
+### Pièges SvelteKit 3
 
+- **Versions :** `@sveltejs/kit` et `@sveltejs/adapter-node` sont épinglés en version exacte dans `apps/web/package.json`. Les pièges ci-dessous sont à revérifier à chaque montée de version.
 - **Alias `#lib/*` :** il passe par le champ `imports` du package.json. Il ne fait **aucune** résolution d'extension ni d'`index` implicite. Écrire le chemin complet en `.js` : `import { db } from '#lib/server/db/index.js'`. Le `.ts` est refusé à cause de `rewriteRelativeImportExtensions`.
 - **Types de hooks :** `Handle` s'importe depuis `@sveltejs/kit/hooks`, pas `@sveltejs/kit`.
 - **Variables d'environnement :** elles sont déclarées dans `src/env.ts` (`defineEnvVars`) et lues via `$app/env/private`. `DATABASE_URL_TEST` et `DATABASE_URL_SANDBOX` n'y figurent pas : Vitest et `scripts/sandbox.ts` les lisent via `process.env`.
