@@ -7,7 +7,8 @@ import {
 	weekdayIndex
 } from '#lib/server/domain/index.js';
 import { masteryOf, type MasteryLevel } from '#lib/format/mastery.js';
-import { cards, dailyGoal, decks, deckView, ownerOf, reviews } from '#lib/server/web/services.js';
+import { cards, dailyGoal, decks, deckView, reviews } from '#lib/server/web/services.js';
+import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;

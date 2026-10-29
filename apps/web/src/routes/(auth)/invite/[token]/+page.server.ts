@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.js';
+import { authErrorMessages } from '#lib/server/auth-errors.js';
 import {
 	ConflictError,
 	InvitationUnavailableError,
@@ -36,13 +37,10 @@ export const actions: Actions = {
 		const password = form.get('password')?.toString() ?? '';
 		if (!name) return fail(400, { name, message: 'Indique ton nom.' });
 		if (password.length < PASSWORD_MIN_LENGTH) {
-			return fail(400, {
-				name,
-				message: `Mot de passe trop court : ${PASSWORD_MIN_LENGTH} caractères au moins.`
-			});
+			return fail(400, { name, message: authErrorMessages.PASSWORD_TOO_SHORT });
 		}
 		if (password.length > PASSWORD_MAX_LENGTH) {
-			return fail(400, { name, message: 'Mot de passe trop long.' });
+			return fail(400, { name, message: authErrorMessages.PASSWORD_TOO_LONG });
 		}
 
 		let email: string;
@@ -53,7 +51,7 @@ export const actions: Actions = {
 				return fail(410, { name, message: unavailable[error.reason] });
 			}
 			if (error instanceof ConflictError) {
-				return fail(409, { name, message: 'Un compte existe déjà avec cet email.' });
+				return fail(409, { name, message: authErrorMessages.USER_ALREADY_EXISTS });
 			}
 			throw error;
 		}

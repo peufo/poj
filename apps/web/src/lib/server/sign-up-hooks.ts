@@ -9,6 +9,9 @@ import { SIGN_UP_CLOSED } from '#lib/server/auth-errors.js';
  * que soit le chemin (page d'inscription ou appel direct à l'endpoint). Les testeurs
  * arrivent par un lien d'invitation, dont le compte est créé par le domaine
  * (`createInvitationsService`), hors de Better Auth.
+ *
+ * Ces `databaseHooks` ne voient donc pas ce second chemin de création de compte : un hook
+ * ajouté ici doit aussi l'être dans `invitations.service` (`accept`).
  */
 export function signUpHooks(db: Db): BetterAuthOptions['databaseHooks'] {
 	const accounts = createAccountsService(db);

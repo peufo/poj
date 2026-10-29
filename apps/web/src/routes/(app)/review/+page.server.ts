@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { ConflictError, type Rating } from '#lib/server/domain/index.js';
-import { deckView, idOf, orNotFound, ownerOf, reviews } from '#lib/server/web/services.js';
+import { deckView, idOf, orNotFound, reviews } from '#lib/server/web/services.js';
+import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const RATINGS: readonly string[] = ['again', 'hard', 'good', 'easy'];

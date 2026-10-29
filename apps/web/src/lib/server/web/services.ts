@@ -1,4 +1,4 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { hashPassword } from 'better-auth/crypto';
 import { db } from '#lib/server/db/index.js';
 import { translator } from '#lib/server/deepl/index.js';
@@ -37,15 +37,6 @@ export function deckView(deck: Deck): DeckView {
 		bothDirections,
 		duplicateSide: duplicateSide(deck)
 	};
-}
-
-/**
- * Propriétaire de la requête. Les `load` sont protégés par le layout `(app)`, mais pas
- * les form actions : chacune passe par ici.
- */
-export function ownerOf(locals: App.Locals): string {
-	if (!locals.user) redirect(303, '/login');
-	return locals.user.id;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

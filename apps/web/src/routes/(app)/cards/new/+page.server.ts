@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { duplicateWarning, readCardForm, translateAction } from '#lib/server/web/card-form.js';
-import { cards, decks, deckView, ownerOf } from '#lib/server/web/services.js';
+import { cards, decks, deckView } from '#lib/server/web/services.js';
+import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // La carte va dans le deck par défaut : ses faces nomment les champs du formulaire.

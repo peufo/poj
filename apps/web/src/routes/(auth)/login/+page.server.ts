@@ -2,15 +2,14 @@ import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
 import { authErrorMessage } from '#lib/server/auth-errors.js';
-import { db } from '#lib/server/db/index.js';
-import { createAccountsService } from '#lib/server/domain/index.js';
+import { accounts } from '#lib/server/web/services.js';
 import { oauthApiContext, oauthQuery, oauthRedirect } from '#lib/server/oauth-flow.js';
 import { REDIRECT_PARAM, safeRedirectTo } from '#lib/server/web/redirect-to.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
 	// Premier lancement : aucun compte, on propose de le créer.
-	if (await createAccountsService(db).isSignUpOpen()) redirect(302, '/register');
+	if (await accounts.isSignUpOpen()) redirect(302, '/register');
 };
 
 export const actions: Actions = {

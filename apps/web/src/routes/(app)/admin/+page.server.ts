@@ -1,7 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { ORIGIN } from '$app/env/private';
+import { authErrorMessages } from '#lib/server/auth-errors.js';
 import { ConflictError } from '#lib/server/domain/index.js';
-import { requireAdmin } from '#lib/server/web/admin.js';
+import { requireAdmin } from '#lib/server/web/guards.js';
 import { accounts, idOf, invitations } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -18,7 +19,7 @@ export const actions: Actions = {
 	invite: async ({ locals, request }) => {
 		const adminId = requireAdmin(locals);
 		const email = (await request.formData()).get('email')?.toString().trim() ?? '';
-		if (!EMAIL.test(email)) return fail(400, { email, message: 'Adresse email invalide.' });
+		if (!EMAIL.test(email)) return fail(400, { email, message: authErrorMessages.INVALID_EMAIL });
 
 		try {
 			const { invitation, token } = await invitations.create(adminId, email);
@@ -31,7 +32,7 @@ export const actions: Actions = {
 			};
 		} catch (error) {
 			if (error instanceof ConflictError) {
-				return fail(409, { email, message: 'Un compte existe déjà avec cet email.' });
+				return fail(409, { email, message: authErrorMessages.USER_ALREADY_EXISTS });
 			}
 			throw error;
 		}

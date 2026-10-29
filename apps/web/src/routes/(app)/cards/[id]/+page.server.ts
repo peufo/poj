@@ -1,7 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { masteryOf } from '#lib/format/mastery.js';
 import { presentations } from '#lib/server/domain/index.js';
-import { cards, deckView, idOf, orNotFound, ownerOf } from '#lib/server/web/services.js';
+import { cards, deckView, idOf, orNotFound } from '#lib/server/web/services.js';
+import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
