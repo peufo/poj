@@ -48,7 +48,7 @@
 		{#snippet actions()}
 			<Button href="/cards/new" icon="plus" size="sm" class="max-md:hidden">Nouvelle carte</Button>
 			<!-- Au téléphone, la barre latérale (et sa déconnexion) n'existe pas. -->
-			<AccountMenu email={data.user.email} class="md:hidden" />
+			<AccountMenu email={data.user.email} isAdmin={data.user.isAdmin} class="md:hidden" />
 		{/snippet}
 	</PageHeader>
 

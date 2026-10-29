@@ -10,12 +10,14 @@
 		if (path.startsWith('/review')) return 'review';
 		if (path === '/cards/new') return 'new';
 		if (path.startsWith('/connect')) return 'connect';
+		// Administration : hors des onglets, aucun n'est actif.
+		if (path.startsWith('/admin')) return undefined;
 		return 'cards';
 	});
 
 	// Révision et formulaires : la barre d'onglets s'efface (barre d'action au pouce).
 	const focus = $derived(
-		(current !== 'cards' && current !== 'connect') || (page.route.id?.endsWith('/edit') ?? false)
+		current === 'review' || current === 'new' || (page.route.id?.endsWith('/edit') ?? false)
 	);
 </script>
 

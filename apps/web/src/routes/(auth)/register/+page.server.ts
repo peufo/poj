@@ -7,7 +7,7 @@ import { createAccountsService } from '#lib/server/domain/index.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	// Le compte unique existe déjà : l'inscription est fermée (refusée aussi côté Better Auth).
+	// Le premier compte existe déjà : l'inscription est fermée (refusée aussi côté Better Auth).
 	if (!(await createAccountsService(db).isSignUpOpen())) redirect(302, '/login');
 };
 

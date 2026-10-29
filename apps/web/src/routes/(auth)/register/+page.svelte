@@ -14,7 +14,8 @@
 <div class="flex flex-col gap-1.5">
 	<h1 class="text-2xl font-bold tracking-tight">Créer ton compte</h1>
 	<p class="text-ink-2">
-		Premier lancement : ce compte sera le seul. L’inscription se fermera ensuite.
+		Premier lancement : ce compte sera l’administrateur. L’inscription se fermera ensuite ; les
+		testeurs arriveront par un lien d’invitation.
 	</p>
 </div>
 

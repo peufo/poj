@@ -12,12 +12,16 @@
 		cardCount?: number;
 		/** Préfixe des liens (« /lab » pour les maquettes). */
 		base?: string;
-		user?: { email: string };
+		user?: { email: string; isAdmin?: boolean };
 		focus?: boolean;
 		children: Snippet;
 	};
 
 	let { current, dueCount, cardCount, base = '', user, focus = false, children }: Props = $props();
+
+	// Pied de la barre latérale : administration et déconnexion.
+	const footerItem =
+		'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
 
 	const items = $derived<
 		{ id: Section; label: string; short: string; icon: IconName; href: string; count?: number }[]
@@ -98,9 +102,12 @@
 				class="mt-auto flex flex-col gap-1 border-t border-line pt-3"
 			>
 				<span class="truncate px-2.5 text-xs text-ink-3">{user.email}</span>
-				<button
-					class="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink"
-				>
+				{#if user.isAdmin}
+					<a href="{base}/admin" class={footerItem}>
+						<Icon name="user" size={17} class="text-ink-3" />Administration
+					</a>
+				{/if}
+				<button class={footerItem}>
 					<Icon name="logout" size={17} class="text-ink-3" />Déconnexion
 				</button>
 			</form>

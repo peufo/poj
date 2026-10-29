@@ -1,10 +1,13 @@
 import { error, redirect } from '@sveltejs/kit';
+import { hashPassword } from 'better-auth/crypto';
 import { db } from '#lib/server/db/index.js';
 import { translator } from '#lib/server/deepl/index.js';
 import type { DeckView } from '#lib/format/decks.js';
 import {
+	createAccountsService,
 	createCardsService,
 	createDailyGoalService,
+	createInvitationsService,
 	createDecksService,
 	duplicateSide,
 	createReviewsService,
@@ -14,8 +17,10 @@ import {
 } from '#lib/server/domain/index.js';
 
 // Services du domaine partagés par les pages web (origine `web`).
+export const accounts = createAccountsService(db);
 export const cards = createCardsService(db);
 export const dailyGoal = createDailyGoalService(db);
+export const invitations = createInvitationsService(db, hashPassword);
 export const decks = createDecksService(db);
 export const reviews = createReviewsService(db);
 export const translation = createTranslationService(translator);

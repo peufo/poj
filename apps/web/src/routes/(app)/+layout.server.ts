@@ -18,7 +18,12 @@ export const load: LayoutServerLoad = async ({ locals, url, untrack }) => {
 		cards.stats(locals.user.id, now)
 	]);
 	return {
-		user: { id: locals.user.id, name: locals.user.name, email: locals.user.email },
+		user: {
+			id: locals.user.id,
+			name: locals.user.name,
+			email: locals.user.email,
+			isAdmin: locals.user.role === 'admin'
+		},
 		nav: { dueCount, cardCount: totalCards }
 	};
 };

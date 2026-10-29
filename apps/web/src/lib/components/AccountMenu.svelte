@@ -5,9 +5,10 @@
 
 	// Compte et déconnexion au téléphone, où la barre latérale n'existe pas : un bouton
 	// d'en-tête qui ouvre une feuille. Sans JavaScript, le bouton déconnecte directement.
-	type Props = { email: string; class?: string };
+	// L'administrateur y trouve aussi le lien vers `/admin` (hors de la barre d'onglets).
+	type Props = { email: string; isAdmin?: boolean; class?: string };
 
-	let { email, class: className = '' }: Props = $props();
+	let { email, isAdmin = false, class: className = '' }: Props = $props();
 
 	let open = $state(false);
 </script>
@@ -28,6 +29,11 @@
 </form>
 
 <Sheet bind:open title="Compte" description="Connecté avec {email}.">
+	{#if isAdmin}
+		<Button href="/admin" size="lg" icon="user" block onclick={() => (open = false)}>
+			Administration
+		</Button>
+	{/if}
 	{#snippet actions()}
 		<Button size="lg" onclick={() => (open = false)}>Annuler</Button>
 		<form method="post" action="/logout" class="contents">
