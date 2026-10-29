@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { calendarDaysBetween, formatRelative, startOfDay, startOfNextDay } from './time';
+import {
+	calendarDaysBetween,
+	formatRelative,
+	startOfDay,
+	startOfNextDay,
+	weekdayIndex
+} from './time';
 
 describe('startOfNextDay', () => {
 	it('returns the next Zurich midnight in winter (UTC+1)', () => {
@@ -49,6 +55,15 @@ describe('calendarDaysBetween', () => {
 		const now = new Date('2026-01-05T08:00:00Z');
 		expect(calendarDaysBetween(now, new Date('2026-01-04T23:30:00Z'))).toBe(0);
 		expect(calendarDaysBetween(now, new Date('2026-01-04T08:00:00Z'))).toBe(-1);
+	});
+});
+
+describe('weekdayIndex', () => {
+	it('counts from Monday (0) to Sunday (6), on the Zurich date', () => {
+		expect(weekdayIndex(new Date('2026-01-05T08:00:00Z'))).toBe(0); // lundi
+		expect(weekdayIndex(new Date('2026-01-11T08:00:00Z'))).toBe(6); // dimanche
+		// 23:30 UTC le dimanche 11 = 00:30 le lundi 12 à Zurich
+		expect(weekdayIndex(new Date('2026-01-11T23:30:00Z'))).toBe(0);
 	});
 });
 

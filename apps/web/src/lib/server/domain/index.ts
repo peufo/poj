@@ -2,6 +2,7 @@ export * from './errors';
 export type { Db } from './db';
 export * from './time';
 export * from './cards/cards.service';
+export * from './cards/daily-goal.service';
 export type * from './cards/types';
 export * from './reviews/reviews.service';
 export { presentations, type Presentation, type ReviewSlot } from './reviews/availability';

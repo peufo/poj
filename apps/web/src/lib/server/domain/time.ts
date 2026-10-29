@@ -57,6 +57,12 @@ export function calendarDaysBetween(from: Date, to: Date, timeZone = TIME_ZONE):
 	);
 }
 
+/** Jour de la semaine (heure locale) de `date` : 0 le lundi, 6 le dimanche. */
+export function weekdayIndex(date: Date, timeZone = TIME_ZONE): number {
+	const { year, month, day } = localParts(date, timeZone);
+	return (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
+}
+
 const relative = new Intl.RelativeTimeFormat('fr', { numeric: 'always' });
 
 const MINUTE = 60_000;
