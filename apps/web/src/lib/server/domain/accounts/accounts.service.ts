@@ -2,6 +2,13 @@ import type { Db } from '../db';
 
 export type { UserRole } from '../../db/generated/prisma/client';
 
+/**
+ * Bornes du mot de passe de tout compte : passées à Better Auth (`minPasswordLength`,
+ * `maxPasswordLength`) et appliquées aux comptes créés par invitation.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AccountsService = ReturnType<typeof createAccountsService>;
