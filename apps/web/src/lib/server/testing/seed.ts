@@ -401,6 +401,8 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 			name: SANDBOX_ACCOUNT.name,
 			email: SANDBOX_ACCOUNT.email,
 			emailVerified: true,
+			// Le compte du bac à sable est le premier : administrateur, comme en vrai.
+			role: 'admin',
 			createdAt: at(365 * DAY)
 		}
 	});

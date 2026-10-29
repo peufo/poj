@@ -36,7 +36,7 @@ describe('auth error messages', () => {
 			)
 		).toBe('Email ou mot de passe incorrect.');
 		expect(await messageOf(() => signUp('intrus@test.dev'))).toBe(
-			'Les inscriptions sont fermées : le compte existe déjà.'
+			'Les inscriptions sont fermées : demande un lien d’invitation.'
 		);
 	});
 

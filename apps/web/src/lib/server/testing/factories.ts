@@ -4,12 +4,19 @@ import {
 	type CardInput,
 	type Db,
 	type Deck,
-	type Origin
+	type Origin,
+	type UserRole
 } from '../domain/index';
 
-/** Utilisateur sans mot de passe, `prénom@test.dev`. Renvoie son id. */
-export async function createUser(db: Db, name: string): Promise<string> {
-	const user = await db.user.create({ data: { name, email: `${name.toLowerCase()}@test.dev` } });
+/** Utilisateur sans mot de passe, `prénom@test.dev`, testeur sauf mention. Renvoie son id. */
+export async function createUser(
+	db: Db,
+	name: string,
+	{ role = 'user' }: { role?: UserRole } = {}
+): Promise<string> {
+	const user = await db.user.create({
+		data: { name, email: `${name.toLowerCase()}@test.dev`, role }
+	});
 	return user.id;
 }
 

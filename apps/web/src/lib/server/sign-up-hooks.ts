@@ -4,10 +4,13 @@ import { createAccountsService, type Db } from '#lib/server/domain/index.js';
 import { SIGN_UP_CLOSED } from '#lib/server/auth-errors.js';
 
 /**
- * Refuse toute création d'utilisateur dès qu'un compte existe, quel que soit le
- * chemin (page d'inscription ou appel direct à l'endpoint Better Auth).
+ * Inscription par Better Auth : seulement au premier lancement, et ce premier compte est
+ * administrateur. Ensuite, toute création d'utilisateur par Better Auth est refusée, quel
+ * que soit le chemin (page d'inscription ou appel direct à l'endpoint). Les testeurs
+ * arrivent par un lien d'invitation, dont le compte est créé par le domaine
+ * (`createInvitationsService`), hors de Better Auth.
  */
-export function singleAccountHooks(db: Db): BetterAuthOptions['databaseHooks'] {
+export function signUpHooks(db: Db): BetterAuthOptions['databaseHooks'] {
 	const accounts = createAccountsService(db);
 	return {
 		user: {
@@ -19,6 +22,7 @@ export function singleAccountHooks(db: Db): BetterAuthOptions['databaseHooks'] {
 							code: SIGN_UP_CLOSED
 						});
 					}
+					return { data: { role: 'admin' } };
 				}
 			}
 		}

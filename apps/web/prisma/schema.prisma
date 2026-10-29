@@ -16,18 +16,21 @@ datasource db {
 }
 
 model User {
-  id            String      @id @default(uuid(7)) @db.Uuid
+  id            String       @id @default(uuid(7)) @db.Uuid
   name          String
   email         String
-  emailVerified Boolean     @default(false) @map("email_verified")
+  emailVerified Boolean      @default(false) @map("email_verified")
   image         String?
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  /// Rôle (champ additionnel de Better Auth, `input: false`) : le premier compte est admin.
+  role          UserRole     @default(user)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
   decks         Deck[]
   cards         Card[]
   dailyGoals    DailyGoal[]
+  invitations   Invitation[]
 
   oauthclients       OauthClient[]
   oauthrefreshtokens OauthRefreshToken[]
@@ -36,6 +39,13 @@ model User {
 
   @@unique([email])
   @@map("users")
+}
+
+enum UserRole {
+  user
+  admin
+
+  @@map("user_role")
 }
 
 model Session {
@@ -87,6 +97,29 @@ model Verification {
 
   @@index([identifier])
   @@map("verifications")
+}
+
+// ─── Comptes testeurs (doc/story/connexion-assistants.md) ───
+
+/// Lien d'invitation à usage unique, généré par un administrateur pour l'adresse `email`.
+/// Seul le SHA-256 du jeton est stocké : le lien ne s'affiche qu'à sa création.
+/// `deletedAt` marque une invitation révoquée.
+model Invitation {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  email       String
+  tokenHash   String    @map("token_hash")
+  invitedById String    @map("invited_by_id") @db.Uuid
+  invitedBy   User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime  @map("expires_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@unique([tokenHash])
+  @@index([email])
+  @@index([invitedById])
+  @@map("invitations")
 }
 
 // ─── Cartes et répétition espacée (doc/specs/repetition.md) ───

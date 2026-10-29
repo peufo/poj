@@ -1,7 +1,7 @@
 // Messages d'erreur de Better Auth, traduits pour les pages de connexion et d'inscription.
 // Les codes sont ceux de `BASE_ERROR_CODES` (`@better-auth/core`), plus ceux de Poj.
 
-/** Code de l'erreur levée par `singleAccountHooks` quand un compte existe déjà. */
+/** Code de l'erreur levée par `signUpHooks` quand un compte existe déjà. */
 export const SIGN_UP_CLOSED = 'SIGN_UP_CLOSED';
 
 const messages: Record<string, string> = {
@@ -22,7 +22,7 @@ const messages: Record<string, string> = {
 	INVALID_ORIGIN: 'Requête refusée : recharge la page, puis réessaie.',
 	MISSING_OR_NULL_ORIGIN: 'Requête refusée : recharge la page, puis réessaie.',
 	CROSS_SITE_NAVIGATION_LOGIN_BLOCKED: 'Requête refusée : recharge la page, puis réessaie.',
-	[SIGN_UP_CLOSED]: 'Les inscriptions sont fermées : le compte existe déjà.'
+	[SIGN_UP_CLOSED]: 'Les inscriptions sont fermées : demande un lien d’invitation.'
 };
 
 /**

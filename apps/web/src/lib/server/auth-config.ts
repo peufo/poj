@@ -1,8 +1,8 @@
 import { mcp } from '@better-auth/mcp';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { bearer, jwt } from 'better-auth/plugins';
-import type { Db } from '#lib/server/domain/index.js';
-import { singleAccountHooks } from '#lib/server/single-account.js';
+import type { Db, UserRole } from '#lib/server/domain/index.js';
+import { signUpHooks } from '#lib/server/sign-up-hooks.js';
 
 /** Scope propre au serveur MCP : lire et modifier les cartes et leurs révisions. */
 export const MCP_SCOPE = 'cards';
@@ -36,8 +36,19 @@ export function createAuthOptions({
 		secret,
 		database: prismaAdapter(db, { provider: 'postgresql' }),
 		emailAndPassword: { enabled: true },
+		user: {
+			additionalFields: {
+				// Lu dans `locals.user`, jamais modifiable par les endpoints (inscription,
+				// `/update-user`). Le premier compte devient admin (`signUpHooks`).
+				role: {
+					type: ['user', 'admin'] as UserRole[],
+					input: false,
+					defaultValue: 'user'
+				}
+			}
+		},
 		advanced: { database: { generateId: 'uuid' as const } },
-		databaseHooks: singleAccountHooks(db),
+		databaseHooks: signUpHooks(db),
 		// `/token` (plugin jwt) émettrait un JWT pour une session : inutile ici.
 		disabledPaths: ['/token'],
 		plugins: [

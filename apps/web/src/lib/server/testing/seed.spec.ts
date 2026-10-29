@@ -43,13 +43,14 @@ describe('sandbox seed', () => {
 	describe('once loaded', () => {
 		beforeAll(seed);
 
-		it('creates the single account, which can sign in with its password', async () => {
+		it('creates the admin account, which can sign in with its password', async () => {
 			const auth = createTestAuth(db);
 			const { user, token } = await auth.api.signInEmail({
 				body: { email: SANDBOX_ACCOUNT.email, password: SANDBOX_ACCOUNT.password }
 			});
 
 			expect(user.id).toBe(owner);
+			expect(user.role).toBe('admin');
 			expect(token).toBeTruthy();
 			expect(await createAccountsService(db).isSignUpOpen()).toBe(false);
 		});
