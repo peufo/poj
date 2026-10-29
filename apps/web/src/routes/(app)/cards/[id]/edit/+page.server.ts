@@ -5,8 +5,8 @@ import { cards, deckView, idOf, orNotFound } from '#lib/server/web/services.js';
 import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
-	const card = await orNotFound(cards.get(ownerOf(locals), idOf(params.id)));
+export const load: PageServerLoad = async ({ locals, params, url }) => {
+	const card = await orNotFound(cards.get(ownerOf(locals, url), idOf(params.id)));
 	return {
 		card: { id: card.id, sideA: card.sideA, sideB: card.sideB, context: card.context },
 		deck: deckView(card.deck)
@@ -14,13 +14,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 };
 
 export const actions: Actions = {
-	translate: async ({ request, locals, params }) => {
-		const { deck } = await orNotFound(cards.get(ownerOf(locals), idOf(params.id)));
+	translate: async ({ request, locals, params, url }) => {
+		const { deck } = await orNotFound(cards.get(ownerOf(locals, url), idOf(params.id)));
 		return translateAction(await request.formData(), deck);
 	},
 
-	update: async ({ request, locals, params }) => {
-		const ownerId = ownerOf(locals);
+	update: async ({ request, locals, params, url }) => {
+		const ownerId = ownerOf(locals, url);
 		const id = idOf(params.id);
 		const existing = await orNotFound(cards.get(ownerId, id));
 		const { deck } = existing;

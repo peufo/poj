@@ -9,7 +9,7 @@ const isRating = (value: unknown): value is Rating =>
 	typeof value === 'string' && RATINGS.includes(value);
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const ownerId = ownerOf(locals);
+	const ownerId = ownerOf(locals, url);
 	const ahead = url.searchParams.get('ahead') === '1';
 	const now = new Date();
 
@@ -62,8 +62,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
 	/** Indice : le domaine mémorise la demande et plafonnera la note à Hard. */
-	hint: async ({ request, locals }) => {
-		const ownerId = ownerOf(locals);
+	hint: async ({ request, locals, url }) => {
+		const ownerId = ownerOf(locals, url);
 		const form = await request.formData();
 		await orNotFound(
 			reviews.requestHint(ownerId, idOf(form.get('reviewId'), 'Révision')),
@@ -72,8 +72,8 @@ export const actions: Actions = {
 		return { hinted: true };
 	},
 
-	answer: async ({ request, locals }) => {
-		const ownerId = ownerOf(locals);
+	answer: async ({ request, locals, url }) => {
+		const ownerId = ownerOf(locals, url);
 		const form = await request.formData();
 		const reviewId = idOf(form.get('reviewId'), 'Révision');
 		const rating = form.get('rating');
@@ -97,8 +97,8 @@ export const actions: Actions = {
 	},
 
 	/** Corriger la dernière note. Sans note choisie (sans JavaScript), ouvre le choix. */
-	amend: async ({ request, locals }) => {
-		const ownerId = ownerOf(locals);
+	amend: async ({ request, locals, url }) => {
+		const ownerId = ownerOf(locals, url);
 		const form = await request.formData();
 		const reviewId = idOf(form.get('reviewId'), 'Révision');
 		const rating = form.get('rating');

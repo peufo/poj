@@ -16,7 +16,7 @@ const HORIZON_DAYS = 14;
 const GOAL_WEEKS = 8;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const ownerId = ownerOf(locals);
+	const ownerId = ownerOf(locals, url);
 	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
 	const now = new Date();
 
@@ -73,8 +73,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	goal: async ({ request, locals }) => {
-		const ownerId = ownerOf(locals);
+	goal: async ({ request, locals, url }) => {
+		const ownerId = ownerOf(locals, url);
 		const value = (await request.formData()).get('goal')?.toString().trim() ?? '';
 		const goal = Number(value);
 		if (!/^\d+$/.test(value) || goal < MIN_DAILY_GOAL || goal > MAX_DAILY_GOAL) {

@@ -5,8 +5,8 @@ import { cards, deckView, idOf, orNotFound } from '#lib/server/web/services.js';
 import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
-	const card = await orNotFound(cards.get(ownerOf(locals), idOf(params.id)));
+export const load: PageServerLoad = async ({ locals, params, url }) => {
+	const card = await orNotFound(cards.get(ownerOf(locals, url), idOf(params.id)));
 	const now = new Date();
 	const shown = presentations(card.reviews, now);
 
@@ -51,8 +51,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 export const actions: Actions = {
 	// Suppression en deux temps : sans `confirm`, on demande confirmation.
-	delete: async ({ request, locals, params }) => {
-		const ownerId = ownerOf(locals);
+	delete: async ({ request, locals, params, url }) => {
+		const ownerId = ownerOf(locals, url);
 		const id = idOf(params.id);
 		const form = await request.formData();
 		if (form.get('confirm') !== '1') return fail(400, { confirmDelete: true });
