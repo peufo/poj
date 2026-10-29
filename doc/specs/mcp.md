@@ -29,22 +29,25 @@ Références : [Build an MCP server for Claude](https://claude.com/docs/connecto
 
 Les noms des outils et de leurs paramètres sont en anglais, les textes renvoyés en français.
 
+Les cartes capturées vont dans le deck par défaut (« Français → Anglais » tant qu'il n'y a pas de choix de deck, voir [decisions.md](../decisions.md)). Les clés des outils sont génériques : `side_a` et `side_b` pour les deux faces, `a_to_b` et `b_to_a` pour les sens. Les instructions du serveur, la description des outils et de leurs paramètres, ainsi que les textes renvoyés, nomment les faces d'après le deck : le nom des langues pour un deck de langue (`side_a` : « Texte en français de la carte »), ses libellés ou « Question » / « Réponse » pour un sujet.
+
 ### `check_card` — vérifier une carte avant création
 
 Appelé **avant chaque création**, avec la proposition de Claude.
 
-- **Entrée :** `french`, `english`, `context` (facultatif).
+- **Entrée :** `side_a` (le français), `side_b` (l'anglais), `context` (facultatif).
 - **Sortie :**
-  - `deepl_french_to_english` : traduction DeepL du français, en tenant compte du contexte ;
-  - `deepl_english_to_french` : traduction DeepL de l'anglais, utile quand l'expression a été entendue en anglais ([CL-3](../story/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)) ;
-  - `duplicates` : cartes existantes au même texte anglais (casse et espaces ignorés), avec leur français et leur contexte ;
+  - `deepl_a_to_b` : traduction DeepL de la face A dans la langue de la face B (anglais britannique, variante tirée du deck), en tenant compte du contexte ;
+  - `deepl_b_to_a` : traduction DeepL de la face B, utile quand l'expression a été entendue en anglais ([CL-3](../story/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)) ;
+  - `duplicates` : cartes existantes du même deck au même texte anglais (casse et espaces ignorés), avec leurs deux faces (`side_a`, `side_b`) et leur contexte ;
   - si DeepL est indisponible ou que le quota est épuisé : `deepl_error` avec la raison. Claude me le signale, et je décide de créer quand même ou pas.
+- **Deck de sujet :** DeepL ne s'applique qu'aux decks de langue. Pour un sujet, `deepl_a_to_b` et `deepl_b_to_a` sont nuls, sans `deepl_error`, et les doublons portent sur la face A (la question). La relecture de la carte par Claude reste obligatoire.
 - **Lecture seule :** il ne modifie rien.
 
 ### `create_card` — créer une carte
 
-- **Entrée :** `french`, `english`, `context` (facultatif).
-- **Effet :** crée la carte (origine : Claude) et ses deux révisions, dues immédiatement.
+- **Entrée :** `side_a`, `side_b`, `context` (facultatif).
+- **Effet :** crée la carte (origine : Claude) dans le deck par défaut, et ses deux révisions, dues immédiatement. Dans un deck à sens unique, seule la révision `a_to_b` est créée.
 - **Sortie :** `card_id` et un récapitulatif de la carte.
 - **Rejeu :** si une carte identique (mêmes trois champs) a été créée dans les 10 dernières minutes, l'outil renvoie celle-ci au lieu d'en créer une seconde. C'est la protection contre les relances réseau. On n'utilise pas d'identifiant fourni par le client, car Claude génère mal les UUID.
 - **Description de l'outil (consignes à Claude) :**
@@ -56,7 +59,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 
 - **Entrée :** `ahead` (booléen, `false` par défaut). Avec `true`, il propose les prochaines révisions à venir quand rien n'est dû ([CL-6](../story/connecteur-claude.md#cl-6--rien-à-réviser)).
 - **Sortie :**
-  - `review_id`, `direction` (`fr_to_en` ou `en_to_fr`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
+  - `review_id`, `direction` (`a_to_b` ou `b_to_a`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
   - `has_hint` : vrai si la carte a un contexte ;
   - `version` : jeton opaque à renvoyer avec la note ;
   - `remaining` : nombre de révisions qui seront encore présentées dans la session, au plus une par carte (voir [Sessions](repetition.md#sessions)) ;
