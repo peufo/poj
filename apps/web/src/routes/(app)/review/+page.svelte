@@ -10,8 +10,8 @@
 	import Notice from '#lib/ui/Notice.svelte';
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue, formatInterval } from '#lib/format/due.js';
+	import { directionFaces, directionLabel } from '#lib/format/decks.js';
 	import {
-		directionLabels,
 		formatWeekday,
 		isSameDay,
 		plural,
@@ -41,7 +41,8 @@
 
 	const endsWithPunctuation = (text: string) => /[.?!…]$/.test(text);
 	const query = $derived(data.ahead ? 'ahead=1&' : '');
-	const promptLang = $derived(current?.direction === 'en_to_fr' ? 'en' : 'fr');
+	// Faces présentée et attendue : leur langue (attribut `lang`), `null` pour un sujet.
+	const sides = $derived(current && directionFaces(current.direction, current.deck));
 
 	const intervalsFrom = (preview: Record<Rating, Date>, from: Date) =>
 		Object.fromEntries(
@@ -139,7 +140,7 @@
 					aria-label="Carte à réviser"
 				>
 					<p class="flex items-center gap-1.5 text-sm font-medium text-ink-3">
-						{directionLabels[current.direction].long}
+						{directionLabel(current.direction, current.deck)}
 						{#if current.isNew}
 							<span class="rounded-sm bg-accent-soft px-1.5 text-xs font-semibold text-accent-text"
 								>nouvelle</span
@@ -148,7 +149,7 @@
 					</p>
 
 					<div class="flex flex-1 flex-col justify-center gap-5 py-6">
-						<p class="text-3xl font-semibold tracking-tight md:text-4xl" lang={promptLang}>
+						<p class="text-3xl font-semibold tracking-tight md:text-4xl" lang={sides?.from.lang}>
 							{current.prompt}
 						</p>
 
@@ -170,7 +171,7 @@
 								<p class="text-sm text-ink-3">Réponse</p>
 								<p
 									class="text-3xl font-semibold tracking-tight text-accent-text md:text-4xl"
-									lang={promptLang === 'fr' ? 'en' : 'fr'}
+									lang={sides?.to.lang}
 								>
 									{current.expected}
 								</p>
@@ -260,7 +261,7 @@
 						Prochaine révision {describeDue(next.due, data.now)
 							.long}{#if !isSameDay(next.due, data.now)},
 							{formatWeekday(next.due)}{/if}&nbsp;:
-						<span class="text-ink" lang={next.direction === 'en_to_fr' ? 'en' : 'fr'}
+						<span class="text-ink" lang={directionFaces(next.direction, next.deck).from.lang}
 							>{next.prompt}</span
 						>{endsWithPunctuation(next.prompt) ? '' : '.'}
 					</p>

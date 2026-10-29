@@ -34,16 +34,16 @@ async function setDue(cardId: string, due: Date) {
 
 describe('reviews service', () => {
 	it('presents the most overdue review first, with prompt and expected answer', async () => {
-		const recent = await cards.create(alice, { french: 'récent', english: 'recent' }, 'web', t0);
+		const recent = await cards.create(alice, { sideA: 'récent', sideB: 'recent' }, 'web', t0);
 		const old = await cards.create(
 			alice,
-			{ french: 'ancien', english: 'old', context: 'ctx' },
+			{ sideA: 'ancien', sideB: 'old', context: 'ctx' },
 			'web',
 			t0
 		);
 		await setDue(recent.id, at(-HOUR));
 		await db.review.update({
-			where: { cardId_direction: { cardId: old.id, direction: 'en_to_fr' } },
+			where: { cardId_direction: { cardId: old.id, direction: 'b_to_a' } },
 			data: { due: at(-DAY) }
 		});
 
@@ -52,7 +52,7 @@ describe('reviews service', () => {
 
 		expect(review).toMatchObject({
 			cardId: old.id,
-			direction: 'en_to_fr',
+			direction: 'b_to_a',
 			prompt: 'old',
 			expected: 'ancien',
 			hasHint: true,
@@ -65,7 +65,7 @@ describe('reviews service', () => {
 	it('reports nothing due with the next due date, ignoring other users', async () => {
 		const { id } = await createCard(db, alice, { now: t0 });
 		await setDue(id, at(DAY));
-		await createCard(db, bob, { french: 'b', english: 'b', now: t0 });
+		await createCard(db, bob, { sideA: 'b', sideB: 'b', now: t0 });
 
 		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY) });
 	});
@@ -105,11 +105,11 @@ describe('reviews service', () => {
 	});
 
 	it('counts only what the session will present, so the count never jumps', async () => {
-		const a = await createCard(db, alice, { french: 'a', english: 'a', now: t0 });
-		const b = await createCard(db, alice, { french: 'b', english: 'b', now: t0 });
+		const a = await createCard(db, alice, { sideA: 'a', sideB: 'a', now: t0 });
+		const b = await createCard(db, alice, { sideA: 'b', sideB: 'b', now: t0 });
 		// `b` a un sens noté il y a une heure : l'autre est mis de côté.
 		await db.review.updateMany({
-			where: { cardId: b.id, direction: 'fr_to_en' },
+			where: { cardId: b.id, direction: 'a_to_b' },
 			data: { lastReview: at(-HOUR), state: 'review', due: at(10 * DAY) }
 		});
 
@@ -266,7 +266,7 @@ describe('reviews service', () => {
 			ConflictError
 		);
 
-		await cards.update(alice, card.id, { french: 'b', english: 'a' }, at(2));
+		await cards.update(alice, card.id, { sideA: 'b', sideB: 'a' }, at(2));
 		await expect(reviews.amend(alice, review.id, 'again', at(3))).rejects.toBeInstanceOf(
 			ConflictError
 		);
@@ -290,7 +290,7 @@ describe('reviews service', () => {
 
 	it('counts the reviews to present now, without buried siblings or deleted cards', async () => {
 		const card = await createCard(db, alice, { now: t0 });
-		const deleted = await createCard(db, alice, { french: 'b', english: 'b', now: t0 });
+		const deleted = await createCard(db, alice, { sideA: 'b', sideB: 'b', now: t0 });
 		await cards.softDelete(alice, deleted.id);
 		await createCard(db, bob, { now: t0 });
 		expect(await reviews.countDue(alice, t0)).toBe(1);
@@ -308,7 +308,7 @@ describe('reviews service', () => {
 
 	it('exposes the last answer while it can be amended, with previews from the state before', async () => {
 		expect(await reviews.lastAnswer(alice, t0)).toBeNull();
-		const card = await createCard(db, alice, { french: 'fr', english: 'en', now: t0 });
+		const card = await createCard(db, alice, { sideA: 'fr', sideB: 'en', now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 		const answered = await reviews.answer(
 			alice,
@@ -338,7 +338,7 @@ describe('reviews service', () => {
 
 		expect(await reviews.lastAnswer(alice, at(HOUR + 1))).toBeNull();
 		expect(await reviews.lastAnswer(bob, at(7))).toBeNull();
-		await cards.update(alice, card.id, { french: 'autre', english: 'en' }, at(8));
+		await cards.update(alice, card.id, { sideA: 'autre', sideB: 'en' }, at(8));
 		expect(await reviews.lastAnswer(alice, at(9))).toBeNull();
 	});
 

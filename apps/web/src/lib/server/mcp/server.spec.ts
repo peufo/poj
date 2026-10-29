@@ -2,12 +2,14 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { InMemoryTransport, type CallToolResult } from '@modelcontextprotocol/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../testing/db';
-import { createUser } from '../testing/factories';
+import { createDeck, createUser } from '../testing/factories';
 import {
 	createCardsService,
+	createDecksService,
 	createReviewsService,
 	createTranslationService,
 	TranslatorError,
+	type Deck,
 	type Translator
 } from '../domain/index';
 import { createMcpRequestHandler } from './handler';
@@ -16,6 +18,7 @@ import { createPojMcpServer } from './server';
 const db = useTestDatabase();
 const cards = createCardsService(db);
 const reviews = createReviewsService(db);
+const decks = createDecksService(db);
 
 const t0 = new Date('2026-01-05T08:00:00Z');
 const at = (minutes: number) => new Date(t0.getTime() + minutes * 60_000);
@@ -25,11 +28,23 @@ const DAY = 24 * HOUR;
 /** Faux DeepL : renvoie une traduction fixe par langue cible. */
 const echo: Translator = {
 	async translate({ to }) {
-		return to === 'en' ? 'to take for granted' : 'tenir pour acquis';
+		return to === 'en-GB' ? 'to take for granted' : 'tenir pour acquis';
 	}
 };
 
-const card = { french: 'tenir pour acquis', english: 'to take for granted' };
+const card = { sideA: 'tenir pour acquis', sideB: 'to take for granted' };
+/** La même carte, telle que Claude la passe aux outils. */
+const args = { side_a: card.sideA, side_b: card.sideB };
+
+/** Deck de sujet à sens unique. */
+const capitals = {
+	kind: 'subject',
+	languageA: null,
+	languageB: null,
+	labelA: 'Pays',
+	labelB: 'Capitale',
+	bothDirections: false
+} as const;
 
 let alice: string;
 let bob: string;
@@ -43,14 +58,19 @@ beforeEach(async () => {
 
 const deps = (translator: Translator | null = echo) => ({
 	cards,
+	decks,
 	reviews,
 	translation: createTranslationService(translator),
 	now: () => clock
 });
 
-/** Client MCP relié en mémoire à un serveur Poj pour ce propriétaire. */
-async function connect(ownerId: string, translator?: Translator | null) {
-	const server = createPojMcpServer({ ownerId, ...deps(translator) });
+/** Client MCP relié en mémoire à un serveur Poj pour ce propriétaire (deck par défaut). */
+async function connect(ownerId: string, translator?: Translator | null, deck?: Deck) {
+	const server = createPojMcpServer({
+		ownerId,
+		deck: deck ?? (await decks.ensureDefault(ownerId)),
+		...deps(translator)
+	});
 	const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
 	await server.connect(serverSide);
 	const client = new Client({ name: 'test', version: '1.0.0' });
@@ -93,34 +113,36 @@ describe('MCP server', () => {
 		it('checks then creates a card, without duplicate on replay', async () => {
 			const client = await connect(alice);
 
-			expect(data(await call(client, 'check_card', { ...card, context: 'réunion' }))).toEqual({
-				deepl_french_to_english: 'to take for granted',
-				deepl_english_to_french: 'tenir pour acquis',
+			const check = await call(client, 'check_card', { ...args, context: 'réunion' });
+			expect(data(check)).toEqual({
+				deepl_a_to_b: 'to take for granted',
+				deepl_b_to_a: 'tenir pour acquis',
 				duplicates: []
 			});
+			expect(text(check)).toContain('DeepL, français vers anglais');
 
-			const created = data(await call(client, 'create_card', { ...card, context: 'réunion' }));
-			expect(created).toMatchObject({ ...card, context: 'réunion', created: true });
+			const created = data(await call(client, 'create_card', { ...args, context: 'réunion' }));
+			expect(created).toMatchObject({ ...args, context: 'réunion', created: true });
 
 			clock = at(2);
-			const replay = await call(client, 'create_card', { ...card, context: 'réunion' });
+			const replay = await call(client, 'create_card', { ...args, context: 'réunion' });
 			expect(data(replay)).toEqual({ ...created, created: false });
 			expect(text(replay)).toContain('déjà créée');
 			expect(await db.card.count()).toBe(1);
 			expect(await db.card.findFirst()).toMatchObject({ origin: 'claude' });
 		});
 
-		it('reports existing cards with the same english', async () => {
+		it('reports existing cards with the same side B', async () => {
 			const existing = await cards.create(alice, { ...card, context: 'podcast' }, 'web', t0);
 			await cards.create(bob, card, 'web', t0);
 			const client = await connect(alice);
 
 			const result = await call(client, 'check_card', {
-				french: 'considérer comme acquis',
-				english: ' To take for GRANTED '
+				side_a: 'considérer comme acquis',
+				side_b: ' To take for GRANTED '
 			});
 			expect(data(result).duplicates).toEqual([
-				{ card_id: existing.id, ...card, context: 'podcast' }
+				{ card_id: existing.id, ...args, context: 'podcast' }
 			]);
 			expect(text(result)).toContain('Doublon');
 		});
@@ -132,16 +154,57 @@ describe('MCP server', () => {
 				}
 			};
 
-			const result = await call(await connect(alice, quota), 'check_card', card);
+			const result = await call(await connect(alice, quota), 'check_card', args);
 			expect(data(result)).toEqual({
-				deepl_french_to_english: null,
-				deepl_english_to_french: null,
+				deepl_a_to_b: null,
+				deepl_b_to_a: null,
 				deepl_error: 'le quota DeepL est épuisé',
 				duplicates: []
 			});
 
-			const unconfigured = await call(await connect(alice, null), 'check_card', card);
+			const unconfigured = await call(await connect(alice, null), 'check_card', args);
 			expect(data(unconfigured).deepl_error).toBe("DeepL n'est pas configuré");
+		});
+
+		it('names the faces after the languages of the deck', async () => {
+			const client = await connect(alice);
+			const { tools } = await client.listTools();
+			const check = tools.find((t) => t.name === 'check_card')!;
+
+			expect(client.getInstructions()).toContain('expressions en anglais');
+			expect(client.getInstructions()).toContain('le français (side_a), l’anglais (side_b)');
+			expect(check.inputSchema.properties).toMatchObject({
+				side_a: { description: 'Texte en français de la carte.' },
+				side_b: { description: 'Texte en anglais de la carte (mot ou phrase entière).' }
+			});
+			expect(check.description).toContain('au même anglais');
+		});
+
+		it('gives no DeepL second opinion for a subject deck, but still finds duplicates', async () => {
+			const deck = await createDeck(db, alice, capitals);
+			const translator: Translator = {
+				async translate() {
+					throw new Error('DeepL must not be called for a subject deck');
+				}
+			};
+			await db.card.create({
+				data: { ownerId: alice, deckId: deck.id, sideA: 'Suisse', sideB: 'Berne', origin: 'web' }
+			});
+			const client = await connect(alice, translator, deck);
+			const { tools } = await client.listTools();
+
+			expect(client.getInstructions()).toContain('« Pays » (side_a), « Capitale » (side_b)');
+			expect(client.getInstructions()).toContain('pas de second avis DeepL');
+			expect(client.getInstructions()).toContain('de « Pays » vers « Capitale » seulement');
+			expect(tools.find((t) => t.name === 'create_card')!.description).toContain(
+				'sa révision, due immédiatement'
+			);
+
+			const result = await call(client, 'check_card', { side_a: ' suisse ', side_b: 'Zurich' });
+			expect(data(result)).toMatchObject({ deepl_a_to_b: null, deepl_b_to_a: null });
+			expect(data(result)).not.toHaveProperty('deepl_error');
+			expect(data(result).duplicates).toHaveLength(1);
+			expect(text(result)).toContain('Pas de second avis DeepL');
 		});
 	});
 
@@ -176,6 +239,18 @@ describe('MCP server', () => {
 			expect(answer.next_due_in).toMatch(/^dans \d+ minutes?$/);
 			const [log] = await db.reviewLog.findMany();
 			expect(log).toMatchObject({ rating: 'hard', origin: 'claude', hintUsed: true });
+		});
+
+		it('asks for the face to produce, in its language or by its label', async () => {
+			await cards.create(alice, card, 'web', t0);
+			const next = await call(await connect(alice), 'next_review');
+			expect(text(next)).toMatch(/^À demander en (anglais|français) : /);
+
+			const deck = await createDeck(db, bob, capitals);
+			await cards.create(bob, { sideA: 'Suisse', sideB: 'Berne' }, 'web', t0);
+			const subject = await call(await connect(bob, echo, deck), 'next_review');
+			expect(data(subject)).toMatchObject({ direction: 'a_to_b', prompt: 'Suisse', remaining: 1 });
+			expect(text(subject)).toContain('À demander (Pays → Capitale) : « Suisse ».');
 		});
 
 		it('ignores a replayed submit with a stale version', async () => {
@@ -297,7 +372,7 @@ describe('MCP server', () => {
 
 		const next = data(await call(client, 'next_review'));
 		expect(next).toMatchObject({ nothing_due: false, remaining: 1 });
-		expect([card.french, card.english]).toContain(next.prompt);
+		expect([card.sideA, card.sideB]).toContain(next.prompt);
 		await client.close();
 	});
 

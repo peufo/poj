@@ -4,13 +4,13 @@
 	import CardForm, { type Duplicate, type Suggestion } from '#lib/components/CardForm.svelte';
 	import type { PageProps } from './$types';
 
-	let { form }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	// Les champs partent de la dernière soumission (utile sans JavaScript), puis vivent ici.
 	// svelte-ignore state_referenced_locally
-	let french = $state(form?.values?.french ?? '');
+	let sideA = $state(form?.values?.sideA ?? '');
 	// svelte-ignore state_referenced_locally
-	let english = $state(form?.values?.english ?? '');
+	let sideB = $state(form?.values?.sideB ?? '');
 	// svelte-ignore state_referenced_locally
 	let context = $state(form?.values?.context ?? '');
 	// svelte-ignore state_referenced_locally
@@ -19,16 +19,18 @@
 	);
 	let saving = $state(false);
 
+	const duplicateKey = $derived((data.deck.duplicateSide === 'sideA' ? sideA : sideB).trim());
+
 	const errors = $derived(form && 'errors' in form ? (form.errors ?? {}) : {});
 
-	// L'avertissement vaut pour l'anglais vérifié : le modifier relance la vérification.
+	// L'avertissement vaut pour la face vérifiée : la modifier relance la vérification.
 	const duplicate: Duplicate | null = $derived.by(() => {
 		const found = form && 'duplicate' in form ? form.duplicate : null;
-		if (!found || found.forEnglish !== english.trim()) return null;
+		if (!found || found.forValue !== duplicateKey) return null;
 		return {
 			href: `/cards/${found.id}`,
-			french: found.french,
-			english: found.english,
+			sideA: found.sideA,
+			sideB: found.sideB,
 			context: found.context
 		};
 	});
@@ -60,8 +62,9 @@
 
 	<CardForm
 		mode="create"
-		bind:french
-		bind:english
+		deck={data.deck}
+		bind:sideA
+		bind:sideB
 		bind:context
 		{suggestion}
 		{duplicate}
@@ -69,7 +72,7 @@
 		{errors}
 		action="?/create"
 		translateAction="?/translate"
-		confirmValue={english.trim()}
+		confirmValue={duplicateKey}
 		enhance={submit}
 		cancelHref="/cards"
 	/>

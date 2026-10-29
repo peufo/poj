@@ -1,6 +1,6 @@
 // Vocabulaire partagé de l'interface : sens, notes, origines, dates.
 
-export type Direction = 'fr_to_en' | 'en_to_fr';
+export type Direction = 'a_to_b' | 'b_to_a';
 export type Rating = 'again' | 'hard' | 'good' | 'easy';
 export type Origin = 'web' | 'claude';
 
@@ -18,11 +18,6 @@ export const ratingMeanings: Record<Rating, string> = {
 	hard: 'Juste, avec un indice ou une longue hésitation',
 	good: 'Juste',
 	easy: 'Trop facile'
-};
-
-export const directionLabels: Record<Direction, { long: string; target: 'EN' | 'FR' }> = {
-	fr_to_en: { long: 'Français → anglais', target: 'EN' },
-	en_to_fr: { long: 'Anglais → français', target: 'FR' }
 };
 
 export const originLabels: Record<Origin, string> = {

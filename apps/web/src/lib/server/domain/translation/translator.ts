@@ -1,6 +1,10 @@
 import { DomainError } from '../errors';
 
-export type Language = 'fr' | 'en';
+/**
+ * Étiquette de langue BCP 47 (`fr`, `en-GB`) : la langue seule désigne la source, la
+ * région éventuelle précise la variante cible (anglais britannique).
+ */
+export type Language = string;
 
 export interface TranslateRequest {
 	text: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TranslatorError } from '#lib/server/domain/index.js';
-import { createDeeplTranslator, deeplBaseUrl } from './deepl';
+import { createDeeplTranslator, deeplBaseUrl, deeplSource, deeplTarget } from './deepl';
 
 function fakeFetch(response: Response | Error) {
 	const calls: { url: string; init: RequestInit }[] = [];
@@ -21,6 +21,14 @@ describe('DeepL translator', () => {
 		expect(deeplBaseUrl('abc')).toBe('https://api.deepl.com');
 	});
 
+	it('derives the DeepL languages from the BCP 47 tags, the region giving the target variant', () => {
+		expect(deeplSource('en-GB')).toBe('EN');
+		expect(deeplSource('fr')).toBe('FR');
+		expect(deeplTarget('en-GB')).toBe('EN-GB');
+		expect(deeplTarget('pt-BR')).toBe('PT-BR');
+		expect(deeplTarget('fr')).toBe('FR');
+	});
+
 	it('sends the text, languages and context, and returns the translation', async () => {
 		const fetch = fakeFetch(json({ translations: [{ text: 'to take for granted' }] }));
 		const translator = createDeeplTranslator('key:fx', fetch.fn);
@@ -28,7 +36,7 @@ describe('DeepL translator', () => {
 		const text = await translator.translate({
 			text: 'tenir pour acquis',
 			from: 'fr',
-			to: 'en',
+			to: 'en-GB',
 			context: 'réunion budget'
 		});
 
@@ -46,7 +54,11 @@ describe('DeepL translator', () => {
 
 	it('omits an empty context', async () => {
 		const fetch = fakeFetch(json({ translations: [{ text: 'bonjour' }] }));
-		await createDeeplTranslator('key', fetch.fn).translate({ text: 'hello', from: 'en', to: 'fr' });
+		await createDeeplTranslator('key', fetch.fn).translate({
+			text: 'hello',
+			from: 'en-GB',
+			to: 'fr'
+		});
 
 		expect(JSON.parse(fetch.calls[0].init.body as string)).toEqual({
 			text: ['hello'],

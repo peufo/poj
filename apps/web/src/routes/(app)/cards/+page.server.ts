@@ -7,7 +7,7 @@ import {
 	weekdayIndex
 } from '#lib/server/domain/index.js';
 import { masteryOf, type MasteryLevel } from '#lib/format/mastery.js';
-import { cards, dailyGoal, ownerOf, reviews } from '#lib/server/web/services.js';
+import { cards, dailyGoal, decks, deckView, ownerOf, reviews } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;
@@ -19,13 +19,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
 	const now = new Date();
 
-	const [all, stats, horizon, dueNow, goal] = await Promise.all([
+	const [all, stats, horizon, dueNow, goal, defaultDeck] = await Promise.all([
 		cards.list(ownerId),
 		cards.stats(ownerId, now),
 		cards.horizon(ownerId, now, HORIZON_DAYS),
 		reviews.countDue(ownerId, now),
 		// Du lundi d'il y a sept semaines jusqu'à aujourd'hui.
-		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1)
+		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1),
+		decks.ensureDefault(ownerId)
 	]);
 	const listed = query ? await cards.list(ownerId, { query }) : all;
 	// Quand chaque sens sera présenté (mise de côté du sens inverse comprise).
@@ -48,10 +49,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		goal,
 		goalBounds: { min: MIN_DAILY_GOAL, max: MAX_DAILY_GOAL },
 		mastery,
+		/** Deck des nouvelles cartes : nomme les faces dans l'aide de la recherche. */
+		defaultDeck: deckView(defaultDeck),
 		cards: listed.map((card) => ({
 			id: card.id,
-			french: card.french,
-			english: card.english,
+			sideA: card.sideA,
+			sideB: card.sideB,
+			deck: deckView(card.deck),
 			reviews: card.reviews.map((review) => {
 				const { buriedUntil, at } = shown.get(review.id) ?? { buriedUntil: null, at: review.due };
 				return {

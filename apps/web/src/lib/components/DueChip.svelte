@@ -1,15 +1,19 @@
 <script lang="ts">
 	import Icon from '#lib/ui/Icon.svelte';
 	import { describeDue } from '#lib/format/due.js';
-	import { directionLabels, type Direction } from '#lib/format/labels.js';
+	import { directionFaces, directionLabel, type DeckFaces } from '#lib/format/decks.js';
+	import type { Direction } from '#lib/format/labels.js';
 
-	// Échéance d'un sens : la langue à produire, puis le délai.
-	type Props = { direction: Direction; due: Date; now: Date; isNew?: boolean };
+	// Échéance d'un sens : la face à produire (sa langue), puis le délai.
+	type Props = { direction: Direction; deck: DeckFaces; due: Date; now: Date; isNew?: boolean };
 
-	let { direction, due, now, isNew = false }: Props = $props();
+	let { direction, deck, due, now, isNew = false }: Props = $props();
 
 	const label = $derived(describeDue(due, now, { isNew }));
-	const dir = $derived(directionLabels[direction]);
+	const dir = $derived({
+		long: directionLabel(direction, deck),
+		target: directionFaces(direction, deck).to.short
+	});
 
 	const tones = {
 		due: 'bg-accent-soft text-accent-text',

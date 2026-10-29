@@ -1,11 +1,13 @@
-import type { Direction, Rating } from '../../db/generated/prisma/client';
+import type { Deck, Direction, Rating } from '../../db/generated/prisma/client';
 
 /** Une révision prête à être présentée. */
 export interface NextReview {
 	id: string;
 	cardId: string;
+	/** Deck de la carte : langues et noms des faces. */
+	deck: Deck;
 	direction: Direction;
-	/** Face de question : le français pour `fr_to_en`, l'anglais pour `en_to_fr`. */
+	/** Face de question : A pour `a_to_b`, B pour `b_to_a`. */
 	prompt: string;
 	expected: string;
 	hasHint: boolean;
@@ -26,6 +28,7 @@ export interface NextReview {
 export interface LastAnswer {
 	reviewId: string;
 	cardId: string;
+	deck: Deck;
 	direction: Direction;
 	prompt: string;
 	rating: Rating;

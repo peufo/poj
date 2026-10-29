@@ -7,8 +7,8 @@ import type { Direction, Review } from '../cards/types';
 export const SIBLING_BURY_MS = 24 * 60 * 60 * 1000;
 
 export const opposite: Record<Direction, Direction> = {
-	fr_to_en: 'en_to_fr',
-	en_to_fr: 'fr_to_en'
+	a_to_b: 'b_to_a',
+	b_to_a: 'a_to_b'
 };
 
 /** Ce qu'il faut d'une révision pour savoir quand elle sera présentée. */

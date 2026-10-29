@@ -8,8 +8,8 @@
 	import Notice from '#lib/ui/Notice.svelte';
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue } from '#lib/format/due.js';
+	import { directionLabel, faces } from '#lib/format/decks.js';
 	import {
-		directionLabels,
 		formatDate,
 		formatDateTime,
 		formatDue,
@@ -20,6 +20,7 @@
 
 	let { data, form }: PageProps = $props();
 	const card = $derived(data.card);
+	const face = $derived(faces(card.deck));
 
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
@@ -35,10 +36,10 @@
 	};
 </script>
 
-<svelte:head><title>{card.french} · Poj</title></svelte:head>
+<svelte:head><title>{card.sideA} · Poj</title></svelte:head>
 
 <div class="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pb-12 md:px-8">
-	<PageHeader title="Carte : {card.french}" compact back={{ href: '/cards', label: 'Cartes' }}>
+	<PageHeader title="Carte : {card.sideA}" compact back={{ href: '/cards', label: 'Cartes' }}>
 		{#snippet actions()}
 			<Button href="/cards/{card.id}/edit" icon="pencil" size="sm">Modifier</Button>
 		{/snippet}
@@ -47,12 +48,12 @@
 	<!-- La carte elle-même -->
 	<dl class="-mt-2 flex flex-col gap-5">
 		<div class="flex flex-col gap-1">
-			<dt class="text-sm text-ink-3">Français</dt>
-			<dd class="text-2xl font-semibold tracking-tight">{card.french}</dd>
+			<dt class="text-sm text-ink-3">{face.a.label}</dt>
+			<dd class="text-2xl font-semibold tracking-tight" lang={face.a.lang}>{card.sideA}</dd>
 		</div>
 		<div class="flex flex-col gap-1">
-			<dt class="text-sm text-ink-3">Anglais</dt>
-			<dd class="text-2xl font-semibold tracking-tight" lang="en">{card.english}</dd>
+			<dt class="text-sm text-ink-3">{face.b.label}</dt>
+			<dd class="text-2xl font-semibold tracking-tight" lang={face.b.lang}>{card.sideB}</dd>
 		</div>
 		<div class="flex flex-col gap-1">
 			<dt class="flex items-center gap-1.5 text-sm text-ink-3">
@@ -78,7 +79,7 @@
 					: describeDue(r.due, data.now, { isNew: r.isNew })}
 				<article class="flex flex-col gap-3 rounded-2xl bg-surface p-4">
 					<h3 class="flex items-center gap-1.5 text-sm font-medium text-ink-2">
-						{directionLabels[r.direction].long}
+						{directionLabel(r.direction, card.deck)}
 					</h3>
 					<div>
 						<p
@@ -126,7 +127,7 @@
 							class="text-sm text-ink tabular-nums sm:text-ink-2">{formatDateTime(log.at)}</time
 						>
 						<span class="justify-self-end sm:order-last"><RatingPill rating={log.rating} /></span>
-						<span class="text-sm text-ink-2">{directionLabels[log.direction].long}</span>
+						<span class="text-sm text-ink-2">{directionLabel(log.direction, card.deck)}</span>
 						<span
 							class="flex items-center gap-1.5 justify-self-end text-sm text-ink-3 sm:justify-self-start"
 						>
@@ -149,7 +150,7 @@
 	<form method="post" action="?/delete" class="flex flex-col gap-4 border-t border-line pt-6">
 		{#if form?.confirmDelete}
 			<Notice tone="danger" title="Supprimer cette carte ?">
-				« {card.french} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est
+				« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est
 				conservé.
 				{#snippet actions()}
 					<Button type="submit" variant="danger" icon="trash" name="confirm" value="1"
@@ -178,7 +179,7 @@
 <Sheet
 	bind:open={confirmDelete}
 	title="Supprimer cette carte ?"
-	description="« {card.french} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."
+	description="« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."
 >
 	{#snippet actions()}
 		<Button size="lg" onclick={() => (confirmDelete = false)}>Annuler</Button>

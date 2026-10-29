@@ -26,16 +26,16 @@ async function seed() {
 	({ userId: owner } = await seedSandbox(db, { now }));
 }
 
-async function card(french: string) {
+async function card(sideA: string) {
 	return db.card.findFirstOrThrow({
-		where: { french },
+		where: { sideA },
 		include: { reviews: { include: { logs: { orderBy: { reviewedAt: 'asc' } } } } }
 	});
 }
 
-async function review(french: string, direction: Direction) {
-	const found = (await card(french)).reviews.find((r) => r.direction === direction);
-	if (!found) throw new Error(`no ${direction} review for "${french}"`);
+async function review(sideA: string, direction: Direction) {
+	const found = (await card(sideA)).reviews.find((r) => r.direction === direction);
+	if (!found) throw new Error(`no ${direction} review for "${sideA}"`);
 	return found;
 }
 
@@ -64,12 +64,12 @@ describe('sandbox seed', () => {
 				expect(r.due <= now && r.due > at(-30 * DAY)).toBe(true);
 			}
 
-			const overdue = await review('couper les cheveux en quatre', 'en_to_fr');
+			const overdue = await review('couper les cheveux en quatre', 'b_to_a');
 			expect(overdue.state).toBe('review');
 			expect(overdue.due < at(-30 * DAY)).toBe(true);
 
-			const learning = await review('avoir le trac', 'fr_to_en');
-			const relearning = await review('poser un lapin à quelqu’un', 'fr_to_en');
+			const learning = await review('avoir le trac', 'a_to_b');
+			const relearning = await review('poser un lapin à quelqu’un', 'a_to_b');
 			expect(learning.state).toBe('learning');
 			expect(relearning).toMatchObject({ state: 'relearning', lapses: 1 });
 			expect(relearning.logs.at(-1)?.rating).toBe('again');
@@ -77,7 +77,7 @@ describe('sandbox seed', () => {
 				expect(r.due > now && r.due <= at(15)).toBe(true);
 			}
 
-			const mature = await review('tenir pour acquis', 'fr_to_en');
+			const mature = await review('tenir pour acquis', 'a_to_b');
 			expect(mature.state).toBe('review');
 			expect(mature.reps).toBeGreaterThanOrEqual(5);
 			expect(mature.lapses).toBeGreaterThanOrEqual(1);
@@ -96,21 +96,24 @@ describe('sandbox seed', () => {
 			expect(listed.some((c) => c.context !== null)).toBe(true);
 			expect(new Set(listed.map((c) => c.origin))).toEqual(new Set(['web', 'claude']));
 
-			const duplicates = await cards.findDuplicates(owner, 'a match');
-			expect(duplicates.map((c) => c.french).sort()).toEqual(['un match', 'une allumette']);
+			const duplicates = await cards.findDuplicates(owner, listed[0].deck, {
+				sideA: 'x',
+				sideB: 'a match'
+			});
+			expect(duplicates.map((c) => c.sideA).sort()).toEqual(['un match', 'une allumette']);
 
 			const deleted = await card('être aux anges');
 			expect(deleted.deletedAt).not.toBeNull();
 			expect(listed.map((c) => c.id)).not.toContain(deleted.id);
 
 			const edited = await card('l’ordre du jour');
-			expect(edited.english).toBe('the agenda');
+			expect(edited.sideB).toBe('the agenda');
 			for (const r of edited.reviews) {
 				expect(r.state).toBe('new');
 				expect(r.logs).toHaveLength(2);
 			}
 
-			const [amended] = (await review('Je te tiens au courant.', 'fr_to_en')).logs;
+			const [amended] = (await review('Je te tiens au courant.', 'a_to_b')).logs;
 			expect(amended).toMatchObject({ rating: 'good', amendedAt: expect.any(Date) });
 
 			const origins = await db.reviewLog.groupBy({ by: ['origin'], _count: true });
@@ -126,7 +129,7 @@ describe('sandbox seed', () => {
 					})
 				)
 					.map((r) => ({
-						card: r.card.french,
+						card: r.card.sideA,
 						direction: r.direction,
 						due: r.due,
 						stability: r.stability,
@@ -147,12 +150,12 @@ describe('sandbox seed', () => {
 		beforeEach(seed);
 
 		it('presents the most overdue review first and buries the reverse of a recent answer', async () => {
-			const buried = await review('mettre les pieds dans le plat', 'en_to_fr');
+			const buried = await review('mettre les pieds dans le plat', 'b_to_a');
 			expect(buried.due <= now).toBe(true);
 			const deleted = await card('être aux anges');
 
 			const first = await reviews.next(owner, now);
-			expect(first.review).toMatchObject({ prompt: 'to split hairs', direction: 'en_to_fr' });
+			expect(first.review).toMatchObject({ prompt: 'to split hairs', direction: 'b_to_a' });
 
 			// Vide la file : le sens mis de côté et la carte supprimée ne sont jamais présentés.
 			const presented = new Set<string>();
@@ -168,17 +171,17 @@ describe('sandbox seed', () => {
 		});
 
 		it('keeps a recent answer amendable, and caps the rating after a hint', async () => {
-			const recent = await review('faire le point', 'fr_to_en');
+			const recent = await review('faire le point', 'a_to_b');
 			expect(recent.logs.at(-1)?.reviewedAt).toEqual(at(-20));
 			expect(await reviews.amend(owner, recent.id, 'hard', now)).toMatchObject({ rating: 'hard' });
 
-			const old = await review('couper les cheveux en quatre', 'fr_to_en');
+			const old = await review('couper les cheveux en quatre', 'a_to_b');
 			await expect(reviews.amend(owner, old.id, 'hard', now)).rejects.toBeInstanceOf(ConflictError);
 
-			const hinted = await review('une piste', 'fr_to_en');
+			const hinted = await review('une piste', 'a_to_b');
 			expect(hinted.logs.at(-1)).toMatchObject({ hintUsed: true, rating: 'hard' });
 
-			const pending = await review('rattraper son retard', 'fr_to_en');
+			const pending = await review('rattraper son retard', 'a_to_b');
 			expect(pending.hintRequestedAt).toEqual(at(-5));
 			const answered = await reviews.answer(
 				owner,

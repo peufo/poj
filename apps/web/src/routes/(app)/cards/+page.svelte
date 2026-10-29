@@ -8,10 +8,12 @@
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import { faces } from '#lib/format/decks.js';
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const face = $derived(faces(data.defaultDeck));
 
 	let day: number | null = $state(null);
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -138,8 +140,9 @@
 					{#each visible as c (c.id)}
 						<CardRow
 							href="/cards/{c.id}"
-							french={c.french}
-							english={c.english}
+							sideA={c.sideA}
+							sideB={c.sideB}
+							deck={c.deck}
 							reviews={c.reviews}
 							now={data.now}
 						/>
@@ -149,7 +152,7 @@
 				<div class="flex flex-col items-start gap-3 py-8">
 					<p class="text-ink">Aucune carte ne contient « {data.query} ».</p>
 					<p class="text-sm text-ink-2">
-						La recherche porte sur le français, l'anglais et le contexte d'origine.
+						La recherche porte sur {face.a.the}, {face.b.the} et le contexte d'origine.
 					</p>
 					<div class="flex gap-2">
 						<Button size="sm" href="/cards">Effacer la recherche</Button>

@@ -1,4 +1,11 @@
-import { createCardsService, type CardInput, type Db, type Origin } from '../domain/index';
+import {
+	createCardsService,
+	DEFAULT_DECK,
+	type CardInput,
+	type Db,
+	type Deck,
+	type Origin
+} from '../domain/index';
 
 /** Utilisateur sans mot de passe, `prénom@test.dev`. Renvoie son id. */
 export async function createUser(db: Db, name: string): Promise<string> {
@@ -6,7 +13,19 @@ export async function createUser(db: Db, name: string): Promise<string> {
 	return user.id;
 }
 
-/** Carte créée par le service (deux révisions neuves), `a` / `a` par défaut. */
+/**
+ * Deck du propriétaire, le deck par défaut (« Français → Anglais ») sauf mention contraire.
+ * Pour un sujet, passer `kind: 'subject', languageA: null, languageB: null`.
+ */
+export function createDeck(
+	db: Db,
+	ownerId: string,
+	overrides: Partial<Omit<Deck, 'id' | 'ownerId'>> = {}
+): Promise<Deck> {
+	return db.deck.create({ data: { ...DEFAULT_DECK, ...overrides, ownerId } });
+}
+
+/** Carte créée par le service (révisions neuves, deck par défaut), `a` / `a` par défaut. */
 export function createCard(
 	db: Db,
 	ownerId: string,
@@ -16,10 +35,5 @@ export function createCard(
 		...input
 	}: Partial<CardInput> & { origin?: Origin; now?: Date } = {}
 ) {
-	return createCardsService(db).create(
-		ownerId,
-		{ french: 'a', english: 'a', ...input },
-		origin,
-		now
-	);
+	return createCardsService(db).create(ownerId, { sideA: 'a', sideB: 'a', ...input }, origin, now);
 }

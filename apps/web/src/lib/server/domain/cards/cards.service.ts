@@ -1,4 +1,6 @@
 import type { Db } from '../db';
+import { directionsOf, lockOwner, resolveDeck } from '../decks/decks.service';
+import type { Deck } from '../decks/types';
 import { NotFoundError } from '../errors';
 import { presentations } from '../reviews/availability';
 import { emptyState } from '../reviews/scheduler';
@@ -15,13 +17,11 @@ import type {
 
 export type CardsService = ReturnType<typeof createCardsService>;
 
-const DIRECTIONS = ['fr_to_en', 'en_to_fr'] as const;
-
 /** Fenêtre pendant laquelle `createOnce` renvoie une carte identique au lieu d'en créer une. */
 const REPLAY_WINDOW_MS = 10 * 60 * 1000;
 
-function clean({ french, english, context }: CardInput) {
-	return { french: french.trim(), english: english.trim(), context: context?.trim() || null };
+function clean({ sideA, sideB, context }: CardInput) {
+	return { sideA: sideA.trim(), sideB: sideB.trim(), context: context?.trim() || null };
 }
 
 /** Clé de comparaison des doublons : casse et espaces ignorés. */
@@ -29,14 +29,24 @@ function duplicateKey(text: string): string {
 	return text.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** Modifier le français ou l'anglais (après nettoyage) réinitialise la progression. */
-export function resetsProgress(
-	existing: Pick<Card, 'french' | 'english'>,
-	input: CardInput
-): boolean {
+/** Modifier l'une des deux faces (après nettoyage) réinitialise la progression. */
+export function resetsProgress(existing: Pick<Card, 'sideA' | 'sideB'>, input: CardInput): boolean {
 	const data = clean(input);
-	return data.french !== existing.french || data.english !== existing.english;
+	return data.sideA !== existing.sideA || data.sideB !== existing.sideB;
 }
+
+/**
+ * Face qui identifie une carte pour les doublons : la langue apprise (B) pour une langue,
+ * la question (A) pour un sujet.
+ */
+export function duplicateSide(deck: Pick<Deck, 'kind'>): 'sideA' | 'sideB' {
+	return deck.kind === 'language' ? 'sideB' : 'sideA';
+}
+
+/** Révisions neuves d'une carte, dues immédiatement, pour chaque sens révisé du deck. */
+const newReviews = (deck: Deck, now: Date) => ({
+	create: directionsOf(deck).map((direction) => ({ direction, ...emptyState(now) }))
+});
 
 export function createCardsService(db: Db) {
 	async function findOwned(ownerId: string, id: string): Promise<Card> {
@@ -54,23 +64,29 @@ export function createCardsService(db: Db) {
 	}
 
 	return {
-		/** Crée la carte et ses deux révisions, dues immédiatement. */
+		/**
+		 * Crée la carte dans le deck par défaut, avec une révision neuve par sens révisé
+		 * (les deux, ou `a_to_b` seul pour un deck à sens unique), due immédiatement.
+		 */
 		create(
 			ownerId: string,
 			input: CardInput,
 			origin: Origin,
 			now = new Date()
 		): Promise<CardWithReviews> {
-			return db.card.create({
-				data: {
-					...clean(input),
-					origin,
-					ownerId,
-					reviews: {
-						create: DIRECTIONS.map((direction) => ({ direction, ...emptyState(now) }))
-					}
-				},
-				include: { reviews: true }
+			return db.$transaction(async (tx) => {
+				await lockOwner(tx, ownerId);
+				const deck = await resolveDeck(tx, ownerId);
+				return tx.card.create({
+					data: {
+						...clean(input),
+						origin,
+						ownerId,
+						deckId: deck.id,
+						reviews: newReviews(deck, now)
+					},
+					include: { deck: true, reviews: true }
+				});
 			});
 		},
 
@@ -89,15 +105,17 @@ export function createCardsService(db: Db) {
 			return db.$transaction(async (tx) => {
 				// Sérialise les créations d'un même propriétaire : deux relances simultanées
 				// ne peuvent pas passer toutes les deux la recherche.
-				await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}::text))`;
+				await lockOwner(tx, ownerId);
+				const deck = await resolveDeck(tx, ownerId);
 				const existing = await tx.card.findFirst({
 					where: {
 						...data,
 						ownerId,
+						deckId: deck.id,
 						deletedAt: null,
 						createdAt: { gte: new Date(now.getTime() - REPLAY_WINDOW_MS) }
 					},
-					include: { reviews: true },
+					include: { deck: true, reviews: true },
 					orderBy: { createdAt: 'desc' }
 				});
 				if (existing) return { card: existing, created: false };
@@ -107,35 +125,44 @@ export function createCardsService(db: Db) {
 						...data,
 						origin,
 						ownerId,
+						deckId: deck.id,
 						// Horodatée avec `now` pour que la fenêtre de rejeu suive la même horloge.
 						createdAt: now,
-						reviews: {
-							create: DIRECTIONS.map((direction) => ({ direction, ...emptyState(now) }))
-						}
+						reviews: newReviews(deck, now)
 					},
-					include: { reviews: true }
+					include: { deck: true, reviews: true }
 				});
 				return { card, created: true };
 			});
 		},
 
-		/** Cartes non supprimées ayant le même anglais (casse et espaces ignorés). */
+		/**
+		 * Cartes non supprimées du même deck dont la face qui identifie une carte
+		 * (`duplicateSide`) est la même que celle de `input` (casse et espaces ignorés).
+		 */
 		async findDuplicates(
 			ownerId: string,
-			english: string,
+			deck: Pick<Deck, 'id' | 'kind'>,
+			input: Pick<CardInput, 'sideA' | 'sideB'>,
 			{ excludeId }: { excludeId?: string } = {}
 		): Promise<Card[]> {
-			const key = duplicateKey(english);
+			const side = duplicateSide(deck);
+			const key = duplicateKey(input[side]);
 			const candidates = await db.card.findMany({
-				where: { ownerId, deletedAt: null, ...(excludeId && { id: { not: excludeId } }) },
+				where: {
+					ownerId,
+					deckId: deck.id,
+					deletedAt: null,
+					...(excludeId && { id: { not: excludeId } })
+				},
 				orderBy: { createdAt: 'desc' }
 			});
-			return candidates.filter((card) => duplicateKey(card.english) === key);
+			return candidates.filter((card) => duplicateKey(card[side]) === key);
 		},
 
 		/**
 		 * Cartes non supprimées, des plus récentes aux plus anciennes. La recherche porte sur
-		 * le français, l'anglais et le contexte, sans tenir compte de la casse ni des accents
+		 * les deux faces et le contexte, sans tenir compte de la casse ni des accents
 		 * (extension `unaccent`) ; `%` et `_` s'y cherchent tels quels.
 		 */
 		async list(ownerId: string, { query }: { query?: string } = {}): Promise<CardWithReviews[]> {
@@ -146,8 +173,8 @@ export function createCardsService(db: Db) {
 				const rows = await db.$queryRaw<{ id: string }[]>`
 					SELECT id FROM cards
 					WHERE owner_id = ${ownerId}::uuid AND deleted_at IS NULL AND (
-						unaccent(french) ILIKE unaccent(${pattern})
-						OR unaccent(english) ILIKE unaccent(${pattern})
+						unaccent(side_a) ILIKE unaccent(${pattern})
+						OR unaccent(side_b) ILIKE unaccent(${pattern})
 						OR unaccent(context) ILIKE unaccent(${pattern})
 					)`;
 				if (rows.length === 0) return [];
@@ -155,7 +182,7 @@ export function createCardsService(db: Db) {
 			}
 			return db.card.findMany({
 				where: { ownerId, deletedAt: null, ...(ids && { id: { in: ids } }) },
-				include: { reviews: { orderBy: { direction: 'asc' } } },
+				include: { deck: true, reviews: { orderBy: { direction: 'asc' } } },
 				orderBy: { createdAt: 'desc' }
 			});
 		},
@@ -164,6 +191,7 @@ export function createCardsService(db: Db) {
 			const card = await db.card.findFirst({
 				where: { id, ownerId, deletedAt: null },
 				include: {
+					deck: true,
 					reviews: {
 						orderBy: { direction: 'asc' },
 						include: { logs: { orderBy: { reviewedAt: 'desc' } } }
@@ -175,7 +203,7 @@ export function createCardsService(db: Db) {
 		},
 
 		/**
-		 * Modifier le français ou l'anglais réinitialise la progression des deux sens
+		 * Modifier l'une des faces réinitialise la progression de tous les sens
 		 * (l'historique est conservé) ; modifier seulement le contexte n'y touche pas.
 		 */
 		async update(

@@ -36,8 +36,11 @@ function amendBlocker(
 	return null;
 }
 
-const promptOf = (direction: Direction, card: Pick<Card, 'french' | 'english'>) =>
-	direction === 'fr_to_en' ? card.french : card.english;
+/** Face présentée par un sens : A pour `a_to_b`, B pour `b_to_a`. */
+const promptOf = (direction: Direction, card: Pick<Card, 'sideA' | 'sideB'>) =>
+	direction === 'a_to_b' ? card.sideA : card.sideB;
+
+const withDeck = { card: { include: { deck: true } } } as const;
 
 export function createReviewsService(db: Db) {
 	const owned = (ownerId: string) => ({ card: { ownerId, deletedAt: null } });
@@ -103,7 +106,7 @@ export function createReviewsService(db: Db) {
 				db.review.findFirst({
 					where: ahead ? available : dueNow,
 					orderBy: [{ due: 'asc' }, { id: 'asc' }],
-					include: { card: true }
+					include: withDeck
 				}),
 				countPresentable(ownerId, now)
 			]);
@@ -122,6 +125,7 @@ export function createReviewsService(db: Db) {
 				review: {
 					id: review.id,
 					cardId: card.id,
+					deck: card.deck,
 					direction: review.direction,
 					prompt: promptOf(review.direction, card),
 					expected: promptOf(opposite[review.direction], card),
@@ -148,7 +152,7 @@ export function createReviewsService(db: Db) {
 					review: owned(ownerId)
 				},
 				orderBy: { reviewedAt: 'desc' },
-				include: { review: { include: { card: true } } }
+				include: { review: { include: withDeck } }
 			});
 			if (!log || amendBlocker(log, log.review, now)) return null;
 
@@ -157,6 +161,7 @@ export function createReviewsService(db: Db) {
 			return {
 				reviewId: review.id,
 				cardId: review.cardId,
+				deck: review.card.deck,
 				direction: review.direction,
 				prompt: promptOf(review.direction, review.card),
 				rating: log.rating,

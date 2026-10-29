@@ -25,6 +25,7 @@ model User {
   updatedAt     DateTime    @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
+  decks         Deck[]
   cards         Card[]
   dailyGoals    DailyGoal[]
 
@@ -97,9 +98,10 @@ enum Origin {
   @@map("origin")
 }
 
+/// Sens de révision d'une carte : de la face A vers la face B, ou l'inverse.
 enum Direction {
-  fr_to_en
-  en_to_fr
+  a_to_b
+  b_to_a
 
   @@map("direction")
 }
@@ -123,12 +125,49 @@ enum ReviewState {
   @@map("review_state")
 }
 
+/// Nature d'un deck : une langue (paire de langues, second avis DeepL) ou un sujet.
+enum DeckKind {
+  language
+  subject
+
+  @@map("deck_kind")
+}
+
+/// Paquet de cartes. Pour une langue, la face A est la langue connue et la face B la
+/// langue apprise ; pour un sujet, A est la question et B la réponse.
+/// `languageA` et `languageB` (étiquettes BCP 47, la région sert de variante DeepL cible,
+/// ex. `en-GB`) sont renseignées pour une langue seulement (contrainte CHECK
+/// `decks_language_pair` de la migration). Les libellés de face, facultatifs, remplacent
+/// le nom de la langue ou « Question » / « Réponse ».
+model Deck {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  ownerId        String    @map("owner_id") @db.Uuid
+  owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  kind           DeckKind
+  languageA      String?   @map("language_a")
+  languageB      String?   @map("language_b")
+  labelA         String?   @map("label_a")
+  labelB         String?   @map("label_b")
+  /// Faux : seul le sens `a_to_b` est créé et révisé.
+  bothDirections Boolean   @default(true) @map("both_directions")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+  cards          Card[]
+
+  @@index([ownerId])
+  @@map("decks")
+}
+
 model Card {
   id        String    @id @default(uuid(7)) @db.Uuid
   ownerId   String    @map("owner_id") @db.Uuid
   owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  french    String
-  english   String
+  deckId    String    @map("deck_id") @db.Uuid
+  deck      Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  sideA     String    @map("side_a")
+  sideB     String    @map("side_b")
   context   String?
   origin    Origin
   createdAt DateTime  @default(now()) @map("created_at")
@@ -137,10 +176,11 @@ model Card {
   reviews   Review[]
 
   @@index([ownerId, createdAt])
+  @@index([deckId])
   @@map("cards")
 }
 
-/// Une révision par sens d'une carte. Les champs FSRS reprennent la `Card` de ts-fsrs
+/// Une révision par sens révisé d'une carte. Les champs FSRS reprennent la `Card` de ts-fsrs
 /// (sans `elapsed_days`, déprécié et recalculé depuis `lastReview`).
 /// Pas de `deletedAt` : une révision suit sa carte.
 model Review {

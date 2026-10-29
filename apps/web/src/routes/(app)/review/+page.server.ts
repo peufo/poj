@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { ConflictError, type Rating } from '#lib/server/domain/index.js';
-import { idOf, orNotFound, ownerOf, reviews } from '#lib/server/web/services.js';
+import { deckView, idOf, orNotFound, ownerOf, reviews } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const RATINGS: readonly string[] = ['again', 'hard', 'good', 'easy'];
@@ -30,6 +30,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		remaining: next.review ? next.remaining : 0,
 		current: current && {
 			id: current.id,
+			deck: deckView(current.deck),
 			direction: current.direction,
 			prompt: current.prompt,
 			expected: current.expected,
@@ -40,6 +41,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			version: current.version
 		},
 		upcoming: upcoming && {
+			deck: deckView(upcoming.deck),
 			direction: upcoming.direction,
 			prompt: upcoming.prompt,
 			due: upcoming.due

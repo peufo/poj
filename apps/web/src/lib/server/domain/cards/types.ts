@@ -1,4 +1,4 @@
-import type { Card, Review, ReviewLog } from '../../db/generated/prisma/client';
+import type { Card, Deck, Review, ReviewLog } from '../../db/generated/prisma/client';
 
 export type {
 	Card,
@@ -9,15 +9,16 @@ export type {
 	ReviewLog
 } from '../../db/generated/prisma/client';
 
+/** Faces d'une carte : A (langue connue, ou question) et B (langue apprise, ou réponse). */
 export interface CardInput {
-	french: string;
-	english: string;
+	sideA: string;
+	sideB: string;
 	context?: string | null;
 }
 
-export type CardWithReviews = Card & { reviews: Review[] };
+export type CardWithReviews = Card & { deck: Deck; reviews: Review[] };
 
-export type CardDetail = Card & { reviews: (Review & { logs: ReviewLog[] })[] };
+export type CardDetail = Card & { deck: Deck; reviews: (Review & { logs: ReviewLog[] })[] };
 
 export interface CardStats {
 	totalCards: number;

@@ -4,39 +4,39 @@
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import CardForm, { type Duplicate, type Suggestion } from '#lib/components/CardForm.svelte';
 	import LabStates from '#lib/lab/LabStates.svelte';
-	import { cards, dueNow, fakeDeepL, normalize } from '#lib/lab/fixtures.js';
+	import { LAB_DECK, cards, dueNow, fakeDeepL, normalize } from '#lib/lab/fixtures.js';
 
 	type State = 'empty' | 'filled' | 'duplicate' | 'deepl-down';
 
 	let labState: State = $state('empty');
-	let french = $state('');
-	let english = $state('');
+	let sideA = $state('');
+	let sideB = $state('');
 	let context = $state('');
 	let suggestion: Suggestion = $state({ status: 'idle' });
 	let duplicate: Duplicate | null = $state(null);
 	let saving = $state(false);
-	let errors: { french?: string; english?: string } = $state({});
+	let errors: { sideA?: string; sideB?: string } = $state({});
 
 	function show(next: State) {
 		suggestion = { status: 'idle' };
 		duplicate = null;
 		errors = {};
-		if (next === 'empty') [french, english, context] = ['', '', ''];
+		if (next === 'empty') [sideA, sideB, context] = ['', '', ''];
 		if (next === 'filled' || next === 'deepl-down')
-			[french, english, context] = ['un bouchon', '', "À la radio, sur l'autoroute du retour."];
+			[sideA, sideB, context] = ['un bouchon', '', "À la radio, sur l'autoroute du retour."];
 		if (next === 'duplicate') {
-			[french, english, context] = ['tenir bon', 'to hang in there', 'Ma sœur, avant son examen.'];
-			duplicate = findDuplicate(english);
+			[sideA, sideB, context] = ['tenir bon', 'to hang in there', 'Ma sœur, avant son examen.'];
+			duplicate = findDuplicate(sideB);
 		}
 	}
 
 	function findDuplicate(text: string): Duplicate | null {
-		const match = cards.find((c) => normalize(c.english) === normalize(text));
+		const match = cards.find((c) => normalize(c.sideB) === normalize(text));
 		return match
 			? {
 					href: `/lab/cards/${match.id}`,
-					french: match.french,
-					english: match.english,
+					sideA: match.sideA,
+					sideB: match.sideB,
 					context: match.context
 				}
 			: null;
@@ -52,21 +52,21 @@
 							message:
 								'DeepL ne répond pas (quota du mois atteint). Tu peux enregistrer sans suggestion.'
 						}
-					: { status: 'ready', text: fakeDeepL(french, context) };
+					: { status: 'ready', text: fakeDeepL(sideA, context) };
 		}, 700);
 	}
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
 		errors = {
-			french: french.trim() ? undefined : 'Le français est obligatoire.',
-			english: english.trim() ? undefined : "L'anglais est obligatoire."
+			sideA: sideA.trim() ? undefined : 'Le français est obligatoire.',
+			sideB: sideB.trim() ? undefined : "L'anglais est obligatoire."
 		};
-		if (errors.french || errors.english) return;
+		if (errors.sideA || errors.sideB) return;
 
 		const confirmed = (event.submitter as HTMLButtonElement | null)?.name === 'confirm';
 		if (!confirmed) {
-			duplicate = findDuplicate(english);
+			duplicate = findDuplicate(sideB);
 			if (duplicate) return;
 		}
 		saving = true;
@@ -93,8 +93,9 @@
 
 		<CardForm
 			mode="create"
-			bind:french
-			bind:english
+			deck={LAB_DECK}
+			bind:sideA
+			bind:sideB
 			bind:context
 			{suggestion}
 			{duplicate}

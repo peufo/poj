@@ -10,9 +10,9 @@
 	// svelte-ignore state_referenced_locally
 	const card = data.card;
 	// svelte-ignore state_referenced_locally
-	let french = $state(form?.values?.french ?? card.french);
+	let sideA = $state(form?.values?.sideA ?? card.sideA);
 	// svelte-ignore state_referenced_locally
-	let english = $state(form?.values?.english ?? card.english);
+	let sideB = $state(form?.values?.sideB ?? card.sideB);
 	// svelte-ignore state_referenced_locally
 	let context = $state(form?.values?.context ?? card.context ?? '');
 	// svelte-ignore state_referenced_locally
@@ -21,15 +21,17 @@
 	);
 	let saving = $state(false);
 
+	const duplicateKey = $derived((data.deck.duplicateSide === 'sideA' ? sideA : sideB).trim());
+
 	const errors = $derived(form && 'errors' in form ? (form.errors ?? {}) : {});
 
 	const duplicate: Duplicate | null = $derived.by(() => {
 		const found = form && 'duplicate' in form ? form.duplicate : null;
-		if (!found || found.forEnglish !== english.trim()) return null;
+		if (!found || found.forValue !== duplicateKey) return null;
 		return {
 			href: `/cards/${found.id}`,
-			french: found.french,
-			english: found.english,
+			sideA: found.sideA,
+			sideB: found.sideB,
 			context: found.context
 		};
 	});
@@ -60,17 +62,18 @@
 	<PageHeader title="Modifier la carte" back={{ href: `/cards/${card.id}`, label: 'Carte' }} />
 	<CardForm
 		mode="edit"
-		bind:french
-		bind:english
+		deck={data.deck}
+		bind:sideA
+		bind:sideB
 		bind:context
-		original={{ french: card.french, english: card.english }}
+		original={{ sideA: card.sideA, sideB: card.sideB }}
 		{suggestion}
 		{duplicate}
 		{saving}
 		{errors}
 		action="?/update"
 		translateAction="?/translate"
-		confirmValue={english.trim()}
+		confirmValue={duplicateKey}
 		enhance={submit}
 		cancelHref="/cards/{card.id}"
 	/>

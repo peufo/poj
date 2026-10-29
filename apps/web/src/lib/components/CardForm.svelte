@@ -5,7 +5,7 @@
 		| { status: 'ready'; text: string }
 		| { status: 'error'; message: string };
 
-	export type Duplicate = { href: string; french: string; english: string; context: string | null };
+	export type Duplicate = { href: string; sideA: string; sideB: string; context: string | null };
 </script>
 
 <script lang="ts">
@@ -13,6 +13,7 @@
 	import { onMount } from 'svelte';
 	import { fromAction } from 'svelte/attachments';
 	import { enhance as kitEnhance } from '$app/forms';
+	import { exampleFor, faces, type DeckView } from '#lib/format/decks.js';
 	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
@@ -21,21 +22,23 @@
 	// la page fournit l'action du formulaire, la suggestion DeepL et l'éventuel doublon.
 	//
 	// Sans JavaScript, il reste utilisable : « Traduire avec DeepL » poste le formulaire sur
-	// `translateAction`, la confirmation d'un doublon renvoie l'anglais confirmé
+	// `translateAction`, la confirmation d'un doublon renvoie la face confirmée
 	// (`confirmValue`), et l'accord sur la réinitialisation part dans `acknowledge_reset`
 	// dès que l'avertissement est affiché.
 
 	type Props = {
 		mode: 'create' | 'edit';
-		french?: string;
-		english?: string;
+		/** Deck de la carte : nomme les faces ; DeepL seulement pour un deck de langue. */
+		deck: DeckView;
+		sideA?: string;
+		sideB?: string;
 		context?: string;
 		/** Texte enregistré, en modification : un écart réinitialise la progression. */
-		original?: { french: string; english: string };
+		original?: { sideA: string; sideB: string };
 		suggestion?: Suggestion;
 		duplicate?: Duplicate | null;
 		saving?: boolean;
-		errors?: Partial<Record<'french' | 'english' | 'context', string>>;
+		errors?: Partial<Record<'sideA' | 'sideB' | 'context', string>>;
 		action?: string;
 		/** Action serveur de la suggestion DeepL : le bouton devient un envoi du formulaire. */
 		translateAction?: string;
@@ -50,8 +53,9 @@
 
 	let {
 		mode,
-		french = $bindable(''),
-		english = $bindable(''),
+		deck,
+		sideA = $bindable(''),
+		sideB = $bindable(''),
 		context = $bindable(''),
 		original,
 		suggestion = { status: 'idle' },
@@ -69,16 +73,18 @@
 
 	const enhanceForm = (form: HTMLFormElement, submit: SubmitFunction) => kitEnhance(form, submit);
 
-	// Sans JavaScript, le bouton DeepL reste actif : le serveur valide le français.
+	const face = $derived(faces(deck));
+
+	// Sans JavaScript, le bouton DeepL reste actif : le serveur valide la face A.
 	let hydrated = $state(false);
 	onMount(() => (hydrated = true));
 
 	const resets = $derived(
 		mode === 'edit' &&
 			!!original &&
-			(french.trim() !== original.french || english.trim() !== original.english)
+			(sideA.trim() !== original.sideA || sideB.trim() !== original.sideB)
 	);
-	const taken = $derived(suggestion.status === 'ready' && english.trim() === suggestion.text);
+	const taken = $derived(suggestion.status === 'ready' && sideB.trim() === suggestion.text);
 </script>
 
 <form
@@ -89,15 +95,15 @@
 	class="flex flex-col gap-6"
 >
 	<TextField
-		label="Français"
-		name="french"
-		bind:value={french}
+		label={face.a.label}
+		name="sideA"
+		bind:value={sideA}
 		multiline
 		rows={1}
 		required
-		lang="fr"
-		error={errors.french}
-		placeholder="tenir le coup"
+		lang={face.a.lang ?? undefined}
+		error={errors.sideA}
+		placeholder={exampleFor(face.a)}
 	/>
 
 	<TextField
@@ -113,31 +119,32 @@
 	/>
 
 	<TextField
-		label="Anglais"
-		name="english"
-		bind:value={english}
+		label={face.b.label}
+		name="sideB"
+		bind:value={sideB}
 		multiline
 		rows={1}
 		required
-		lang="en"
-		error={errors.english}
-		placeholder="to hang in there"
+		lang={face.b.lang ?? undefined}
+		error={errors.sideB}
+		placeholder={exampleFor(face.b)}
 	>
 		{#snippet action()}
-			<Button
-				size="sm"
-				variant="ghost"
-				icon="translate"
-				class="-mr-2 text-accent-text! hover:bg-accent-soft!"
-				type={translateAction ? 'submit' : 'button'}
-				formaction={translateAction}
-				formnovalidate={translateAction ? true : undefined}
-				disabled={hydrated && !french.trim()}
-				loading={suggestion.status === 'loading'}
-				onclick={ontranslate}
-			>
-				Traduire avec DeepL
-			</Button>
+			<!-- Pas de second avis DeepL pour un sujet. -->
+			{#if deck.kind === 'language'}<Button
+					size="sm"
+					variant="ghost"
+					icon="translate"
+					class="-mr-2 text-accent-text! hover:bg-accent-soft!"
+					type={translateAction ? 'submit' : 'button'}
+					formaction={translateAction}
+					formnovalidate={translateAction ? true : undefined}
+					disabled={hydrated && !sideA.trim()}
+					loading={suggestion.status === 'loading'}
+					onclick={ontranslate}
+				>
+					Traduire avec DeepL
+				</Button>{/if}
 		{/snippet}
 		{#snippet below()}
 			{#if suggestion.status === 'loading'}
@@ -154,13 +161,13 @@
 						<p class="text-xs text-ink-3">
 							Suggestion DeepL{context.trim() ? ', avec le contexte' : ''}
 						</p>
-						<p class="text-ink" lang="en">{suggestion.text}</p>
+						<p class="text-ink" lang={face.b.lang}>{suggestion.text}</p>
 					</div>
 					<Button
 						size="sm"
 						icon={taken ? 'check' : undefined}
 						disabled={taken}
-						onclick={() => (english = suggestion.status === 'ready' ? suggestion.text : english)}
+						onclick={() => (sideB = suggestion.status === 'ready' ? suggestion.text : sideB)}
 					>
 						{taken ? 'Reprise' : 'Reprendre'}
 					</Button>
@@ -174,18 +181,25 @@
 	{#if resets}
 		<input type="hidden" name="acknowledge_reset" value="1" />
 		<Notice tone="warn" title="La progression repartira de zéro">
-			Tu modifies le français ou l'anglais : les deux sens redeviendront neufs et dus immédiatement.
+			Tu modifies {face.a.the} ou {face.b.the} :
+			{deck.bothDirections
+				? 'les deux sens redeviendront neufs et dus immédiatement.'
+				: 'la carte redeviendra neuve et due immédiatement.'}
 			L'historique des réponses est conservé.
 		</Notice>
 	{/if}
 
 	{#if duplicate}
-		<Notice tone="warn" title="Une carte a déjà cet anglais">
+		<Notice
+			tone="warn"
+			title="Une carte a déjà {face[deck.duplicateSide === 'sideA' ? 'a' : 'b'].same}"
+		>
 			<a
 				href={duplicate.href}
 				class="font-medium text-ink underline decoration-line-strong hover:decoration-ink"
 			>
-				<span lang="en">{duplicate.english}</span> · {duplicate.french}
+				<span lang={face.b.lang}>{duplicate.sideB}</span> ·
+				<span lang={face.a.lang}>{duplicate.sideA}</span>
 			</a>
 			{#if duplicate.context}<span class="block">{duplicate.context}</span>{/if}
 			<span class="mt-1 block"

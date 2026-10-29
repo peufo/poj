@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { masteryOf } from '#lib/format/mastery.js';
 import { presentations } from '#lib/server/domain/index.js';
-import { cards, idOf, orNotFound, ownerOf } from '#lib/server/web/services.js';
+import { cards, deckView, idOf, orNotFound, ownerOf } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -13,8 +13,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		now,
 		card: {
 			id: card.id,
-			french: card.french,
-			english: card.english,
+			sideA: card.sideA,
+			sideB: card.sideB,
+			deck: deckView(card.deck),
 			context: card.context,
 			origin: card.origin,
 			createdAt: card.createdAt,

@@ -1,8 +1,11 @@
 // Client de l'API DeepL : https://developers.deepl.com/api-reference/translate
 import { TranslatorError, type Language, type Translator } from '#lib/server/domain/index.js';
 
-const SOURCE: Record<Language, string> = { fr: 'FR', en: 'EN' };
-const TARGET: Record<Language, string> = { fr: 'FR', en: 'EN-GB' };
+/** Langue source DeepL : la langue seule (`en-GB` → `EN`), DeepL n'accepte pas de variante. */
+export const deeplSource = (language: Language) => new Intl.Locale(language).language.toUpperCase();
+
+/** Langue cible DeepL : l'étiquette entière, variante comprise (`en-GB` → `EN-GB`). */
+export const deeplTarget = (language: Language) => language.toUpperCase();
 
 const TIMEOUT_MS = 5_000;
 
@@ -26,8 +29,8 @@ export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fe
 					},
 					body: JSON.stringify({
 						text: [text],
-						source_lang: SOURCE[from],
-						target_lang: TARGET[to],
+						source_lang: deeplSource(from),
+						target_lang: deeplTarget(to),
 						...(context && { context })
 					}),
 					signal: AbortSignal.timeout(TIMEOUT_MS)

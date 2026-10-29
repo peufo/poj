@@ -7,6 +7,7 @@ import type { Jwks } from '../db/generated/prisma/client';
 import {
 	createAccountsService,
 	createCardsService,
+	createDecksService,
 	createReviewsService,
 	createTranslationService
 } from '../domain/index';
@@ -44,6 +45,7 @@ beforeEach(async () => {
 		accounts: createAccountsService(db),
 		handle: createMcpRequestHandler({
 			cards: createCardsService(db),
+			decks: createDecksService(db),
 			reviews: createReviewsService(db),
 			translation: createTranslationService(null)
 		}),
@@ -389,7 +391,7 @@ describe('Claude connector flow', () => {
 		const user = await db.user.findUniqueOrThrow({ where: { email } });
 		await createCardsService(db).create(
 			user.id,
-			{ french: 'tenir pour acquis', english: 'to take for granted' },
+			{ sideA: 'tenir pour acquis', sideB: 'to take for granted' },
 			'web'
 		);
 

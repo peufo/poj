@@ -17,7 +17,7 @@
 	import RatingPill from '#lib/components/RatingPill.svelte';
 	import Wordmark from '#lib/components/Wordmark.svelte';
 	import { ratingMeanings, ratings } from '#lib/format/labels.js';
-	import { LAB_NOW as now, findCard, horizon, masteryCounts } from '#lib/lab/fixtures.js';
+	import { LAB_DECK, LAB_NOW as now, findCard, horizon, masteryCounts } from '#lib/lab/fixtures.js';
 
 	const sample = findCard('tenir-le-coup')!;
 	const sample2 = findCard('bouchon')!;
@@ -189,15 +189,17 @@
 		<ul>
 			<CardRow
 				href="#themes"
-				french={sample.french}
-				english={sample.english}
+				sideA={sample.sideA}
+				sideB={sample.sideB}
+				deck={LAB_DECK}
 				reviews={sample.reviews}
 				{now}
 			/>
 			<CardRow
 				href="#themes"
-				french={sample2.french}
-				english={sample2.english}
+				sideA={sample2.sideA}
+				sideB={sample2.sideB}
+				deck={LAB_DECK}
 				reviews={sample2.reviews}
 				{now}
 			/>
@@ -432,12 +434,32 @@
 			<div class="flex flex-col gap-4">
 				<h3 class="font-semibold">Échéances</h3>
 				<div class="flex flex-wrap gap-2">
-					<DueChip direction="fr_to_en" due={now} {now} isNew />
-					<DueChip direction="fr_to_en" due={new Date(now.getTime() - hour)} {now} />
-					<DueChip direction="en_to_fr" due={new Date(now.getTime() + 3 * hour)} {now} />
-					<DueChip direction="en_to_fr" due={new Date(now.getTime() + 24 * hour)} {now} />
-					<DueChip direction="fr_to_en" due={new Date(now.getTime() + 12 * 24 * hour)} {now} />
-					<DueChip direction="en_to_fr" due={new Date(now.getTime() + 70 * 24 * hour)} {now} />
+					<DueChip deck={LAB_DECK} direction="a_to_b" due={now} {now} isNew />
+					<DueChip deck={LAB_DECK} direction="a_to_b" due={new Date(now.getTime() - hour)} {now} />
+					<DueChip
+						deck={LAB_DECK}
+						direction="b_to_a"
+						due={new Date(now.getTime() + 3 * hour)}
+						{now}
+					/>
+					<DueChip
+						deck={LAB_DECK}
+						direction="b_to_a"
+						due={new Date(now.getTime() + 24 * hour)}
+						{now}
+					/>
+					<DueChip
+						deck={LAB_DECK}
+						direction="a_to_b"
+						due={new Date(now.getTime() + 12 * 24 * hour)}
+						{now}
+					/>
+					<DueChip
+						deck={LAB_DECK}
+						direction="b_to_a"
+						due={new Date(now.getTime() + 70 * 24 * hour)}
+						{now}
+					/>
 				</div>
 				<p class="text-sm text-ink-2">
 					La flèche et la langue disent ce qu’il faut produire : « → EN », c’est voir le français et

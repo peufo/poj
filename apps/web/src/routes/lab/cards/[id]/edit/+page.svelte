@@ -3,7 +3,7 @@
 	import AppShell from '#lib/components/AppShell.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import CardForm, { type Suggestion } from '#lib/components/CardForm.svelte';
-	import { cards, dueNow, fakeDeepL } from '#lib/lab/fixtures.js';
+	import { LAB_DECK, cards, dueNow, fakeDeepL } from '#lib/lab/fixtures.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -11,15 +11,15 @@
 	// Les champs partent du texte enregistré ; la maquette ne réagit pas à un changement de carte.
 	// svelte-ignore state_referenced_locally
 	const card = data.card;
-	let french = $state(card.french);
-	let english = $state(card.english);
+	let sideA = $state(card.sideA);
+	let sideB = $state(card.sideB);
 	let context = $state(card.context ?? '');
 	let suggestion: Suggestion = $state({ status: 'idle' });
 	let saving = $state(false);
 
 	function translate() {
 		suggestion = { status: 'loading' };
-		setTimeout(() => (suggestion = { status: 'ready', text: fakeDeepL(french, context) }), 700);
+		setTimeout(() => (suggestion = { status: 'ready', text: fakeDeepL(sideA, context) }), 700);
 	}
 
 	function submit(event: SubmitEvent) {
@@ -39,10 +39,11 @@
 		/>
 		<CardForm
 			mode="edit"
-			bind:french
-			bind:english
+			deck={LAB_DECK}
+			bind:sideA
+			bind:sideB
 			bind:context
-			original={{ french: card.french, english: card.english }}
+			original={{ sideA: card.sideA, sideB: card.sideB }}
 			{suggestion}
 			{saving}
 			cancelHref="/lab/cards/{card.id}"

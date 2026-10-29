@@ -1,4 +1,5 @@
 import type { CardInput } from '../cards/types';
+import type { LanguagePair } from '../decks/decks.service';
 import {
 	TranslatorError,
 	type TranslateRequest,
@@ -13,8 +14,8 @@ export type Suggestion = { ok: true; text: string } | { ok: false; reason: Trans
 
 /** Second avis sur une carte, dans les deux sens (outil MCP `check_card`). */
 export interface CardCheck {
-	frenchToEnglish: Suggestion;
-	englishToFrench: Suggestion;
+	aToB: Suggestion;
+	bToA: Suggestion;
 }
 
 /** `translator` vaut `null` quand aucune clé DeepL n'est configurée. */
@@ -31,18 +32,30 @@ export function createTranslationService(translator: Translator | null) {
 	}
 
 	return {
-		/** Traduction du français vers l'anglais, en tenant compte du contexte. */
-		suggestEnglish(french: string, context?: string | null): Promise<Suggestion> {
-			return suggest({ text: french.trim(), from: 'fr', to: 'en', context: context?.trim() });
+		/** Traduction de la face A vers la langue de la face B, en tenant compte du contexte. */
+		suggest(
+			{ languageA, languageB }: LanguagePair,
+			sideA: string,
+			context?: string | null
+		): Promise<Suggestion> {
+			return suggest({
+				text: sideA.trim(),
+				from: languageA,
+				to: languageB,
+				context: context?.trim()
+			});
 		},
 
-		async check({ french, english, context }: CardInput): Promise<CardCheck> {
+		async check(
+			{ languageA, languageB }: LanguagePair,
+			{ sideA, sideB, context }: CardInput
+		): Promise<CardCheck> {
 			const ctx = context?.trim();
-			const [frenchToEnglish, englishToFrench] = await Promise.all([
-				suggest({ text: french.trim(), from: 'fr', to: 'en', context: ctx }),
-				suggest({ text: english.trim(), from: 'en', to: 'fr', context: ctx })
+			const [aToB, bToA] = await Promise.all([
+				suggest({ text: sideA.trim(), from: languageA, to: languageB, context: ctx }),
+				suggest({ text: sideB.trim(), from: languageB, to: languageA, context: ctx })
 			]);
-			return { frenchToEnglish, englishToFrench };
+			return { aToB, bToA };
 		}
 	};
 }

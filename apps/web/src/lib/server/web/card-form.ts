@@ -1,12 +1,19 @@
 import { fail } from '@sveltejs/kit';
-import type { CardInput, Suggestion, TranslationFailure } from '#lib/server/domain/index.js';
+import { capitalize, faces, type DeckFaces } from '#lib/format/decks.js';
+import {
+	languagePair,
+	type CardInput,
+	type Deck,
+	type Suggestion,
+	type TranslationFailure
+} from '#lib/server/domain/index.js';
 import { translation } from './services';
 
 // Formulaire de carte (création et modification) : lecture, validation, suggestion DeepL.
 
-export const LIMITS = { french: 300, english: 300, context: 1000 } as const;
+export const LIMITS = { sideA: 300, sideB: 300, context: 1000 } as const;
 
-export type CardValues = { french: string; english: string; context: string };
+export type CardValues = { sideA: string; sideB: string; context: string };
 export type CardErrors = Partial<Record<keyof CardValues, string>>;
 
 /** Suggestion telle que la page l'affiche. */
@@ -29,20 +36,24 @@ export function suggestionView(suggestion: Suggestion): SuggestionView {
 
 const text = (form: FormData, name: string) => form.get(name)?.toString() ?? '';
 
-export function readCardForm(form: FormData): {
+export function readCardForm(
+	form: FormData,
+	deck: DeckFaces
+): {
 	values: CardValues;
 	errors: CardErrors;
 	input: CardInput | null;
 } {
+	const { a, b } = faces(deck);
 	const values = {
-		french: text(form, 'french'),
-		english: text(form, 'english'),
+		sideA: text(form, 'sideA'),
+		sideB: text(form, 'sideB'),
 		context: text(form, 'context')
 	};
 	const errors: CardErrors = {};
-	if (!values.french.trim()) errors.french = 'Le français est obligatoire.';
-	if (!values.english.trim()) errors.english = "L'anglais est obligatoire.";
-	for (const field of ['french', 'english', 'context'] as const) {
+	if (!values.sideA.trim()) errors.sideA = `${capitalize(a.the)} est obligatoire.`;
+	if (!values.sideB.trim()) errors.sideB = `${capitalize(b.the)} est obligatoire.`;
+	for (const field of ['sideA', 'sideB', 'context'] as const) {
 		if (values[field].trim().length > LIMITS[field]) {
 			errors[field] = `${LIMITS[field]} caractères au plus.`;
 		}
@@ -51,21 +62,28 @@ export function readCardForm(form: FormData): {
 	return { values, errors, input: valid ? values : null };
 }
 
-/** Action `translate` : la suggestion DeepL du français, avec le contexte s'il est renseigné. */
-export async function translateAction(form: FormData) {
-	const { values } = readCardForm(form);
-	if (!values.french.trim()) {
+/**
+ * Action `translate` : la suggestion DeepL de la face A dans la langue de la face B, avec
+ * le contexte s'il est renseigné. Un sujet n'a pas de second avis DeepL.
+ */
+export async function translateAction(form: FormData, deck: Deck) {
+	const { values } = readCardForm(form, deck);
+	const pair = languagePair(deck);
+	if (!pair) {
 		return fail(400, {
 			values,
-			errors: { french: 'Écris d’abord le français à traduire.' } as CardErrors
+			errors: { sideA: 'Pas de traduction DeepL pour ce deck.' } as CardErrors
 		});
 	}
-	if (
-		values.french.trim().length > LIMITS.french ||
-		values.context.trim().length > LIMITS.context
-	) {
-		return fail(400, { values, errors: { french: 'Texte trop long pour DeepL.' } as CardErrors });
+	if (!values.sideA.trim()) {
+		return fail(400, {
+			values,
+			errors: { sideA: `Écris d’abord ${faces(deck).a.the} à traduire.` } as CardErrors
+		});
 	}
-	const suggestion = await translation.suggestEnglish(values.french, values.context);
+	if (values.sideA.trim().length > LIMITS.sideA || values.context.trim().length > LIMITS.context) {
+		return fail(400, { values, errors: { sideA: 'Texte trop long pour DeepL.' } as CardErrors });
+	}
+	const suggestion = await translation.suggest(pair, values.sideA, values.context);
 	return { values, suggestion: suggestionView(suggestion) };
 }

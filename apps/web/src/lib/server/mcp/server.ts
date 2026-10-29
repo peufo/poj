@@ -1,10 +1,16 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
+import { directionFaces, faces, type Face } from '#lib/format/decks.js';
 import {
 	ConflictError,
+	directionsOf,
+	duplicateSide,
 	formatRelative,
+	languagePair,
 	NotFoundError,
+	type CardInput,
 	type CardsService,
+	type Deck,
 	type Rating,
 	type ReviewsService,
 	type Suggestion,
@@ -12,9 +18,14 @@ import {
 	type TranslationService
 } from '#lib/server/domain/index.js';
 
-/** Dépendances du serveur MCP : un propriétaire déjà authentifié et les services du domaine. */
+/**
+ * Dépendances du serveur MCP : un propriétaire déjà authentifié, le deck des cartes
+ * capturées (son deck par défaut tant qu'il n'y a pas de choix de deck) et les services
+ * du domaine.
+ */
 export interface PojMcpDeps {
 	ownerId: string;
+	deck: Deck;
 	cards: CardsService;
 	reviews: ReviewsService;
 	translation: TranslationService;
@@ -22,14 +33,27 @@ export interface PojMcpDeps {
 	now?: () => Date;
 }
 
-const INSTRUCTIONS = `Poj aide l'utilisateur à retenir des expressions anglaises par répétition espacée. Chaque carte associe un français, un anglais et un contexte d'origine facultatif ; elle se révise dans les deux sens.
+/** Consignes du serveur, rendues avec les faces du deck. */
+function instructions(deck: Deck): string {
+	const { a, b } = faces(deck);
+	const isLanguage = languagePair(deck) !== null;
+	const subject = isLanguage ? `des expressions en ${b.name}` : `des cartes ${a.the} / ${b.the}`;
+	const directions = deck.bothDirections
+		? 'elle se révise dans les deux sens'
+		: `elle se révise de ${a.the} vers ${b.the} seulement`;
+	const capture = isLanguage
+		? 'Capture : appelle toujours check_card avant create_card. Si DeepL diverge de ta proposition ou signale un doublon, expose les options et laisse-le trancher. Relis-lui la carte finale et attends sa confirmation explicite avant create_card.'
+		: "Capture : appelle toujours check_card avant create_card. Ce deck n'a pas de second avis DeepL : vérifie toi-même l'exactitude de la carte, et signale un doublon s'il y en a. Relis-lui la carte finale et attends sa confirmation explicite avant create_card.";
+
+	return `Poj aide l'utilisateur à retenir ${subject} par répétition espacée. Chaque carte associe ${a.the} (side_a), ${b.the} (side_b) et un contexte d'origine facultatif ; ${directions}.
 
 Règles :
-- Parle français avec l'utilisateur, sauf pour les expressions anglaises elles-mêmes.
-- Capture : appelle toujours check_card avant create_card. Si DeepL diverge de ta proposition ou signale un doublon, expose les options et laisse-le trancher. Relis-lui la carte finale et attends sa confirmation explicite avant create_card.
+- Parle français avec l'utilisateur${isLanguage ? `, sauf pour les expressions en ${b.name} elles-mêmes` : ''}.
+- ${capture}
 - Révision : next_review, puis dis le prompt sans jamais lire la réponse attendue avant sa réponse. S'il demande un indice, appelle get_hint. Donne ensuite la réponse attendue, annonce la note retenue, appelle submit_review, puis enchaîne avec la carte suivante. S'il conteste la note, appelle amend_review sur la carte précédente.
 - Notes : propose again, hard ou good en tolérant synonymes et approximations. Ne propose jamais easy : ne l'utilise que si l'utilisateur le demande explicitement (« trop facile »).
 - L'utilisateur révise souvent en voiture, à la voix : réponses brèves, pas de listes longues.`;
+}
 
 const ratingSchema = z
 	.enum(['again', 'hard', 'good', 'easy'])
@@ -37,13 +61,46 @@ const ratingSchema = z
 		'again : faux ou inconnu ; hard : juste avec indice ou hésitation ; good : juste ; easy : trop facile, seulement sur demande explicite.'
 	);
 
-const cardInput = z.object({
-	french: z.string().trim().min(1).describe('Texte français de la carte.'),
-	english: z.string().trim().min(1).describe('Texte anglais de la carte (mot ou phrase entière).'),
-	context: z
-		.string()
-		.nullish()
-		.describe("Contexte d'origine facultatif (où, quand, avec qui l'expression a été entendue).")
+/** « Texte en anglais de la carte », ou « Face « Pays » de la carte » pour un sujet. */
+const fieldOf = (face: Face) =>
+	face.lang ? `Texte en ${face.name} de la carte` : `Face ${face.the} de la carte`;
+
+function cardInputSchema(deck: Deck) {
+	const { a, b } = faces(deck);
+	return z.object({
+		side_a: z
+			.string()
+			.trim()
+			.min(1)
+			.describe(`${fieldOf(a)}.`),
+		side_b: z
+			.string()
+			.trim()
+			.min(1)
+			.describe(`${fieldOf(b)}${b.lang ? ' (mot ou phrase entière)' : ''}.`),
+		context: z
+			.string()
+			.nullish()
+			.describe("Contexte d'origine facultatif (où, quand, avec qui l'expression a été entendue).")
+	});
+}
+
+const toCardInput = (input: {
+	side_a: string;
+	side_b: string;
+	context?: string | null;
+}): CardInput => ({ sideA: input.side_a, sideB: input.side_b, context: input.context });
+
+const cardOutput = (card: {
+	id: string;
+	sideA: string;
+	sideB: string;
+	context: string | null;
+}) => ({
+	card_id: card.id,
+	side_a: card.sideA,
+	side_b: card.sideB,
+	context: card.context
 });
 
 const reviewIdSchema = z.uuid().describe('review_id renvoyé par next_review.');
@@ -57,8 +114,8 @@ const failureLabels: Record<TranslationFailure, string> = {
 
 const quote = (text: string) => `« ${text} »`;
 
-function describeCard(card: { french: string; english: string; context: string | null }) {
-	const base = `${quote(card.french)} = ${quote(card.english)}`;
+function describeCard(card: { sideA: string; sideB: string; context: string | null }) {
+	const base = `${quote(card.sideA)} = ${quote(card.sideB)}`;
 	return card.context ? `${base}, contexte ${quote(card.context)}` : base;
 }
 
@@ -90,12 +147,23 @@ async function guard(
 
 export function createPojMcpServer({
 	ownerId,
+	deck,
 	cards,
 	reviews,
 	translation,
 	now = () => new Date()
 }: PojMcpDeps): McpServer {
-	const server = new McpServer({ name: 'poj', version: '1.0.0' }, { instructions: INSTRUCTIONS });
+	const server = new McpServer(
+		{ name: 'poj', version: '1.0.0' },
+		{ instructions: instructions(deck) }
+	);
+	const { a, b } = faces(deck);
+	const pair = languagePair(deck);
+	const cardInput = cardInputSchema(deck);
+	const duplicateFace = duplicateSide(deck) === 'sideA' ? a : b;
+	const sameFace = pair
+		? `au même ${duplicateFace.name}`
+		: `avec la même face ${duplicateFace.the}`;
 
 	/** Révisions encore dues, mise de côté du sens inverse comprise. */
 	async function remainingDue(at: Date): Promise<number> {
@@ -107,39 +175,42 @@ export function createPojMcpServer({
 		'check_card',
 		{
 			title: 'Vérifier une carte',
-			description:
-				"À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) et les cartes existantes au même anglais. Si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher. Si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Ne modifie rien.",
+			description: pair
+				? `À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) et les cartes existantes ${sameFace}. Si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher. Si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Ne modifie rien.`
+				: `À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les cartes existantes ${sameFace}. Ce deck n'a pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls) : vérifie toi-même la carte et relis-la avec l'utilisateur. Ne modifie rien.`,
 			inputSchema: cardInput,
 			outputSchema: z.object({
-				deepl_french_to_english: z.string().nullable(),
-				deepl_english_to_french: z.string().nullable(),
+				deepl_a_to_b: z.string().nullable(),
+				deepl_b_to_a: z.string().nullable(),
 				deepl_error: z.string().optional(),
 				duplicates: z.array(
 					z.object({
 						card_id: z.string(),
-						french: z.string(),
-						english: z.string(),
+						side_a: z.string(),
+						side_b: z.string(),
 						context: z.string().nullable()
 					})
 				)
 			}),
-			annotations: { readOnlyHint: true, openWorldHint: true }
+			annotations: { readOnlyHint: true, openWorldHint: pair !== null }
 		},
 		async (input) => {
+			const proposed = toCardInput(input);
 			const [check, duplicates] = await Promise.all([
-				translation.check(input),
-				cards.findDuplicates(ownerId, input.english)
+				pair && translation.check(pair, proposed),
+				cards.findDuplicates(ownerId, deck, proposed)
 			]);
-			const text = (s: Suggestion) => (s.ok ? s.text : null);
-			const failure = [check.frenchToEnglish, check.englishToFrench].find((s) => !s.ok);
+			const text = (s: Suggestion | undefined) => (s?.ok ? s.text : null);
+			const failure = check && [check.aToB, check.bToA].find((s) => !s.ok);
 			const deeplError = failure && !failure.ok ? failureLabels[failure.reason] : undefined;
 
 			const lines: string[] = [];
-			if (check.frenchToEnglish.ok) {
-				lines.push(`DeepL, français vers anglais : ${quote(check.frenchToEnglish.text)}.`);
+			if (!check) lines.push('Pas de second avis DeepL pour ce deck.');
+			if (check?.aToB.ok) {
+				lines.push(`DeepL, ${a.name} vers ${b.name} : ${quote(check.aToB.text)}.`);
 			}
-			if (check.englishToFrench.ok) {
-				lines.push(`DeepL, anglais vers français : ${quote(check.englishToFrench.text)}.`);
+			if (check?.bToA.ok) {
+				lines.push(`DeepL, ${b.name} vers ${a.name} : ${quote(check.bToA.text)}.`);
 			}
 			if (deeplError) lines.push(`DeepL : ${deeplError}.`);
 			lines.push(
@@ -149,15 +220,10 @@ export function createPojMcpServer({
 			);
 
 			return result(lines.join('\n'), {
-				deepl_french_to_english: text(check.frenchToEnglish),
-				deepl_english_to_french: text(check.englishToFrench),
+				deepl_a_to_b: text(check?.aToB),
+				deepl_b_to_a: text(check?.bToA),
 				...(deeplError && { deepl_error: deeplError }),
-				duplicates: duplicates.map((card) => ({
-					card_id: card.id,
-					french: card.french,
-					english: card.english,
-					context: card.context
-				}))
+				duplicates: duplicates.map(cardOutput)
 			});
 		}
 	);
@@ -166,32 +232,30 @@ export function createPojMcpServer({
 		'create_card',
 		{
 			title: 'Créer une carte',
-			description:
-				"Crée une carte et ses deux révisions, dues immédiatement. Avant de l'appeler : appelle toujours check_card ; si DeepL diverge, expose les options et laisse-le trancher ; relis-lui la carte finale (français, anglais, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.",
+			description: `Crée une carte et ${directionsOf(deck).length > 1 ? 'ses deux révisions, dues' : 'sa révision, due'} immédiatement. Avant de l'appeler : appelle toujours check_card ; ${pair ? 'si DeepL diverge, expose les options et laisse-le trancher' : 'vérifie toi-même la carte, ce deck n’a pas de second avis DeepL'} ; relis-lui la carte finale (${a.name}, ${b.name}, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`,
 			inputSchema: cardInput,
 			outputSchema: z.object({
 				card_id: z.string(),
 				created: z.boolean(),
-				french: z.string(),
-				english: z.string(),
+				side_a: z.string(),
+				side_b: z.string(),
 				context: z.string().nullable()
 			}),
 			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 		},
 		async (input) => {
-			const { card, created } = await cards.createOnce(ownerId, input, 'claude', now());
+			const { card, created } = await cards.createOnce(
+				ownerId,
+				toCardInput(input),
+				'claude',
+				now()
+			);
 			const summary = describeCard(card);
 			return result(
 				created
 					? `Carte créée : ${summary}.`
 					: `Carte déjà créée il y a moins de 10 minutes, rien d'ajouté : ${summary}.`,
-				{
-					card_id: card.id,
-					created,
-					french: card.french,
-					english: card.english,
-					context: card.context
-				}
+				{ ...cardOutput(card), created }
 			);
 		}
 	);
@@ -211,7 +275,7 @@ export function createPojMcpServer({
 			outputSchema: z.object({
 				nothing_due: z.boolean(),
 				review_id: z.string().optional(),
-				direction: z.enum(['fr_to_en', 'en_to_fr']).optional(),
+				direction: z.enum(['a_to_b', 'b_to_a']).optional(),
 				prompt: z.string().optional(),
 				expected: z.string().optional(),
 				has_hint: z.boolean().optional(),
@@ -241,9 +305,11 @@ export function createPojMcpServer({
 			}
 
 			const { review, remaining } = next;
-			const frToEn = review.direction === 'fr_to_en';
+			const { from, to } = directionFaces(review.direction, review.deck);
 			const lines = [
-				`À demander ${frToEn ? 'en anglais' : 'en français'} : ${quote(review.prompt)}.`,
+				to.lang
+					? `À demander en ${to.name} : ${quote(review.prompt)}.`
+					: `À demander (${from.label} → ${to.label}) : ${quote(review.prompt)}.`,
 				`Réponse attendue, à ne pas lire avant sa réponse : ${quote(review.expected)}.`,
 				review.hasHint ? 'Indice disponible.' : 'Pas d’indice.',
 				`Encore ${remaining} due${remaining > 1 ? 's' : ''}.`,

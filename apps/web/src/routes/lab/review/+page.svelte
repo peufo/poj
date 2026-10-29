@@ -10,8 +10,10 @@
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import LabStates from '#lib/lab/LabStates.svelte';
 	import { describeDue } from '#lib/format/due.js';
-	import { directionLabels, formatWeekday, plural, type Rating } from '#lib/format/labels.js';
+	import { directionLabel } from '#lib/format/decks.js';
+	import { formatWeekday, plural, type Rating } from '#lib/format/labels.js';
 	import {
+		LAB_DECK,
 		LAB_NOW as now,
 		allReviews,
 		cards,
@@ -53,14 +55,12 @@
 		.sort((a, b) => a.review.due.getTime() - b.review.due.getTime());
 	const next = upcoming[0];
 	const prompt = $derived(
-		current &&
-			(current.review.direction === 'fr_to_en' ? current.card.french : current.card.english)
+		current && (current.review.direction === 'a_to_b' ? current.card.sideA : current.card.sideB)
 	);
 	const answer = $derived(
-		current &&
-			(current.review.direction === 'fr_to_en' ? current.card.english : current.card.french)
+		current && (current.review.direction === 'a_to_b' ? current.card.sideB : current.card.sideA)
 	);
-	const promptLang = $derived(current?.review.direction === 'en_to_fr' ? 'en' : 'fr');
+	const promptLang = $derived(current?.review.direction === 'b_to_a' ? 'en' : 'fr');
 
 	function start(withAhead: boolean) {
 		ahead = withAhead;
@@ -151,7 +151,7 @@
 						aria-label="Carte à réviser"
 					>
 						<p class="flex items-center gap-1.5 text-sm font-medium text-ink-3">
-							{directionLabels[current.review.direction].long}
+							{directionLabel(current.review.direction, LAB_DECK)}
 							{#if current.review.isNew}
 								<span
 									class="rounded-sm bg-accent-soft px-1.5 text-xs font-semibold text-accent-text"
@@ -222,9 +222,9 @@
 						<p class="flex min-w-0 items-center gap-2 text-ink-2">
 							<RatingPill rating={last.rating} />
 							<span class="truncate">
-								{last.item.review.direction === 'fr_to_en'
-									? last.item.card.french
-									: last.item.card.english}
+								{last.item.review.direction === 'a_to_b'
+									? last.item.card.sideA
+									: last.item.card.sideB}
 								· revient dans {intervalOf(last)}
 							</span>
 						</p>
@@ -261,8 +261,8 @@
 					<p class="max-w-[50ch] text-ink-2">
 						Prochaine révision {describeDue(next.review.due, now).long},
 						{formatWeekday(next.review.due)} :
-						<span class="text-ink" lang={next.review.direction === 'en_to_fr' ? 'en' : 'fr'}
-							>{next.review.direction === 'fr_to_en' ? next.card.french : next.card.english}</span
+						<span class="text-ink" lang={next.review.direction === 'b_to_a' ? 'en' : 'fr'}
+							>{next.review.direction === 'a_to_b' ? next.card.sideA : next.card.sideB}</span
 						>.
 					</p>
 				</div>
@@ -284,10 +284,10 @@
 	<Sheet
 		bind:open={amending}
 		title="Corriger la dernière note"
-		description="« {last.item.review.direction === 'fr_to_en'
-			? last.item.card.french
+		description="« {last.item.review.direction === 'a_to_b'
+			? last.item.card.sideA
 			: last.item.card
-					.english} » : la nouvelle note remplace la précédente. Possible pendant une heure."
+					.sideB} » : la nouvelle note remplace la précédente. Possible pendant une heure."
 	>
 		<RatingBar
 			intervals={last.item.review.intervals}

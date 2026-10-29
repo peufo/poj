@@ -4,9 +4,21 @@
 
 import { calendarDaysBetween, formatInterval } from '#lib/format/due.js';
 import { masteryOf, type FsrsState, type MasteryLevel } from '#lib/format/mastery.js';
+import type { DeckView } from '#lib/format/decks.js';
 import type { Direction, Origin, Rating } from '#lib/format/labels.js';
 
 export const LAB_NOW = new Date('2026-10-27T08:30:00');
+
+/** Deck des cartes d'exemple : le deck par défaut, français → anglais. */
+export const LAB_DECK: DeckView = {
+	kind: 'language',
+	languageA: 'fr',
+	languageB: 'en-GB',
+	labelA: null,
+	labelB: null,
+	bothDirections: true,
+	duplicateSide: 'sideB'
+};
 
 const DAY = 86_400_000;
 const at = (days: number) => new Date(LAB_NOW.getTime() + days * DAY);
@@ -33,8 +45,8 @@ export type SampleLog = {
 
 export type SampleCard = {
 	id: string;
-	french: string;
-	english: string;
+	sideA: string;
+	sideB: string;
 	context: string | null;
 	origin: Origin;
 	createdAt: Date;
@@ -102,25 +114,22 @@ function historyFor(card: Omit<SampleCard, 'history'>): SampleLog[] {
 
 function card(
 	id: string,
-	french: string,
-	english: string,
+	sideA: string,
+	sideB: string,
 	context: string | null,
 	origin: Origin,
 	createdDaysAgo: number,
-	frToEn: ReviewSpec,
-	enToFr: ReviewSpec
+	aToB: ReviewSpec,
+	bToA: ReviewSpec
 ): SampleCard {
 	const base = {
 		id,
-		french,
-		english,
+		sideA,
+		sideB,
 		context,
 		origin,
 		createdAt: at(-createdDaysAgo),
-		reviews: [review('fr_to_en', frToEn), review('en_to_fr', enToFr)] as [
-			SampleReview,
-			SampleReview
-		]
+		reviews: [review('a_to_b', aToB), review('b_to_a', bToA)] as [SampleReview, SampleReview]
 	};
 	return { ...base, history: historyFor(base) };
 }
@@ -305,8 +314,8 @@ export const masteryCounts = allReviews.reduce(
 );
 
 /** Suggestion DeepL simulée : le contexte change la traduction de « bouchon ». */
-export function fakeDeepL(french: string, context: string): string {
-	const text = french.trim().toLowerCase();
+export function fakeDeepL(sideA: string, context: string): string {
+	const text = sideA.trim().toLowerCase();
 	if (text === 'un bouchon')
 		return /route|radio|voiture|autoroute|a1/i.test(context) ? 'a traffic jam' : 'a cork';
 	const known: Record<string, string> = {

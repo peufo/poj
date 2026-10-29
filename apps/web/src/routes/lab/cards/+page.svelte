@@ -8,6 +8,7 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 	import {
+		LAB_DECK,
 		LAB_NOW as now,
 		cards,
 		dueNow,
@@ -29,7 +30,7 @@
 		sorted.filter((c) => {
 			const q = normalize(query);
 			const matches =
-				!q || [c.french, c.english, c.context ?? ''].some((t) => normalize(t).includes(q));
+				!q || [c.sideA, c.sideB, c.context ?? ''].some((t) => normalize(t).includes(q));
 			const onDay = day === null || c.reviews.some((r) => isDueOnDay(r.due, day!));
 			return matches && onDay;
 		})
@@ -110,8 +111,9 @@
 					{#each visible as c (c.id)}
 						<CardRow
 							href="/lab/cards/{c.id}"
-							french={c.french}
-							english={c.english}
+							sideA={c.sideA}
+							sideB={c.sideB}
+							deck={LAB_DECK}
 							reviews={c.reviews}
 							{now}
 						/>

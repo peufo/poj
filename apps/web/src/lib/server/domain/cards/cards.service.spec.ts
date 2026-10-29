@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
-import { createUser } from '../../testing/factories';
+import { createDeck, createUser } from '../../testing/factories';
+import { DEFAULT_DECK } from '../decks/decks.service';
 import { NotFoundError } from '../errors';
 import { applyRating } from '../reviews/scheduler';
 import { createCardsService, resetsProgress } from './cards.service';
@@ -9,7 +10,7 @@ const db = useTestDatabase();
 const cards = createCardsService(db);
 
 const now = new Date('2026-01-05T08:00:00Z');
-const input = { french: 'tenir pour acquis', english: 'to take for granted' };
+const input = { sideA: 'tenir pour acquis', sideB: 'to take for granted' };
 
 let alice: string;
 let bob: string;
@@ -43,10 +44,35 @@ describe('cards service', () => {
 
 		expect(card).toMatchObject({ ...input, context: 'réunion budget', origin: 'web' });
 		expect(card.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
-		expect(card.reviews.map((r) => r.direction).sort()).toEqual(['en_to_fr', 'fr_to_en']);
+		expect(card.reviews.map((r) => r.direction).sort()).toEqual(['a_to_b', 'b_to_a']);
 		for (const review of card.reviews) {
 			expect(review).toMatchObject({ state: 'new', due: now, reps: 0, lastReview: null });
 		}
+	});
+
+	it('puts the card in the owner’s default deck, created on first use', async () => {
+		const card = await cards.create(alice, input, 'web', now);
+		const second = await cards.createOnce(alice, { ...input, sideB: 'x' }, 'claude', now);
+
+		expect(card.deck).toMatchObject({ ...DEFAULT_DECK, ownerId: alice });
+		expect(second.card.deckId).toBe(card.deckId);
+		expect(await db.deck.count()).toBe(1);
+	});
+
+	it('creates only the a_to_b review in a one-way deck', async () => {
+		await createDeck(db, alice, {
+			kind: 'subject',
+			languageA: null,
+			languageB: null,
+			labelA: 'Pays',
+			labelB: 'Capitale',
+			bothDirections: false
+		});
+		const card = await cards.create(alice, { sideA: 'Suisse', sideB: 'Berne' }, 'web', now);
+		const once = await cards.createOnce(alice, { sideA: 'Pérou', sideB: 'Lima' }, 'claude', now);
+
+		expect(card.reviews.map((r) => r.direction)).toEqual(['a_to_b']);
+		expect(once.card.reviews.map((r) => r.direction)).toEqual(['a_to_b']);
 	});
 
 	it('stores an empty context as null', async () => {
@@ -104,20 +130,54 @@ describe('cards service', () => {
 		await cards.softDelete(alice, deleted.id);
 		await cards.create(bob, input, 'web', now);
 
-		const found = await cards.findDuplicates(alice, '  To   take for GRANTED ');
+		const deck = first.deck;
+		const found = await cards.findDuplicates(alice, deck, {
+			sideA: 'autre chose',
+			sideB: '  To   take for GRANTED '
+		});
 		expect(found.map((c) => c.id)).toEqual([first.id]);
-		expect(await cards.findDuplicates(alice, input.english, { excludeId: first.id })).toEqual([]);
+		expect(await cards.findDuplicates(alice, deck, input, { excludeId: first.id })).toEqual([]);
+	});
+
+	it('finds duplicates within the deck only, on side B for a language and A for a subject', async () => {
+		const french = await cards.create(alice, input, 'web', now);
+		const subject = await createDeck(db, alice, {
+			kind: 'subject',
+			languageA: null,
+			languageB: null
+		});
+		const inSubject = await db.card.create({
+			data: {
+				ownerId: alice,
+				deckId: subject.id,
+				sideA: 'Suisse',
+				sideB: 'to take for granted',
+				origin: 'web'
+			}
+		});
+
+		expect((await cards.findDuplicates(alice, french.deck, input)).map((c) => c.id)).toEqual([
+			french.id
+		]);
+		expect(
+			(await cards.findDuplicates(alice, subject, { sideA: 'suisse', sideB: 'Zurich' })).map(
+				(c) => c.id
+			)
+		).toEqual([inSubject.id]);
+		expect(
+			await cards.findDuplicates(alice, subject, { sideA: 'Pérou', sideB: 'to take for granted' })
+		).toEqual([]);
 	});
 
 	it('lists the owner’s cards, newest first, and searches all fields', async () => {
 		const older = await cards.create(alice, input, 'web', now);
 		const newer = await cards.create(
 			alice,
-			{ french: 'ce n’est pas sorcier', english: 'it’s not rocket science', context: 'podcast' },
+			{ sideA: 'ce n’est pas sorcier', sideB: 'it’s not rocket science', context: 'podcast' },
 			'claude',
 			now
 		);
-		await cards.create(bob, { french: 'secret', english: 'secret' }, 'web', now);
+		await cards.create(bob, { sideA: 'secret', sideB: 'secret' }, 'web', now);
 
 		expect((await cards.list(alice)).map((c) => c.id)).toEqual([newer.id, older.id]);
 		expect((await cards.list(alice, { query: 'GRANTED' })).map((c) => c.id)).toEqual([older.id]);
@@ -129,7 +189,7 @@ describe('cards service', () => {
 		await cards.create(alice, input, 'web', now);
 		const percent = await cards.create(
 			alice,
-			{ french: '100 % sûr', english: '100_percent sure', context: 'a\\b' },
+			{ sideA: '100 % sûr', sideB: '100_percent sure', context: 'a\\b' },
 			'web',
 			now
 		);
@@ -142,14 +202,14 @@ describe('cards service', () => {
 	it('searches regardless of accents, both ways, in every field', async () => {
 		const ecole = await cards.create(
 			alice,
-			{ french: 'à l’École', english: 'at school', context: 'Réunion des élèves' },
+			{ sideA: 'à l’École', sideB: 'at school', context: 'Réunion des élèves' },
 			'web',
 			now
 		);
-		const cafe = await cards.create(alice, { french: 'un cafe', english: 'a café' }, 'web', now);
-		const deleted = await cards.create(alice, { french: 'école', english: 'x' }, 'web', now);
+		const cafe = await cards.create(alice, { sideA: 'un cafe', sideB: 'a café' }, 'web', now);
+		const deleted = await cards.create(alice, { sideA: 'école', sideB: 'x' }, 'web', now);
 		await cards.softDelete(alice, deleted.id);
-		await cards.create(bob, { french: 'école', english: 'school' }, 'web', now);
+		await cards.create(bob, { sideA: 'école', sideB: 'school' }, 'web', now);
 
 		const search = async (query: string) => (await cards.list(alice, { query })).map((c) => c.id);
 		expect(await search('ecole')).toEqual([ecole.id]);
@@ -169,7 +229,7 @@ describe('cards service', () => {
 		expect(detail.reviews.every((r) => r.logs.length === 1)).toBe(true);
 	});
 
-	it('resets progress when french or english changes, keeping the history', async () => {
+	it('resets progress when either side changes, keeping the history', async () => {
 		const { id } = await cards.create(alice, input, 'web', now);
 		await answerBoth(id);
 		const later = new Date('2026-01-06T08:00:00Z');
@@ -177,12 +237,12 @@ describe('cards service', () => {
 		const { card, progressReset } = await cards.update(
 			alice,
 			id,
-			{ ...input, english: 'to take something for granted' },
+			{ ...input, sideB: 'to take something for granted' },
 			later
 		);
 
 		expect(progressReset).toBe(true);
-		expect(card.english).toBe('to take something for granted');
+		expect(card.sideB).toBe('to take something for granted');
 		const detail = await cards.get(alice, id);
 		for (const review of detail.reviews) {
 			expect(review).toMatchObject({ state: 'new', due: later, reps: 0, lastReview: null });
@@ -215,15 +275,15 @@ describe('cards service', () => {
 
 	it('counts cards and reviews due before the end of the Zurich day', async () => {
 		const due = await cards.create(alice, input, 'web', now);
-		const notDue = await cards.create(alice, { french: 'b', english: 'b' }, 'web', now);
-		const lateToday = await cards.create(alice, { french: 'c', english: 'c' }, 'web', now);
+		const notDue = await cards.create(alice, { sideA: 'b', sideB: 'b' }, 'web', now);
+		const lateToday = await cards.create(alice, { sideA: 'c', sideB: 'c' }, 'web', now);
 		// Échéance à 23:30 heure de Zurich le jour même : due aujourd'hui
 		await db.review.updateMany({
-			where: { cardId: lateToday.id, direction: 'fr_to_en' },
+			where: { cardId: lateToday.id, direction: 'a_to_b' },
 			data: { due: new Date('2026-01-05T22:30:00Z') }
 		});
 		await db.review.updateMany({
-			where: { cardId: lateToday.id, direction: 'en_to_fr' },
+			where: { cardId: lateToday.id, direction: 'b_to_a' },
 			data: { due: new Date('2026-01-20T09:00:00Z') }
 		});
 		// Échéance le lendemain : pas due aujourd'hui
@@ -239,12 +299,12 @@ describe('cards service', () => {
 
 	it('leaves buried directions out of today until their burial ends', async () => {
 		const answered = await cards.create(alice, input, 'web', now);
-		const fresh = await cards.create(alice, { french: 'b', english: 'b' }, 'web', now);
+		const fresh = await cards.create(alice, { sideA: 'b', sideB: 'b' }, 'web', now);
 		// Le français → anglais de `answered` a été noté il y a 2 h : l'autre sens, dû,
 		// est mis de côté jusqu'à demain 6 h UTC.
 		const twoHoursAgo = new Date(now.getTime() - 2 * 3_600_000);
 		await db.review.updateMany({
-			where: { cardId: answered.id, direction: 'fr_to_en' },
+			where: { cardId: answered.id, direction: 'a_to_b' },
 			data: { lastReview: twoHoursAgo, state: 'review', due: new Date('2026-01-15T09:00:00Z') }
 		});
 
@@ -259,36 +319,36 @@ describe('cards service', () => {
 	});
 
 	it('tells whether an edit resets progress, after cleaning the input', () => {
-		const existing = { french: 'un devis', english: 'a quote' };
-		expect(
-			resetsProgress(existing, { french: ' un devis ', english: 'a quote', context: 'x' })
-		).toBe(false);
-		expect(resetsProgress(existing, { french: 'un devis', english: 'an estimate' })).toBe(true);
-		expect(resetsProgress(existing, { french: 'le devis', english: 'a quote' })).toBe(true);
+		const existing = { sideA: 'un devis', sideB: 'a quote' };
+		expect(resetsProgress(existing, { sideA: ' un devis ', sideB: 'a quote', context: 'x' })).toBe(
+			false
+		);
+		expect(resetsProgress(existing, { sideA: 'un devis', sideB: 'an estimate' })).toBe(true);
+		expect(resetsProgress(existing, { sideA: 'le devis', sideB: 'a quote' })).toBe(true);
 	});
 
 	it('spreads due reviews over the next Zurich days, overdue ones today', async () => {
 		const overdue = await cards.create(alice, input, 'web', now);
-		const later = await cards.create(alice, { french: 'b', english: 'b' }, 'web', now);
-		const deleted = await cards.create(alice, { french: 'c', english: 'c' }, 'web', now);
+		const later = await cards.create(alice, { sideA: 'b', sideB: 'b' }, 'web', now);
+		const deleted = await cards.create(alice, { sideA: 'c', sideB: 'c' }, 'web', now);
 		await cards.softDelete(alice, deleted.id);
 		await cards.create(bob, input, 'web', now);
 		await db.review.updateMany({
-			where: { cardId: overdue.id, direction: 'fr_to_en' },
+			where: { cardId: overdue.id, direction: 'a_to_b' },
 			data: { due: new Date('2026-01-01T09:00:00Z') }
 		});
 		await db.review.updateMany({
-			where: { cardId: overdue.id, direction: 'en_to_fr' },
+			where: { cardId: overdue.id, direction: 'b_to_a' },
 			// 23:30 à Zurich : encore aujourd'hui
 			data: { due: new Date('2026-01-05T22:30:00Z') }
 		});
 		await db.review.updateMany({
-			where: { cardId: later.id, direction: 'fr_to_en' },
+			where: { cardId: later.id, direction: 'a_to_b' },
 			// 00:30 à Zurich le lendemain
 			data: { due: new Date('2026-01-05T23:30:00Z') }
 		});
 		await db.review.updateMany({
-			where: { cardId: later.id, direction: 'en_to_fr' },
+			where: { cardId: later.id, direction: 'b_to_a' },
 			data: { due: new Date('2026-01-20T09:00:00Z') }
 		});
 

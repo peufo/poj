@@ -42,14 +42,15 @@ export interface SeedCard extends CardInput {
 	createdAgo: number;
 	answers?: SeedAnswer[];
 	/** Correction du texte (progression réinitialisée, historique conservé). */
-	edit?: { ago: number; english: string };
+	edit?: { ago: number; sideB: string };
 	/** Indice demandé sans réponse depuis (session interrompue). */
 	pendingHint?: { dir: Direction; ago: number };
 	deleted?: true;
 }
 
-const fr = 'fr_to_en';
-const en = 'en_to_fr';
+// Cartes du deck par défaut : la face A est le français, la face B l'anglais.
+const fr = 'a_to_b';
+const en = 'b_to_a';
 
 /** Apprentissage d'un sens : `good` puis `good` dix minutes plus tard. */
 const learn = (dir: Direction, ago: number, origin: Origin = 'web'): SeedAnswer[] => [
@@ -60,36 +61,36 @@ const learn = (dir: Direction, ago: number, origin: Origin = 'web'): SeedAnswer[
 export const SANDBOX_CARDS: SeedCard[] = [
 	// ─── Neuves, jamais révisées ───
 	{
-		french: 'faire la grasse matinée',
-		english: 'to have a lie-in',
+		sideA: 'faire la grasse matinée',
+		sideB: 'to have a lie-in',
 		context: 'Samedi, je compte bien faire la grasse matinée.',
 		origin: 'claude',
 		createdAgo: 2 * HOUR
 	},
 	{
-		french: 'un devis',
-		english: 'a quote',
+		sideA: 'un devis',
+		sideB: 'a quote',
 		context: 'Le plombier doit m’envoyer un devis pour la salle de bains.',
 		origin: 'web',
 		createdAgo: 1 * DAY
 	},
 	{
-		french: 'Pourriez-vous répéter, s’il vous plaît ?',
-		english: 'Could you say that again, please?',
+		sideA: 'Pourriez-vous répéter, s’il vous plaît ?',
+		sideB: 'Could you say that again, please?',
 		origin: 'web',
 		createdAgo: 30 * MINUTE
 	},
 	{
-		french: 'l’heure de pointe',
-		english: 'rush hour',
+		sideA: 'l’heure de pointe',
+		sideB: 'rush hour',
 		origin: 'claude',
 		createdAgo: 3 * DAY
 	},
 
 	// ─── En apprentissage : vue il y a peu, revient dans quelques minutes ───
 	{
-		french: 'avoir le trac',
-		english: 'to have stage fright',
+		sideA: 'avoir le trac',
+		sideB: 'to have stage fright',
 		context: 'Avant ma présentation au comité de direction, j’avais un trac fou.',
 		origin: 'web',
 		createdAgo: 1 * DAY,
@@ -97,8 +98,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 	},
 	// Mûre, ratée il y a quatre minutes : réapprentissage (note encore corrigeable).
 	{
-		french: 'poser un lapin à quelqu’un',
-		english: 'to stand someone up',
+		sideA: 'poser un lapin à quelqu’un',
+		sideB: 'to stand someone up',
 		context: 'Thomas m’a posé un lapin au restaurant hier soir.',
 		origin: 'claude',
 		createdAgo: 60 * DAY,
@@ -115,8 +116,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Dues maintenant ───
 	{
-		french: 'avoir du mal à',
-		english: 'to struggle to',
+		sideA: 'avoir du mal à',
+		sideB: 'to struggle to',
 		context: 'J’ai du mal à me concentrer en open space.',
 		origin: 'web',
 		createdAgo: 12 * DAY,
@@ -127,16 +128,16 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'coûter les yeux de la tête',
-		english: 'to cost an arm and a leg',
+		sideA: 'coûter les yeux de la tête',
+		sideB: 'to cost an arm and a leg',
 		context: 'Les billets de train pour Londres coûtent les yeux de la tête en août.',
 		origin: 'claude',
 		createdAgo: 8 * DAY,
 		answers: [...learn(fr, 8 * DAY, 'claude'), ...learn(en, 7 * DAY, 'claude')]
 	},
 	{
-		french: 'Ça ne me dit rien.',
-		english: 'It doesn’t ring a bell.',
+		sideA: 'Ça ne me dit rien.',
+		sideB: 'It doesn’t ring a bell.',
 		origin: 'web',
 		createdAgo: 6 * DAY,
 		answers: [
@@ -150,8 +151,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 	},
 	// Indice demandé puis réponse plafonnée à `hard`.
 	{
-		french: 'une piste',
-		english: 'a lead',
+		sideA: 'une piste',
+		sideB: 'a lead',
 		context: 'Dans le polar que je lis, l’inspecteur suit enfin une piste sérieuse.',
 		origin: 'web',
 		createdAgo: 10 * DAY,
@@ -163,8 +164,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 	},
 	// Indice demandé il y a cinq minutes, sans réponse : la prochaine note sera plafonnée.
 	{
-		french: 'rattraper son retard',
-		english: 'to catch up',
+		sideA: 'rattraper son retard',
+		sideB: 'to catch up',
 		context: 'Après deux semaines de vacances, je dois rattraper mon retard de mails.',
 		origin: 'claude',
 		createdAgo: 9 * DAY,
@@ -174,8 +175,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Très en retard ───
 	{
-		french: 'couper les cheveux en quatre',
-		english: 'to split hairs',
+		sideA: 'couper les cheveux en quatre',
+		sideB: 'to split hairs',
 		context: 'En réunion budget, Marc coupe toujours les cheveux en quatre.',
 		origin: 'web',
 		createdAgo: 120 * DAY,
@@ -188,8 +189,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'Il pleut des cordes.',
-		english: 'It’s raining cats and dogs.',
+		sideA: 'Il pleut des cordes.',
+		sideB: 'It’s raining cats and dogs.',
 		origin: 'claude',
 		createdAgo: 75 * DAY,
 		answers: [...learn(fr, 75 * DAY, 'claude'), ...learn(en, 74 * DAY, 'claude')]
@@ -197,8 +198,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Mûres : plusieurs révisions dont un oubli, échéance lointaine ───
 	{
-		french: 'tenir pour acquis',
-		english: 'to take for granted',
+		sideA: 'tenir pour acquis',
+		sideB: 'to take for granted',
 		context: 'Dans un podcast sur la santé : « On tient trop souvent son corps pour acquis. »',
 		origin: 'web',
 		createdAgo: 200 * DAY,
@@ -219,8 +220,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'en fin de compte',
-		english: 'at the end of the day',
+		sideA: 'en fin de compte',
+		sideB: 'at the end of the day',
 		origin: 'claude',
 		createdAgo: 150 * DAY,
 		answers: [
@@ -239,8 +240,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'Ça vaut le coup.',
-		english: 'It’s worth it.',
+		sideA: 'Ça vaut le coup.',
+		sideB: 'It’s worth it.',
 		context: 'Le détour par le lac de Joux, ça vaut vraiment le coup.',
 		origin: 'web',
 		createdAgo: 90 * DAY,
@@ -254,8 +255,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'prendre du recul',
-		english: 'to take a step back',
+		sideA: 'prendre du recul',
+		sideB: 'to take a step back',
 		context: 'Ma manager m’a conseillé de prendre du recul avant de répondre au client.',
 		origin: 'claude',
 		createdAgo: 100 * DAY,
@@ -273,8 +274,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Réponse de moins d'une heure : la note est encore corrigeable ───
 	{
-		french: 'faire le point',
-		english: 'to take stock',
+		sideA: 'faire le point',
+		sideB: 'to take stock',
 		context: 'On fait le point sur le projet jeudi à 14 h.',
 		origin: 'web',
 		createdAgo: 14 * DAY,
@@ -288,8 +289,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Sens inverse mis de côté : dû, mais l'autre sens a été noté il y a 3 h ───
 	{
-		french: 'mettre les pieds dans le plat',
-		english: 'to put one’s foot in it',
+		sideA: 'mettre les pieds dans le plat',
+		sideB: 'to put one’s foot in it',
 		context: 'J’ai mis les pieds dans le plat en parlant de la fête surprise devant Julie.',
 		origin: 'web',
 		createdAgo: 20 * DAY,
@@ -303,16 +304,16 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Doublon : même anglais, sens et contexte différents ───
 	{
-		french: 'une allumette',
-		english: 'a match',
+		sideA: 'une allumette',
+		sideB: 'a match',
 		context: 'Passe-moi les allumettes pour allumer le barbecue.',
 		origin: 'web',
 		createdAgo: 5 * DAY,
 		answers: learn(fr, 4 * DAY)
 	},
 	{
-		french: 'un match',
-		english: 'a match',
+		sideA: 'un match',
+		sideB: 'a match',
 		context: 'On regarde le match de foot ce soir au pub avec les collègues.',
 		origin: 'claude',
 		createdAgo: 2 * DAY
@@ -320,8 +321,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Pas encore dues ───
 	{
-		french: 'Je te tiens au courant.',
-		english: 'I’ll keep you posted.',
+		sideA: 'Je te tiens au courant.',
+		sideB: 'I’ll keep you posted.',
 		origin: 'web',
 		createdAgo: 9 * DAY,
 		answers: [
@@ -334,8 +335,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'manger sur le pouce',
-		english: 'to grab a quick bite',
+		sideA: 'manger sur le pouce',
+		sideB: 'to grab a quick bite',
 		context: 'Pas le temps de déjeuner : je mange sur le pouce entre deux réunions.',
 		origin: 'claude',
 		createdAgo: 11 * DAY,
@@ -347,8 +348,8 @@ export const SANDBOX_CARDS: SeedCard[] = [
 		]
 	},
 	{
-		french: 'Ce n’est pas ma tasse de thé.',
-		english: 'It’s not my cup of tea.',
+		sideA: 'Ce n’est pas ma tasse de thé.',
+		sideB: 'It’s not my cup of tea.',
 		origin: 'claude',
 		createdAgo: 4 * DAY,
 		answers: [
@@ -359,19 +360,19 @@ export const SANDBOX_CARDS: SeedCard[] = [
 
 	// ─── Corrigée : texte modifié, progression réinitialisée, historique conservé ───
 	{
-		french: 'l’ordre du jour',
-		english: 'the order of the day',
+		sideA: 'l’ordre du jour',
+		sideB: 'the order of the day',
 		context: 'Envoie-moi l’ordre du jour de la réunion de demain.',
 		origin: 'web',
 		createdAgo: 15 * DAY,
 		answers: [...learn(fr, 15 * DAY), ...learn(en, 14 * DAY)],
-		edit: { ago: 2 * DAY, english: 'the agenda' }
+		edit: { ago: 2 * DAY, sideB: 'the agenda' }
 	},
 
 	// ─── Supprimée ───
 	{
-		french: 'être aux anges',
-		english: 'to be over the moon',
+		sideA: 'être aux anges',
+		sideB: 'to be over the moon',
 		origin: 'web',
 		createdAgo: 30 * DAY,
 		answers: learn(fr, 30 * DAY),
@@ -414,20 +415,20 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 	});
 
 	for (const seed of SANDBOX_CARDS) {
-		const { french, english, context, origin } = seed;
+		const { sideA, sideB, context, origin } = seed;
 		const { card, created } = await cards.createOnce(
 			user.id,
-			{ french, english, context },
+			{ sideA, sideB, context },
 			origin,
 			at(seed.createdAgo)
 		);
-		if (!created) throw new Error(`Seed card "${french}" already exists`);
+		if (!created) throw new Error(`Seed card "${sideA}" already exists`);
 		const reviewId = Object.fromEntries(card.reviews.map((r) => [r.direction, r.id])) as Record<
 			Direction,
 			string
 		>;
 		// Version attendue par `answer` : date de la dernière réponse, `new` sans réponse.
-		const version: Record<Direction, string> = { fr_to_en: 'new', en_to_fr: 'new' };
+		const version: Record<Direction, string> = { a_to_b: 'new', b_to_a: 'new' };
 
 		async function answer({ dir, ago, rating, origin = 'web', hint, amendTo }: SeedAnswer) {
 			const id = reviewId[dir];
@@ -439,14 +440,14 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 				{ rating, version: version[dir], origin },
 				at(ago)
 			);
-			if (result.replayed) throw new Error(`Seed answer on "${french}" was not applied`);
+			if (result.replayed) throw new Error(`Seed answer on "${sideA}" was not applied`);
 			version[dir] = at(ago).toISOString();
 			if (amendTo) await reviews.amend(user.id, id, amendTo, at(ago - 1));
 		}
 
-		async function edit({ ago, english: corrected }: NonNullable<SeedCard['edit']>) {
-			await cards.update(user.id, card.id, { french, english: corrected, context }, at(ago));
-			version.fr_to_en = version.en_to_fr = 'new';
+		async function edit({ ago, sideB: corrected }: NonNullable<SeedCard['edit']>) {
+			await cards.update(user.id, card.id, { sideA, sideB: corrected, context }, at(ago));
+			version.a_to_b = version.b_to_a = 'new';
 		}
 
 		// Toutes les actions de la carte, rejouées dans l'ordre chronologique.
@@ -460,7 +461,7 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 		}
 		for (const { ago, run } of events.sort((a, b) => b.ago - a.ago)) {
 			if (ago <= 0 || ago > seed.createdAgo) {
-				throw new Error(`Seed event out of range for "${french}"`);
+				throw new Error(`Seed event out of range for "${sideA}"`);
 			}
 			await run();
 		}

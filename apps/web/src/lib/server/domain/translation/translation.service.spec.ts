@@ -15,35 +15,43 @@ function fakeTranslator(impl: (request: TranslateRequest) => string): Translator
 	};
 }
 
+/** Paire du deck par défaut : la variante cible vient de l'étiquette (`en-GB`). */
+const pair = { languageA: 'fr', languageB: 'en-GB' };
+
 describe('translation service', () => {
-	it('suggests an english translation, passing the context along', async () => {
+	it('suggests a translation of side A into the language of side B, with the context', async () => {
 		const translator = fakeTranslator(() => 'to take for granted');
 		const service = createTranslationService(translator);
 
-		expect(await service.suggestEnglish(' tenir pour acquis ', ' réunion ')).toEqual({
+		expect(await service.suggest(pair, ' tenir pour acquis ', ' réunion ')).toEqual({
 			ok: true,
 			text: 'to take for granted'
 		});
 		expect(translator.calls).toEqual([
-			{ text: 'tenir pour acquis', from: 'fr', to: 'en', context: 'réunion' }
+			{ text: 'tenir pour acquis', from: 'fr', to: 'en-GB', context: 'réunion' }
 		]);
 	});
 
-	it('checks a card in both directions', async () => {
-		const service = createTranslationService(
-			fakeTranslator(({ to }) => (to === 'en' ? 'to take for granted' : 'tenir pour acquis'))
+	it('checks a card in both directions of the pair', async () => {
+		const translator = fakeTranslator(({ to }) =>
+			to === 'en-GB' ? 'to take for granted' : 'tenir pour acquis'
 		);
+		const service = createTranslationService(translator);
 
 		expect(
-			await service.check({ french: 'tenir pour acquis', english: 'to take for granted' })
+			await service.check(pair, { sideA: 'tenir pour acquis', sideB: 'to take for granted' })
 		).toEqual({
-			frenchToEnglish: { ok: true, text: 'to take for granted' },
-			englishToFrench: { ok: true, text: 'tenir pour acquis' }
+			aToB: { ok: true, text: 'to take for granted' },
+			bToA: { ok: true, text: 'tenir pour acquis' }
 		});
+		expect(translator.calls.map(({ from, to }) => [from, to])).toEqual([
+			['fr', 'en-GB'],
+			['en-GB', 'fr']
+		]);
 	});
 
 	it('reports a missing configuration', async () => {
-		expect(await createTranslationService(null).suggestEnglish('bonjour')).toEqual({
+		expect(await createTranslationService(null).suggest(pair, 'bonjour')).toEqual({
 			ok: false,
 			reason: 'not_configured'
 		});
@@ -61,7 +69,7 @@ describe('translation service', () => {
 			})
 		);
 
-		expect(await quota.suggestEnglish('bonjour')).toEqual({ ok: false, reason: 'quota' });
-		expect(await crash.suggestEnglish('bonjour')).toEqual({ ok: false, reason: 'unavailable' });
+		expect(await quota.suggest(pair, 'bonjour')).toEqual({ ok: false, reason: 'quota' });
+		expect(await crash.suggest(pair, 'bonjour')).toEqual({ ok: false, reason: 'unavailable' });
 	});
 });

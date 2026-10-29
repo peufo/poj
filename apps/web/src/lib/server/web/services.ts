@@ -1,19 +1,38 @@
 import { error, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/db/index.js';
 import { translator } from '#lib/server/deepl/index.js';
+import type { DeckView } from '#lib/format/decks.js';
 import {
 	createCardsService,
 	createDailyGoalService,
+	createDecksService,
+	duplicateSide,
 	createReviewsService,
 	createTranslationService,
-	NotFoundError
+	NotFoundError,
+	type Deck
 } from '#lib/server/domain/index.js';
 
 // Services du domaine partagés par les pages web (origine `web`).
 export const cards = createCardsService(db);
 export const dailyGoal = createDailyGoalService(db);
+export const decks = createDecksService(db);
 export const reviews = createReviewsService(db);
 export const translation = createTranslationService(translator);
+
+/** Ce que les pages savent d'un deck : de quoi nommer ses faces et repérer les doublons. */
+export function deckView(deck: Deck): DeckView {
+	const { kind, languageA, languageB, labelA, labelB, bothDirections } = deck;
+	return {
+		kind,
+		languageA,
+		languageB,
+		labelA,
+		labelB,
+		bothDirections,
+		duplicateSide: duplicateSide(deck)
+	};
+}
 
 /**
  * Propriétaire de la requête. Les `load` sont protégés par le layout `(app)`, mais pas

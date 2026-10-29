@@ -8,14 +8,9 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue } from '#lib/format/due.js';
-	import {
-		directionLabels,
-		formatDate,
-		formatDateTime,
-		originLabels,
-		plural
-	} from '#lib/format/labels.js';
-	import { LAB_NOW as now, cards, dueNow } from '#lib/lab/fixtures.js';
+	import { directionLabel } from '#lib/format/decks.js';
+	import { formatDate, formatDateTime, originLabels, plural } from '#lib/format/labels.js';
+	import { LAB_DECK, LAB_NOW as now, cards, dueNow } from '#lib/lab/fixtures.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -33,15 +28,11 @@
 	});
 </script>
 
-<svelte:head><title>{card.french} · Poj</title></svelte:head>
+<svelte:head><title>{card.sideA} · Poj</title></svelte:head>
 
 <AppShell current="cards" base="/lab" dueCount={dueNow.length} cardCount={cards.length}>
 	<div class="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pb-12 md:px-8">
-		<PageHeader
-			title="Carte : {card.french}"
-			compact
-			back={{ href: '/lab/cards', label: 'Cartes' }}
-		>
+		<PageHeader title="Carte : {card.sideA}" compact back={{ href: '/lab/cards', label: 'Cartes' }}>
 			{#snippet actions()}
 				<Button href="/lab/cards/{card.id}/edit" icon="pencil" size="sm">Modifier</Button>
 			{/snippet}
@@ -51,11 +42,11 @@
 		<dl class="-mt-2 flex flex-col gap-5">
 			<div class="flex flex-col gap-1">
 				<dt class="text-sm text-ink-3">Français</dt>
-				<dd class="text-2xl font-semibold tracking-tight">{card.french}</dd>
+				<dd class="text-2xl font-semibold tracking-tight">{card.sideA}</dd>
 			</div>
 			<div class="flex flex-col gap-1">
 				<dt class="text-sm text-ink-3">Anglais</dt>
-				<dd class="text-2xl font-semibold tracking-tight" lang="en">{card.english}</dd>
+				<dd class="text-2xl font-semibold tracking-tight" lang="en">{card.sideB}</dd>
 			</div>
 			<div class="flex flex-col gap-1">
 				<dt class="flex items-center gap-1.5 text-sm text-ink-3">
@@ -78,7 +69,7 @@
 					{@const due = describeDue(r.due, now, { isNew: r.isNew })}
 					<article class="flex flex-col gap-3 rounded-2xl bg-surface p-4">
 						<h3 class="flex items-center gap-1.5 text-sm font-medium text-ink-2">
-							{directionLabels[r.direction].long}
+							{directionLabel(r.direction, LAB_DECK)}
 						</h3>
 						<div>
 							<p
@@ -122,7 +113,7 @@
 								class="text-sm text-ink tabular-nums sm:text-ink-2">{formatDateTime(log.at)}</time
 							>
 							<span class="justify-self-end sm:order-last"><RatingPill rating={log.rating} /></span>
-							<span class="text-sm text-ink-2">{directionLabels[log.direction].long}</span>
+							<span class="text-sm text-ink-2">{directionLabel(log.direction, LAB_DECK)}</span>
 							<span
 								class="flex items-center gap-1.5 justify-self-end text-sm text-ink-3 sm:justify-self-start"
 							>
@@ -152,7 +143,7 @@
 <Sheet
 	bind:open={confirmDelete}
 	title="Supprimer cette carte ?"
-	description="« {card.french} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."
+	description="« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."
 >
 	{#snippet actions()}
 		<Button size="lg" onclick={() => (confirmDelete = false)}>Annuler</Button>
