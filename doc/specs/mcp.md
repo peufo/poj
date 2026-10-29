@@ -1,6 +1,6 @@
 # Spécification : serveur MCP
 
-Le serveur MCP permet à Claude de capturer et de réviser des cartes : [stories/connecteur-claude.md](../stories/connecteur-claude.md). Les règles de répétition sont celles de [specs/repetition.md](repetition.md).
+Le serveur MCP permet à Claude de capturer et de réviser des cartes : [story/connecteur-claude.md](../story/connecteur-claude.md). Les règles de répétition sont celles de [specs/repetition.md](repetition.md).
 
 ## Principes
 
@@ -17,7 +17,7 @@ Le serveur MCP permet à Claude de capturer et de réviser des cartes : [stories
   - L'URL de redirection `https://claude.ai/api/mcp/auth_callback` est autorisée.
   - Le rafraîchissement des jetons est supporté : Claude renouvelle ses jetons quand ils expirent.
   - La connexion réutilise la page de connexion du web. Il faut ajouter une page de consentement (« Claude demande l'accès à vos cartes ») : elle ne s'affiche qu'à l'ajout du connecteur, et elle protège contre un client qui se ferait passer pour Claude. Pas d'approbation automatique.
-- **Exposition :** l'enregistrement est ouvert à tout client, mais n'importe qui ne peut pas utiliser mes cartes pour autant : il faut ensuite se connecter avec **mon** compte, le seul existant ([WEB-1](../stories/web.md#web-1--accès-réservé)).
+- **Exposition :** l'enregistrement est ouvert à tout client, mais n'importe qui ne peut pas utiliser mes cartes pour autant : il faut ensuite se connecter avec **mon** compte, le seul existant ([WEB-1](../story/web.md#web-1--accès-réservé)).
 - **Scope :** l'accès au MCP exige le scope `cards` (« lire, créer et réviser vos cartes »), annoncé dans les métadonnées de la ressource et dans le `401`. Claude y ajoute `offline_access` pour obtenir un jeton de rafraîchissement.
 - **Découverte :** la ressource est `${ORIGIN}/mcp`, l'émetteur `${ORIGIN}/api/auth`. Sont servis : `/.well-known/oauth-protected-resource` (et `/…/mcp`), `/.well-known/oauth-authorization-server` (à la racine et suffixé par `/api/auth`), et sous `/api/auth/.well-known/` les métadonnées OAuth et OpenID.
 - **Clients :** DCR seulement, sans CIMD (Claude se rabat sur DCR quand CIMD n'est pas annoncé). Les clients natifs sans `application_type` (anciens Claude Code, boucle locale) sont enregistrés comme natifs : leur redirection `http://localhost:<port>` est acceptée quel que soit le port.
@@ -36,7 +36,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 - **Entrée :** `french`, `english`, `context` (facultatif).
 - **Sortie :**
   - `deepl_french_to_english` : traduction DeepL du français, en tenant compte du contexte ;
-  - `deepl_english_to_french` : traduction DeepL de l'anglais, utile quand l'expression a été entendue en anglais ([CL-3](../stories/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)) ;
+  - `deepl_english_to_french` : traduction DeepL de l'anglais, utile quand l'expression a été entendue en anglais ([CL-3](../story/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)) ;
   - `duplicates` : cartes existantes au même texte anglais (casse et espaces ignorés), avec leur français et leur contexte ;
   - si DeepL est indisponible ou que le quota est épuisé : `deepl_error` avec la raison. Claude me le signale, et je décide de créer quand même ou pas.
 - **Lecture seule :** il ne modifie rien.
@@ -54,7 +54,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 
 ### `next_review` — obtenir la prochaine révision
 
-- **Entrée :** `ahead` (booléen, `false` par défaut). Avec `true`, il propose les prochaines révisions à venir quand rien n'est dû ([CL-6](../stories/connecteur-claude.md#cl-6--rien-à-réviser)).
+- **Entrée :** `ahead` (booléen, `false` par défaut). Avec `true`, il propose les prochaines révisions à venir quand rien n'est dû ([CL-6](../story/connecteur-claude.md#cl-6--rien-à-réviser)).
 - **Sortie :**
   - `review_id`, `direction` (`fr_to_en` ou `en_to_fr`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
   - `has_hint` : vrai si la carte a un contexte ;

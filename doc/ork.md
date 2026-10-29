@@ -1,7 +1,7 @@
 ---
 commande_tests: bun run check && bun run lint && bun run test && bun run api:check
 branche_integration: dev
-max_parallele: 2
+max_parallele: 1
 ---
 
 ## Plan requis quand
@@ -11,5 +11,5 @@ max_parallele: 2
 - le ticket touchera probablement plus de 5 fichiers.
 
 ## Notes
-- **Stories :** elles sont dans `doc/stories/`, pas dans `doc/story/`.
+- **Parallélisme :** `max_parallele` est à 1 car la base `poj_test` est partagée par tous les worktrees et chaque test vide les tables. On pourra monter à 2 quand chaque worktree aura sa propre base de test.
 - **Conventions de git, des worktrees et de l'intégration :** voir `CLAUDE.md`.

@@ -22,7 +22,7 @@ Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut
 
 ## 2026-10-24 — Modifier le texte d'une carte réinitialise sa progression
 
-**Décision :** si le français ou l'anglais d'une carte change, ses deux sens repartent de zéro (l'historique est conservé). Une modification du contexte seul ne touche pas à la progression. Voir [stories/web.md](stories/web.md#web-5--modifier-une-carte).
+**Décision :** si le français ou l'anglais d'une carte change, ses deux sens repartent de zéro (l'historique est conservé). Une modification du contexte seul ne touche pas à la progression. Voir [story/web.md](story/web.md#web-5--modifier-une-carte).
 
 **Raison :** une modification corrige le plus souvent une erreur. Garder un long intervalle reviendrait à ne presque plus revoir la version corrigée. Revoir une carte en trop coûte peu.
 
@@ -30,7 +30,7 @@ Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut
 
 ## 2026-10-24 — Compte unique créé au premier lancement
 
-**Décision :** tant qu'aucun compte n'existe, le web affiche un formulaire de création de compte à la place de la connexion. Ensuite, l'inscription est refusée côté serveur. Voir [stories/web.md](stories/web.md#web-1--accès-réservé).
+**Décision :** tant qu'aucun compte n'existe, le web affiche un formulaire de création de compte à la place de la connexion. Ensuite, l'inscription est refusée côté serveur. Voir [story/web.md](story/web.md#web-1--accès-réservé).
 
 **Rejeté :** une commande `user:create`, ou un compte défini par variable d'environnement. C'est moins naturel qu'un formulaire au premier lancement.
 

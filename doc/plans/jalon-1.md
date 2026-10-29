@@ -1,6 +1,6 @@
 # Plan d'implémentation : jalon 1 (web)
 
-Périmètre : [stories/web.md](../stories/web.md) (WEB-1 à WEB-8), selon les règles de [specs/repetition.md](../specs/repetition.md). Le modèle de données anticipe déjà le jalon 2 ([specs/mcp.md](../specs/mcp.md)).
+Périmètre : [story/web.md](../story/web.md) (WEB-1 à WEB-8), selon les règles de [specs/repetition.md](../specs/repetition.md). Le modèle de données anticipe déjà le jalon 2 ([specs/mcp.md](../specs/mcp.md)).
 
 ## Choix structurants
 
