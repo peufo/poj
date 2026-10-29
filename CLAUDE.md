@@ -133,3 +133,23 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 - **Base de dev :** Postgres Docker exposé sur **5433**, car un Postgres natif occupe le 5432.
 - **Fichier d'environnement :** `apps/web/.env`, modèle dans `apps/web/.env.example`.
 - **Déploiement :** `main` seulement (GitHub Actions → GHCR → webhook Dokploy), voir `doc/deploiement.md`. Le `.env` racine (modèle `.env.example`) ne sert qu'à la stack Docker.
+
+## Git, worktrees et intégration
+
+- **Branche de travail :** `dev`, dans le checkout principal. Le travail long tourne dans des worktrees (`.claude/worktrees/`).
+- **Historique linéaire :** on rebase sur `dev`, puis on pose par avance rapide. Jamais de commit de merge. Rien n'est poussé sans demande explicite.
+- **Commits :**
+  - message en anglais, en minuscules, à l'impératif, sans préfixe de scope (`add cards service`, `remove notes example module`) ;
+  - pas de trailer `Co-Authored-By` ;
+  - jamais de sorties de build ni d'état d'outils (`.build/`, `DerivedData/`, `test-results/`, `.impeccable/`).
+- **Préparer un worktree :** `bun install`, puis copier `apps/web/.env` depuis le checkout principal. Si `schema.prisma` a changé, lancer `bun --filter @poj/web db:generate`.
+- **Fichiers générés, jamais fusionnés à la main :**
+  - `packages/api-contract/openapi.json` : résoudre d'abord les routes et les schémas Zod, prendre n'importe quel côté du JSON, puis `bun run api:export` ;
+  - `bun.lock` : composer `package.json`, prendre le lock de `dev`, puis `bun install`.
+- **Migrations :** si `dev` et le worktree ont chacun ajouté une migration, le rebase ne signale aucun conflit. Il faut alors vérifier que l'ordre des horodatages correspond à l'ordre d'application voulu. Un conflit dans `schema.prisma` se compose en gardant les conventions (`@map` snake_case, `uuid(7)`, `deletedAt`).
+- **Vérifications supplémentaires selon les zones touchées :**
+  - **`apps/ios/` ou le contrat modifié** (d'un côté ou de l'autre) : `bun run ios:test` ;
+  - **`ios:build`** (précédé de `bun run ios:project`, plusieurs minutes) : seulement en cas de doute que `ios:test` ne tranche pas, par exemple un conflit résolu dans `apps/ios/Poj/`, `project.yml` ou `Package.swift` ;
+  - **e2e Playwright** (`*.e2e.ts`, preview sur le port 4173) : seulement si une spec couvre une zone où deux changements de comportement ont été fusionnés. Vérifier d'abord `lsof -i :4173` : un preview déjà lancé servirait un build périmé. Lancer ensuite `bunx playwright test --workers=1 --reporter=list <spec>` depuis `apps/web`.
+- **La base `poj_test` est partagée par tous les checkouts**, et chaque test vide les tables. Deux suites lancées en même temps produisent des échecs aléatoires : en cas d'échec inexplicable, vérifier `pgrep -fl vitest`. Une migration testée dans un worktree reste appliquée à `poj_test`.
+- **Après l'intégration d'une migration :** lancer `bun run db:migrate` dans le checkout principal pour la base de dev. C'est à Jonas de le faire.
