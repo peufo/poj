@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Horizon from '#lib/components/Horizon.svelte';
+	import GoalCalendar from '#lib/components/GoalCalendar.svelte';
 	import MasteryBar from '#lib/components/MasteryBar.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
@@ -10,7 +11,7 @@
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	let day: number | null = $state(null);
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -48,6 +49,13 @@
 			<AccountMenu email={data.user.email} class="md:hidden" />
 		{/snippet}
 	</PageHeader>
+
+	<GoalCalendar
+		progress={data.goal}
+		bounds={data.goalBounds}
+		error={form?.goalError}
+		value={form?.goalValue}
+	/>
 
 	{#if data.stats.totalCards === 0}
 		<div class="flex flex-col items-start gap-3 py-8">

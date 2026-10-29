@@ -209,7 +209,7 @@ Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a
 
 Le clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme="light|dark"` force un thème sur n'importe quel sous-arbre (lab, aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.
 
-Rejets confirmés par la direction : le tableau de bord gamifié (séries, trophées, confettis) et la table grise de back-office.
+Rejets confirmés par la direction : le tableau de bord gamifié (trophées, confettis, badges) et la table grise de back-office. Seule exception, décidée le 2026-10-29 (doc/story/ajout-quotidien.md) : l'objectif quotidien d'ajout de cartes montre une série et un calendrier d'accomplissement, sobres (rampe d'encre neutre, l'accent seulement pour aujourd'hui).
 
 **Key Characteristics:**
 
@@ -391,7 +391,7 @@ Encadré `xl` sans bordure, icône à 18 px : `info` sur `surface`, `warn` sur `
 
 - **Don't** utiliser les teintes de note (again, hard, good, easy) pour autre chose qu'une note.
 - **Don't** colorer la maîtrise en indigo ou avec les teintes de note : elle reste une rampe d'encre neutre.
-- **Don't** ajouter séries, trophées, confettis ou autre mécanique de tableau de bord gamifié.
+- **Don't** ajouter trophées, confettis ou autre mécanique de tableau de bord gamifié. La série de l'objectif quotidien est la seule série admise : un nombre et un calendrier, sans célébration.
 - **Don't** composer l'écran comme une table grise de back-office.
 - **Don't** utiliser une valeur de couleur, de rayon, d'ombre ou de police hors des tokens : les échelles par défaut de Tailwind sont désactivées.
 - **Don't** poser une ombre sur un panneau, une ligne ou un champ.

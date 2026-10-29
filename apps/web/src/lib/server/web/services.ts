@@ -3,6 +3,7 @@ import { db } from '#lib/server/db/index.js';
 import { translator } from '#lib/server/deepl/index.js';
 import {
 	createCardsService,
+	createDailyGoalService,
 	createReviewsService,
 	createTranslationService,
 	NotFoundError
@@ -10,6 +11,7 @@ import {
 
 // Services du domaine partagés par les pages web (origine `web`).
 export const cards = createCardsService(db);
+export const dailyGoal = createDailyGoalService(db);
 export const reviews = createReviewsService(db);
 export const translation = createTranslationService(translator);
 

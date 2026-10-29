@@ -1,20 +1,31 @@
-import { calendarDaysBetween, presentations } from '#lib/server/domain/index.js';
+import { fail } from '@sveltejs/kit';
+import {
+	calendarDaysBetween,
+	MAX_DAILY_GOAL,
+	MIN_DAILY_GOAL,
+	presentations,
+	weekdayIndex
+} from '#lib/server/domain/index.js';
 import { masteryOf, type MasteryLevel } from '#lib/format/mastery.js';
-import { cards, ownerOf, reviews } from '#lib/server/web/services.js';
-import type { PageServerLoad } from './$types';
+import { cards, dailyGoal, ownerOf, reviews } from '#lib/server/web/services.js';
+import type { Actions, PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;
+/** Semaines du calendrier d'accomplissement, la dernière étant la semaine en cours. */
+const GOAL_WEEKS = 8;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const ownerId = ownerOf(locals);
 	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
 	const now = new Date();
 
-	const [all, stats, horizon, dueNow] = await Promise.all([
+	const [all, stats, horizon, dueNow, goal] = await Promise.all([
 		cards.list(ownerId),
 		cards.stats(ownerId, now),
 		cards.horizon(ownerId, now, HORIZON_DAYS),
-		reviews.countDue(ownerId, now)
+		reviews.countDue(ownerId, now),
+		// Du lundi d'il y a sept semaines jusqu'à aujourd'hui.
+		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1)
 	]);
 	const listed = query ? await cards.list(ownerId, { query }) : all;
 	// Quand chaque sens sera présenté (mise de côté du sens inverse comprise).
@@ -34,6 +45,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		query,
 		stats: { totalCards: stats.totalCards, dueToday: stats.dueToday, dueNow },
 		horizon,
+		goal,
+		goalBounds: { min: MIN_DAILY_GOAL, max: MAX_DAILY_GOAL },
 		mastery,
 		cards: listed.map((card) => ({
 			id: card.id,
@@ -52,4 +65,20 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			})
 		}))
 	};
+};
+
+export const actions: Actions = {
+	goal: async ({ request, locals }) => {
+		const ownerId = ownerOf(locals);
+		const value = (await request.formData()).get('goal')?.toString().trim() ?? '';
+		const goal = Number(value);
+		if (!/^\d+$/.test(value) || goal < MIN_DAILY_GOAL || goal > MAX_DAILY_GOAL) {
+			return fail(400, {
+				goalError: `Entre ${MIN_DAILY_GOAL} et ${MAX_DAILY_GOAL} cartes par jour.`,
+				goalValue: value
+			});
+		}
+		await dailyGoal.setGoal(ownerId, goal);
+		return { goalSaved: true };
+	}
 };
