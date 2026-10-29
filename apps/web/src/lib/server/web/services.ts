@@ -16,7 +16,8 @@ import {
 	type Deck
 } from '#lib/server/domain/index.js';
 
-// Services du domaine partagés par les pages web (origine `web`).
+// Services du domaine partagés par les pages web (origine `web`). `accounts`, sans origine,
+// sert aussi à `/mcp`.
 export const accounts = createAccountsService(db);
 export const cards = createCardsService(db);
 export const dailyGoal = createDailyGoalService(db);
