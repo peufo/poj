@@ -24,9 +24,14 @@ export function safeRedirectTo(value: string | null | undefined): string | null 
 	return url.pathname + url.search + url.hash;
 }
 
-/** Page de connexion qui ramènera à `path` (sauf la page d'accueil par défaut). */
-export function loginUrl(path: string): string {
-	const target = safeRedirectTo(path);
+/**
+ * Page de connexion qui ramènera à `page` (sauf la page d'accueil par défaut), sans ses
+ * paramètres de form action (`?/goal`) : on y revient par un GET.
+ */
+export function loginUrl({ pathname, searchParams }: URL): string {
+	const query = new URLSearchParams([...searchParams].filter(([key]) => !key.startsWith('/')));
+	const search = query.toString();
+	const target = safeRedirectTo(search ? `${pathname}?${search}` : pathname);
 	return target && target !== '/cards'
 		? `/login?${REDIRECT_PARAM}=${encodeURIComponent(target)}`
 		: '/login';

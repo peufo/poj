@@ -26,8 +26,17 @@ describe('redirect after login', () => {
 		}
 	});
 
+	const page = (path: string) => new URL(path, 'http://poj.test');
+
 	it('builds the login URL, without a parameter for the home page', () => {
-		expect(loginUrl('/review?ahead=1')).toBe('/login?redirectTo=%2Freview%3Fahead%3D1');
-		expect(loginUrl('/cards')).toBe('/login');
+		expect(loginUrl(page('/review?ahead=1'))).toBe('/login?redirectTo=%2Freview%3Fahead%3D1');
+		expect(loginUrl(page('/cards'))).toBe('/login');
+	});
+
+	it('drops form action parameters from the page to return to', () => {
+		expect(loginUrl(page('/cards?/goal'))).toBe('/login');
+		expect(loginUrl(page('/review?ahead=1&/answer'))).toBe(
+			'/login?redirectTo=%2Freview%3Fahead%3D1'
+		);
 	});
 });

@@ -8,16 +8,17 @@ import type { Actions, PageServerLoad } from './$types';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const load: PageServerLoad = async ({ locals, url }) => {
-	requireAdmin(locals, url);
+export const load: PageServerLoad = async (event) => {
+	requireAdmin(event);
 	const [users, pending] = await Promise.all([accounts.list(), invitations.listPending()]);
 	return { users, pending };
 };
 
 export const actions: Actions = {
 	/** Génère un lien d'invitation, affiché une seule fois. */
-	invite: async ({ locals, request, url }) => {
-		const adminId = requireAdmin(locals, url);
+	invite: async (event) => {
+		const { request } = event;
+		const adminId = requireAdmin(event);
 		const email = (await request.formData()).get('email')?.toString().trim() ?? '';
 		if (!EMAIL.test(email)) return fail(400, { email, message: authErrorMessages.INVALID_EMAIL });
 
@@ -38,8 +39,9 @@ export const actions: Actions = {
 		}
 	},
 
-	revoke: async ({ locals, request, url }) => {
-		requireAdmin(locals, url);
+	revoke: async (event) => {
+		const { request } = event;
+		requireAdmin(event);
 		await invitations.revoke(idOf((await request.formData()).get('id'), 'Invitation'));
 		return { revoked: true };
 	}

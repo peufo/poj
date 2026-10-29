@@ -2,10 +2,10 @@ import { userOf } from '#lib/server/web/guards.js';
 import { cards, reviews } from '#lib/server/web/services.js';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals, url, untrack }) => {
+export const load: LayoutServerLoad = async (event) => {
 	// La page demandée suit jusqu'à la connexion. `untrack` : le layout ne se recharge pas
 	// à chaque changement d'URL (recherche au fil de la frappe).
-	const user = untrack(() => userOf(locals, url));
+	const user = event.untrack(() => userOf(event));
 	const now = new Date();
 	// Compteurs de la navigation : révisions à présenter maintenant, cartes du paquet.
 	const [dueCount, { totalCards }] = await Promise.all([

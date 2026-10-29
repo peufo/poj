@@ -15,8 +15,9 @@ const HORIZON_DAYS = 14;
 /** Semaines du calendrier d'accomplissement, la dernière étant la semaine en cours. */
 const GOAL_WEEKS = 8;
 
-export const load: PageServerLoad = async ({ locals, url }) => {
-	const ownerId = ownerOf(locals, url);
+export const load: PageServerLoad = async (event) => {
+	const { url } = event;
+	const ownerId = ownerOf(event);
 	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
 	const now = new Date();
 
@@ -73,8 +74,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	goal: async ({ request, locals, url }) => {
-		const ownerId = ownerOf(locals, url);
+	goal: async (event) => {
+		const { request } = event;
+		const ownerId = ownerOf(event);
 		const value = (await request.formData()).get('goal')?.toString().trim() ?? '';
 		const goal = Number(value);
 		if (!/^\d+$/.test(value) || goal < MIN_DAILY_GOAL || goal > MAX_DAILY_GOAL) {
