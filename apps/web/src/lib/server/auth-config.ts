@@ -1,7 +1,12 @@
 import { mcp } from '@better-auth/mcp';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { bearer, jwt } from 'better-auth/plugins';
-import type { Db, UserRole } from '#lib/server/domain/index.js';
+import {
+	PASSWORD_MAX_LENGTH,
+	PASSWORD_MIN_LENGTH,
+	type Db,
+	type UserRole
+} from '#lib/server/domain/index.js';
 import { signUpHooks } from '#lib/server/sign-up-hooks.js';
 
 /** Scope propre au serveur MCP : lire et modifier les cartes et leurs révisions. */
@@ -35,7 +40,12 @@ export function createAuthOptions({
 		baseURL: origin,
 		secret,
 		database: prismaAdapter(db, { provider: 'postgresql' }),
-		emailAndPassword: { enabled: true },
+		// Limites du domaine, communes à toutes les créations de compte (invitations comprises).
+		emailAndPassword: {
+			enabled: true,
+			minPasswordLength: PASSWORD_MIN_LENGTH,
+			maxPasswordLength: PASSWORD_MAX_LENGTH
+		},
 		user: {
 			additionalFields: {
 				// Lu dans `locals.user`, jamais modifiable par les endpoints (inscription,

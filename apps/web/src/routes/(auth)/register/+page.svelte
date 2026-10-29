@@ -3,9 +3,9 @@
 	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
-	import type { ActionData } from './$types';
+	import type { PageProps } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: PageProps = $props();
 	let pending = $state(false);
 </script>
 
@@ -44,9 +44,9 @@
 		name="password"
 		type="password"
 		required
-		minlength={8}
+		minlength={data.minPasswordLength}
 		autocomplete="new-password"
-		hint="8 caractères au moins."
+		hint="{data.minPasswordLength} caractères au moins."
 	/>
 	{#if form?.message}<Notice tone="danger">{form.message}</Notice>{/if}
 	<Button type="submit" variant="primary" size="lg" block loading={pending}>Créer mon compte</Button
