@@ -9,11 +9,14 @@
 		const path = page.url.pathname;
 		if (path.startsWith('/review')) return 'review';
 		if (path === '/cards/new') return 'new';
+		if (path.startsWith('/connect')) return 'connect';
 		return 'cards';
 	});
 
 	// Révision et formulaires : la barre d'onglets s'efface (barre d'action au pouce).
-	const focus = $derived(current !== 'cards' || (page.route.id?.endsWith('/edit') ?? false));
+	const focus = $derived(
+		(current !== 'cards' && current !== 'connect') || (page.route.id?.endsWith('/edit') ?? false)
+	);
 </script>
 
 <AppShell

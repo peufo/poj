@@ -5,7 +5,7 @@
 
 	// Cadre de l'application : barre latérale sur grand écran, barre d'onglets au pouce
 	// sur téléphone. En révision (`focus`), la navigation s'efface.
-	type Section = 'review' | 'cards' | 'new';
+	type Section = 'review' | 'cards' | 'new' | 'connect';
 	type Props = {
 		current?: Section;
 		dueCount?: number;
@@ -44,6 +44,13 @@
 			short: 'Nouvelle',
 			icon: 'plus',
 			href: `${base}/cards/new`
+		},
+		{
+			id: 'connect',
+			label: 'Connecter Claude',
+			short: 'Claude',
+			icon: 'claude',
+			href: `${base}/connect`
 		}
 	]);
 </script>
@@ -114,7 +121,7 @@
 			aria-label="Navigation principale"
 			class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-canvas/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl backdrop-saturate-150 md:hidden"
 		>
-			<ul class="mx-auto grid h-16 max-w-md grid-cols-3">
+			<ul class="mx-auto grid h-16 max-w-md grid-cols-4">
 				{#each items as item (item.id)}
 					{@const active = current === item.id}
 					<li>
