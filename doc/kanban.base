@@ -1,6 +1,6 @@
 filters:
-  and:
-    - file.folder == "tickets"
+  or:
+    - file.inFolder("tickets")
 views:
   - type: kanban
     name: Vue
@@ -9,4 +9,6 @@ views:
       direction: ASC
     groupOrder:
       - ready
+      - in-progress
       - in-review
+      - done

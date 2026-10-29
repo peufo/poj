@@ -2,6 +2,21 @@
 
 Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut.
 
+## 2026-10-29 — Testeurs invités par l'admin, Claude seulement
+
+**Décision :**
+- Poj s'ouvre à quelques proches. Il n'y a pas d'inscription libre : un administrateur root génère depuis une page d'admin un lien d'invitation à usage unique, transmis à la main.
+- Le comportement de l'assistant vit côté serveur MCP.
+- Seul Claude est visé pour l'instant.
+
+Voir [story/connexion-assistants.md](story/connexion-assistants.md).
+
+**Remplace :** « Compte unique créé au premier lancement » (2026-10-24). Le premier compte devient l'administrateur.
+
+**Rejeté :**
+- *Le mot de passe provisoire et l'envoi d'e-mails :* ils sont inutiles pour quelques proches.
+- *ChatGPT pour l'instant :* son mode vocal ne prendrait pas en charge les connecteurs MCP, et ses connecteurs personnalisés sont réservés aux plans payants, en bêta.
+
 ## 2026-10-29 — Calendrier des révisions et leviers de motivation
 
 **Décision :**
