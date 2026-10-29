@@ -2,5 +2,11 @@ filters:
   and:
     - file.folder == "tickets"
 views:
-  - type: table
+  - type: kanban
     name: Vue
+    groupBy:
+      property: status
+      direction: ASC
+    groupOrder:
+      - ready
+      - in-review
