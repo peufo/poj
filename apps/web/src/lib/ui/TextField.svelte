@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { NO_AUTOFILL } from './autofill.js';
 
 	type Props = {
 		label: string;
@@ -13,6 +14,7 @@
 		optional?: boolean;
 		placeholder?: string;
 		type?: 'text' | 'email' | 'password' | 'search';
+		/** Absent : champ de contenu, sans aucune suggestion (navigateur ni gestionnaire). */
 		autocomplete?: HTMLInputElement['autocomplete'];
 		/** Langue du contenu saisi : pilote le correcteur orthographique. */
 		lang?: string;
@@ -45,6 +47,7 @@
 	}: Props = $props();
 
 	const id = $props.id();
+	const autofill = $derived(autocomplete ? { autocomplete } : NO_AUTOFILL);
 	const describedBy = $derived(
 		[hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined
 	);
@@ -75,6 +78,7 @@
 			{rows}
 			{required}
 			{placeholder}
+			{...autofill}
 			{lang}
 			bind:value
 			{oninput}
@@ -89,7 +93,7 @@
 			{type}
 			{required}
 			{placeholder}
-			{autocomplete}
+			{...autofill}
 			{lang}
 			{minlength}
 			bind:value

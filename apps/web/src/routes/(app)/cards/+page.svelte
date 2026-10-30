@@ -9,6 +9,7 @@
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import { NO_AUTOFILL } from '#lib/ui/autofill.js';
 	import { faces } from '#lib/format/decks.js';
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
@@ -127,6 +128,7 @@
 						type="search"
 						name="q"
 						value={data.query}
+						{...NO_AUTOFILL}
 						oninput={(e) => search(e.currentTarget.value)}
 						placeholder="Rechercher une carte"
 						class="h-11 w-full rounded-xl border border-transparent bg-surface pr-3 pl-10 text-base text-ink transition-[border-color,box-shadow] duration-150 placeholder:text-ink-3 focus:border-accent focus:ring-3 focus:ring-accent/20 focus:outline-none"

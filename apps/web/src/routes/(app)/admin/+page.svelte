@@ -60,7 +60,6 @@
 				name="email"
 				type="email"
 				required
-				autocomplete="off"
 				value={failure?.email ?? ''}
 			/>
 			{#if failure}<Notice tone="danger">{failure.message}</Notice>{/if}
