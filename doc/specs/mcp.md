@@ -29,14 +29,32 @@ Références : [Build an MCP server for Claude](https://claude.com/docs/connecto
 
 Les noms des outils et de leurs paramètres sont en anglais, les textes renvoyés en français.
 
-Les cartes capturées vont dans le deck par défaut (« Français → Anglais » tant qu'il n'y a pas de choix de deck, voir [decisions.md](../decisions.md)). Les clés des outils sont génériques : `side_a` et `side_b` pour les deux faces, `a_to_b` et `b_to_a` pour les sens. Les instructions du serveur, la description des outils et de leurs paramètres, ainsi que les textes renvoyés, nomment les faces d'après le deck : le nom des langues pour un deck de langue (`side_a` : « Texte en français de la carte »), ses libellés ou « Question » / « Réponse » pour un sujet.
+Les clés des outils sont génériques : `side_a` et `side_b` pour les deux faces, `a_to_b` et `b_to_a` pour les sens.
+
+### Choix du deck
+
+Claude choisit le deck d'une carte capturée ([story/decks.md](../story/decks.md)) : il le **déduit** (langue de l'expression, sujet) ou il **demande** en cas de doute.
+
+- **Désignation :** un deck se désigne par son **nom**, dans le paramètre facultatif `deck`, et pas par son identifiant, car Claude génère mal les UUID. La comparaison ignore la casse et les espaces, comme l'unicité des noms. Un nom inconnu, ou celui d'un deck supprimé, renvoie une erreur d'outil qui liste les decks de l'utilisateur.
+- **Capture sans `deck` :** avec un seul deck, la carte y va. Avec plusieurs, l'outil renvoie une erreur qui liste les decks : il n'y a pas de deck par défaut, et Claude doit déduire le deck ou le demander. Sans aucun deck, l'erreur invite à créer un deck sur `/decks/new`.
+- **Révision :** sans `deck`, la session mélange tous les decks (« on révise » ne demande aucun choix). Un deck nommé limite la session à ce deck. Claude le repasse à `submit_review` et `amend_review`, pour que `remaining` soit compté dans ce deck. Pour ces deux outils, un nom inconnu ne bloque pas la note : `remaining` est alors compté dans tous les decks.
+- **Rendu selon les decks :** à chaque requête, le serveur lit les decks non supprimés de l'utilisateur.
+  - **Un seul deck (ou aucun) :** les instructions, les descriptions des outils et de leurs paramètres nomment les faces d'après ce deck : le nom des langues pour un deck de langue (`side_a` : « Texte en français de la carte »), ses libellés ou « Question » / « Réponse » pour un sujet.
+  - **Plusieurs decks :** les instructions listent les decks (nom, type, faces et sens), et la description de `deck` donne la correspondance des faces de chacun. Les faces sont décrites de façon générique (face A, face B). Les textes renvoyés nomment le deck de la carte.
+
+### `list_decks` — lister les decks
+
+- **Entrée :** aucune.
+- **Sortie :** `decks`, du plus ancien au plus récent, sans les decks supprimés : `name`, `kind` (`language` ou `subject`), `side_a` et `side_b` (noms des faces), `language_a` et `language_b` (étiquettes BCP 47, nulles pour un sujet), `both_directions` et `card_count`. Le texte tient en une ligne par deck. Sans deck, il invite à en créer un sur `/decks/new`.
+- **Lecture seule.**
 
 ### `check_card` — vérifier une carte avant création
 
 Appelé **avant chaque création**, avec la proposition de Claude.
 
-- **Entrée :** `side_a` (le français), `side_b` (l'anglais), `context` (facultatif).
+- **Entrée :** `side_a` (le français), `side_b` (l'anglais), `context` (facultatif), `deck` (facultatif, voir [Choix du deck](#choix-du-deck)).
 - **Sortie :**
+  - `deck` : le nom du deck retenu ;
   - `deepl_a_to_b` : traduction DeepL de la face A dans la langue de la face B (anglais britannique, variante tirée du deck), en tenant compte du contexte ;
   - `deepl_b_to_a` : traduction DeepL de la face B, utile quand l'expression a été entendue en anglais ([CL-3](../story/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)) ;
   - `duplicates` : cartes existantes du même deck au même texte anglais (casse et espaces ignorés), avec leurs deux faces (`side_a`, `side_b`) et leur contexte ;
@@ -46,24 +64,26 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 
 ### `create_card` — créer une carte
 
-- **Entrée :** `side_a`, `side_b`, `context` (facultatif).
-- **Effet :** crée la carte (origine : Claude) dans le deck par défaut, et ses deux révisions, dues immédiatement. Dans un deck à sens unique, seule la révision `a_to_b` est créée.
-- **Sortie :** `card_id` et un récapitulatif de la carte.
+- **Entrée :** `side_a`, `side_b`, `context` (facultatif), `deck` (facultatif, voir [Choix du deck](#choix-du-deck)).
+- **Effet :** crée la carte (origine : Claude) dans le deck retenu, et ses deux révisions, dues immédiatement. Dans un deck à sens unique, seule la révision `a_to_b` est créée.
+- **Sortie :** `card_id`, `deck` et un récapitulatif de la carte.
 - **Rejeu :** si une carte identique (mêmes trois champs) a été créée dans les 10 dernières minutes, l'outil renvoie celle-ci au lieu d'en créer une seconde. C'est la protection contre les relances réseau. On n'utilise pas d'identifiant fourni par le client, car Claude génère mal les UUID.
 - **Description de l'outil (consignes à Claude) :**
-  - toujours appeler `check_card` d'abord ;
-  - si DeepL diverge, exposer les options et me laisser trancher ;
-  - me relire la carte finale et attendre ma confirmation explicite avant d'appeler cet outil.
+  - toujours appeler `check_card` d'abord, avec le même deck ;
+  - pour un deck de langue, si DeepL diverge, exposer les options et me laisser trancher ; pour un sujet, vérifier lui-même la carte ;
+  - me relire la carte finale (avec son deck quand j'en ai plusieurs) et attendre ma confirmation explicite avant d'appeler cet outil.
 
 ### `next_review` — obtenir la prochaine révision
 
-- **Entrée :** `ahead` (booléen, `false` par défaut). Avec `true`, il propose les prochaines révisions à venir quand rien n'est dû ([CL-6](../story/connecteur-claude.md#cl-6--rien-à-réviser)).
+- **Entrée :**
+  - `ahead` (booléen, `false` par défaut). Avec `true`, il propose les prochaines révisions à venir quand rien n'est dû ([CL-6](../story/connecteur-claude.md#cl-6--rien-à-réviser)) ;
+  - `deck` (facultatif) : limite la session à ce deck. Sans deck, tous les decks sont mélangés.
 - **Sortie :**
-  - `review_id`, `direction` (`a_to_b` ou `b_to_a`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
+  - `review_id`, `deck` (le nom du deck de la carte), `direction` (`a_to_b` ou `b_to_a`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
   - `has_hint` : vrai si la carte a un contexte ;
   - `version` : jeton opaque à renvoyer avec la note ;
   - `remaining` : nombre de révisions qui seront encore présentées dans la session, au plus une par carte (voir [Sessions](repetition.md#sessions)) ;
-  - si rien n'est dû et que `ahead` vaut `false` : `nothing_due` et la date de la prochaine échéance.
+  - si rien n'est dû et que `ahead` vaut `false` : `nothing_due` et la date de la prochaine échéance (dans le deck demandé, s'il y en a un).
 - **Le contexte n'est pas renvoyé ici :** il ne s'obtient que par `get_hint`. Le serveur sait ainsi quand un indice a été demandé.
 - **Ordre et mise de côté** du sens inverse : ceux de la spec de répétition, appliqués par le serveur.
 - **Lecture seule.**
@@ -76,7 +96,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 
 ### `submit_review` — enregistrer la note
 
-- **Entrée :** `review_id`, `version` (tel que renvoyé par `next_review`), `rating` (`again`, `hard`, `good` ou `easy`).
+- **Entrée :** `review_id`, `version` (tel que renvoyé par `next_review`), `rating` (`again`, `hard`, `good` ou `easy`), `deck` (facultatif : celui passé à `next_review`, pour compter `remaining` dans ce deck).
 - **Effet :**
   - si un indice a été demandé pour cette révision, la note est **plafonnée à `hard`** par le serveur ;
   - FSRS calcule le nouvel état, et la réponse est ajoutée à l'historique (origine : Claude).
@@ -88,7 +108,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 
 Sert quand je conteste une note **après** son enregistrement (voir le déroulé ci-dessous).
 
-- **Entrée :** `review_id`, `rating`.
+- **Entrée :** `review_id`, `rating`, `deck` (facultatif, comme pour `submit_review`).
 - **Effet :** remplace la dernière réponse de cette révision. L'état FSRS est recalculé à partir de l'état antérieur, que conserve l'historique. Le plafond `hard` lié à l'indice s'applique toujours.
 - **Limite :** seule la **dernière** réponse d'une révision est corrigeable, et seulement dans l'heure qui suit.
 - **Note inchangée :** si la note retenue (plafond compris) est déjà celle enregistrée, rien n'est modifié et la sortie l'indique (`changed` à `false`).
@@ -104,7 +124,12 @@ Pour que la session reste fluide en voiture, Claude n'attend pas mon accord sur 
 
 ## Consignes générales
 
-Les instructions du serveur MCP (transmises à l'initialisation, si le client les prend en compte) résument le rôle de Poj et les règles ci-dessus : langue de travail français, carte relue avant création, _Easy_ jamais proposé, réponses brèves en mode vocal. Les règles critiques figurent **aussi** dans la description des outils concernés, que Claude lit de manière certaine.
+Les instructions du serveur MCP (transmises à l'initialisation, si le client les prend en compte) résument le rôle de Poj et les règles ci-dessus : langue de travail français, carte relue avant création, _Easy_ jamais proposé, réponses brèves en mode vocal. Avec plusieurs decks, elles listent les decks et ajoutent :
+
+- déduire le deck de chaque carte, ou le demander en une question courte en cas de doute, puis le garder pour les cartes suivantes sauf indice contraire ;
+- vérifier avec DeepL seulement pour un deck de langue, et vérifier soi-même une carte de sujet ;
+- toujours relire la carte, avec son deck, avant de la créer ;
+- réviser sans deck quand je dis « on révise », et ne passer un deck que si j'en nomme un. Les règles critiques figurent **aussi** dans la description des outils concernés, que Claude lit de manière certaine.
 
 ## Hors périmètre
 

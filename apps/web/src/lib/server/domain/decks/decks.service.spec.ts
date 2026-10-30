@@ -7,7 +7,7 @@ import {
 	FR_EN_DECK,
 	SUBJECT_DECK
 } from '../../testing/factories';
-import { createDecksService, directionsOf, languagePair } from './decks.service';
+import { createDecksService, directionsOf, findDeckByName, languagePair } from './decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 
 const db = useTestDatabase();
@@ -39,7 +39,6 @@ const capitals = {
 describe('decks service', () => {
 	it('creates no deck implicitly: a new owner has none', async () => {
 		expect(await decks.list(alice)).toEqual([]);
-		expect(await decks.first(alice)).toBeNull();
 		expect(await db.deck.count()).toBe(0);
 	});
 
@@ -61,7 +60,6 @@ describe('decks service', () => {
 			[other.id, 0]
 		]);
 		expect(listed[0]).toMatchObject({ ...FR_EN_DECK, ownerId: alice });
-		expect((await decks.first(alice))?.id).toBe(english.id);
 	});
 
 	it('gets a deck of the owner only', async () => {
@@ -158,7 +156,6 @@ describe('decks service', () => {
 
 		// Le dernier deck se supprime aussi : il n'en reste aucun.
 		await decks.softDelete(alice, other.id);
-		expect(await decks.first(alice)).toBeNull();
 	});
 
 	it('refuses to delete a deck of another owner', async () => {
@@ -178,6 +175,13 @@ describe('decks service', () => {
 	it('gives the language pair of a language deck only', () => {
 		expect(languagePair(FR_EN_DECK)).toEqual({ languageA: 'fr', languageB: 'en-GB' });
 		expect(languagePair(subject)).toBeNull();
+	});
+
+	it('finds a deck by its name, ignoring case and spaces', () => {
+		const listed = [{ name: 'Anglais' }, { name: 'Capitales du monde' }];
+		expect(findDeckByName(listed, ' anglais ')).toBe(listed[0]);
+		expect(findDeckByName(listed, 'CAPITALES  du monde')).toBe(listed[1]);
+		expect(findDeckByName(listed, 'Allemand')).toBeUndefined();
 	});
 
 	it('reviews both directions, or a_to_b only for a one-way deck', () => {

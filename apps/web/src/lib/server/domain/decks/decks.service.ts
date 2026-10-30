@@ -56,6 +56,18 @@ export async function findOwnedDeck(db: Db | Tx, ownerId: string, id: string): P
 	return deck;
 }
 
+/**
+ * Deck de ce nom parmi `decks`, casse et espaces ignorés comme pour l'unicité des noms :
+ * Claude désigne un deck par son nom, souvent dicté.
+ */
+export function findDeckByName<T extends Pick<Deck, 'name'>>(
+	decks: readonly T[],
+	name: string
+): T | undefined {
+	const key = comparisonKey(name);
+	return decks.find((deck) => comparisonKey(deck.name) === key);
+}
+
 /** Refuse un nom déjà porté par un autre deck non supprimé du propriétaire. */
 async function assertNameFree(tx: Tx, ownerId: string, name: string, excludeId?: string) {
 	const others = await tx.deck.findMany({
@@ -81,17 +93,6 @@ export function createDecksService(db: Db) {
 
 		get(ownerId: string, id: string): Promise<Deck> {
 			return findOwnedDeck(db, ownerId, id);
-		},
-
-		/**
-		 * Le plus ancien deck non supprimé, ou `null` : celui des cartes capturées par Claude
-		 * tant qu'il ne choisit pas le deck (T-0005).
-		 */
-		first(ownerId: string): Promise<Deck | null> {
-			return db.deck.findFirst({
-				where: { ownerId, deletedAt: null },
-				orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
-			});
 		},
 
 		/** Crée un deck. Un nom déjà pris (casse et espaces ignorés) donne une `ConflictError`. */
