@@ -10,6 +10,7 @@ import {
 } from '#lib/format/decks.js';
 import { plural } from '#lib/format/labels.js';
 import {
+	CARD_LIMITS,
 	ConflictError,
 	directionsOf,
 	duplicateSide,
@@ -152,6 +153,9 @@ const ratingSchema = z
 		'again : faux ou inconnu ; hard : juste avec indice ou hésitation ; good : juste ; easy : trop facile, seulement sur demande explicite.'
 	);
 
+/** Message d'un champ trop long, pour que Claude raccourcisse et réessaie. */
+const tooLong = (max: number) => `${max} caractères au plus : raccourcis le texte.`;
+
 /** « Texte en anglais de la carte », ou « Face « Pays » de la carte » pour un sujet. */
 const fieldOf = (face: Face) =>
 	face.lang ? `Texte en ${face.name} de la carte` : `Face ${face.the} de la carte`;
@@ -178,6 +182,7 @@ function cardInputSchema(shape: DeckFaces | null, decks: readonly Deck[]) {
 			.string()
 			.trim()
 			.min(1)
+			.max(CARD_LIMITS.sideA, tooLong(CARD_LIMITS.sideA))
 			.describe(
 				sides
 					? `${fieldOf(sides.a)}.`
@@ -187,6 +192,7 @@ function cardInputSchema(shape: DeckFaces | null, decks: readonly Deck[]) {
 			.string()
 			.trim()
 			.min(1)
+			.max(CARD_LIMITS.sideB, tooLong(CARD_LIMITS.sideB))
 			.describe(
 				sides
 					? `${fieldOf(sides.b)}${sides.b.lang ? ' (mot ou phrase entière)' : ''}.`
@@ -194,6 +200,7 @@ function cardInputSchema(shape: DeckFaces | null, decks: readonly Deck[]) {
 			),
 		context: z
 			.string()
+			.max(CARD_LIMITS.context, tooLong(CARD_LIMITS.context))
 			.nullish()
 			.describe("Contexte d'origine facultatif (où, quand, avec qui l'expression a été entendue)."),
 		deck: captureDeckField(decks)

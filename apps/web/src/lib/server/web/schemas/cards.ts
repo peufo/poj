@@ -1,11 +1,9 @@
 import * as z from 'zod';
-import { MAX_DAILY_GOAL, MIN_DAILY_GOAL } from '#lib/server/domain/index.js';
+import { CARD_LIMITS, MAX_DAILY_GOAL, MIN_DAILY_GOAL } from '#lib/server/domain/index.js';
 import { tooLong } from './fields';
 
 // Formulaires des cartes (création, modification, suggestion DeepL), de l'objectif du jour,
 // et paramètres de `/cards`.
-
-const CARD_LIMITS = { sideA: 300, sideB: 300, context: 1000 } as const;
 
 /** Longueur de la recherche gardée, au-delà de laquelle le reste est ignoré. */
 const QUERY_LIMIT = 200;

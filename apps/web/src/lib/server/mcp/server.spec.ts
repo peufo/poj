@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../testing/db';
 import { createDeck, createUser } from '../testing/factories';
 import {
+	CARD_LIMITS,
 	createCardsService,
 	createDecksService,
 	createReviewsService,
@@ -226,6 +227,26 @@ describe('MCP server', () => {
 			expect(data(result)).not.toHaveProperty('deepl_error');
 			expect(data(result).duplicates).toHaveLength(1);
 			expect(text(result)).toContain('Pas de second avis DeepL');
+		});
+
+		it('refuses faces and context longer than the web limits', async () => {
+			const client = await connect(alice);
+			const cases = [
+				{ field: 'side_a', value: 'a'.repeat(CARD_LIMITS.sideA + 1), max: CARD_LIMITS.sideA },
+				{ field: 'side_b', value: 'b'.repeat(CARD_LIMITS.sideB + 1), max: CARD_LIMITS.sideB },
+				{ field: 'context', value: 'c'.repeat(CARD_LIMITS.context + 1), max: CARD_LIMITS.context }
+			];
+			for (const tool of ['check_card', 'create_card']) {
+				for (const { field, value, max } of cases) {
+					const result = await call(client, tool, { ...args, [field]: value });
+					expect(result.isError).toBe(true);
+					expect(text(result)).toContain(`${max} caractères au plus`);
+				}
+			}
+			expect(await db.card.count({ where: { ownerId: alice } })).toBe(0);
+
+			const atLimit = { ...args, side_a: 'a'.repeat(CARD_LIMITS.sideA) };
+			expect(data(await call(client, 'create_card', atLimit))).toMatchObject({ created: true });
 		});
 
 		it('refuses to capture without any deck, pointing to the deck creation page', async () => {
