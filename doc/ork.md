@@ -10,7 +10,7 @@ review: per-ticket
 
 - le ticket touche `schema.prisma` ou une migration ;
 - le ticket modifie le contrat OpenAPI (route ou schéma Zod exposé) ;
-- le ticket touche l'auth, OAuth ou le serveur MCP ;
+- le ticket touche l'auth ou OAuth ;
 - le ticket touchera probablement plus de 5 fichiers.
 
 ## Review required when
