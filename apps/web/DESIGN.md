@@ -209,7 +209,7 @@ Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a
 
 Le clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme="light|dark"` force un thème sur n'importe quel sous-arbre (aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.
 
-Rejets confirmés par la direction : le tableau de bord gamifié (trophées, confettis, badges) et la table grise de back-office. Seule exception, décidée le 2026-10-29 (doc/story/ajout-quotidien.md) : l'objectif quotidien d'ajout de cartes montre une série et un calendrier d'accomplissement, sobres (rampe d'encre neutre, l'accent seulement pour aujourd'hui).
+Rejets confirmés par la direction : le tableau de bord gamifié (trophées, confettis, badges) et la table grise de back-office. Seule exception, décidée le 2026-10-29 (doc/story/ajout-quotidien.md) : la journée Poj (ajouter des cartes et réviser celles qui sont dues) montre une série, son record et un calendrier d'accomplissement, sobres (rampe d'encre neutre, l'accent seulement pour aujourd'hui), et un bref moment de célébration quand la journée devient complète. Ni badges ni trophées : ils récompensent l'accumulation plutôt que l'habitude.
 
 **Key Characteristics:**
 
@@ -300,7 +300,7 @@ Poj est plat au repos et construit sa profondeur par paliers tonals : canvas, pu
 ### Shadow Vocabulary
 
 - **Relief** (`shadow-raised`) : le bouton principal, le segment actif d'un contrôle segmenté, la carte de révision.
-- **Surplomb** (`shadow-overlay`) : la feuille modale, seule surface qui recouvre la page.
+- **Surplomb** (`shadow-overlay`) : la feuille modale et le message de célébration, seules surfaces qui recouvrent la page.
 
 ### Named Rules
 
@@ -369,6 +369,12 @@ L'interaction signature : quatorze barres, une par jour civil (le premier inclut
 
 Un seul bouton plein. Quand un doublon est signalé, une `Notice` d'avertissement apparaît et le même bouton devient « Enregistrer quand même » ; il n'y a pas de second bouton concurrent. « Annuler » est un bouton ghost, masqué au téléphone.
 
+### Journée Poj (`GoalCalendar`, `Celebration`)
+
+Un seul calendrier en tête de `/cards` : une colonne par semaine, une case de 1rem par jour, coins de 3 px. Case pleine (`level-3`) quand les deux objectifs sont atteints, claire (`level-1`) quand un seul l'est, vide (`line`) sinon ; aujourd'hui cerclé d'`accent`. Au-dessus, les deux objectifs du jour (coche `accent-text` quand atteint), la série de journées complètes et, en `ink-3`, le record. Pas d'autre récompense.
+
+La célébration est un message flottant en haut de l'écran (`raised`, filet, ombre de surplomb, pastille `accent` cochée) : il glisse en 220 ms, reste quatre secondes et disparaît. Il n'apparaît qu'une fois par jour, au moment où la journée devient complète (ou au chargement suivant si elle l'est devenue ailleurs). Sous `prefers-reduced-motion`, il apparaît et disparaît sans mouvement.
+
 ### Notice
 
 Encadré `xl` sans bordure, icône à 18 px : `info` sur `surface`, `warn` sur `warn-soft`, `danger` sur `danger-soft`. Titre semi-gras, corps en `ink-2`, actions sous le texte.
@@ -389,7 +395,7 @@ Encadré `xl` sans bordure, icône à 18 px : `info` sur `surface`, `warn` sur `
 
 - **Don't** utiliser les teintes de note (again, hard, good, easy) pour autre chose qu'une note.
 - **Don't** colorer la maîtrise en indigo ou avec les teintes de note : elle reste une rampe d'encre neutre.
-- **Don't** ajouter trophées, confettis ou autre mécanique de tableau de bord gamifié. La série de l'objectif quotidien est la seule série admise : un nombre et un calendrier, sans célébration.
+- **Don't** ajouter badges, trophées, confettis ou autre mécanique de tableau de bord gamifié. La série de la journée Poj est la seule série admise : un nombre, son record, un calendrier et un bref message quand la journée devient complète.
 - **Don't** composer l'écran comme une table grise de back-office.
 - **Don't** utiliser une valeur de couleur, de rayon, d'ombre ou de police hors des tokens : les échelles par défaut de Tailwind sont désactivées.
 - **Don't** poser une ombre sur un panneau, une ligne ou un champ.

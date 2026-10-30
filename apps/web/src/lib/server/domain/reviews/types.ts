@@ -58,3 +58,17 @@ export interface AmendResult extends AnswerResult {
 	/** Faux si la note retenue était déjà celle enregistrée : ni l'état ni l'historique n'ont changé. */
 	changed: boolean;
 }
+
+/** Un jour civil de révision, moitié « révision » de la journée Poj. */
+export interface ReviewDay {
+	/** Cartes dues à l'ouverture du jour (minuit), hors sens mis de côté. */
+	due: number;
+	/** Parmi elles, celles qui ont reçu au moins une réponse ce jour-là. */
+	answered: number;
+	/** Réponses données ce jour-là, toutes cartes et toutes notes confondues. */
+	reviews: number;
+	/** Toutes les cartes dues ont reçu une réponse, ou le plafond de révisions est atteint. */
+	reached: boolean;
+	/** Objectif rempli : atteint, ou sans objet (aucune carte due). */
+	done: boolean;
+}

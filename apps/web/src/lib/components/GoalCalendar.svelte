@@ -4,12 +4,19 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 
-	// Objectif quotidien d'ajout de cartes : progression du jour, série en cours et calendrier
-	// d'accomplissement, une colonne par semaine (du lundi au dimanche), la dernière étant la
-	// semaine en cours. Gratification sobre : encre neutre, l'accent seulement pour aujourd'hui.
-	type Day = { date: Date; count: number; goal: number; reached: boolean };
+	// La journée Poj réunit deux objectifs : ajouter des cartes et réviser celles qui étaient
+	// dues à l'ouverture du jour. Progression du jour, série de journées complètes, record et
+	// calendrier d'accomplissement, une colonne par semaine (du lundi au dimanche), la dernière
+	// étant la semaine en cours. Gratification sobre : encre neutre, l'accent seulement pour
+	// aujourd'hui.
+	type Day = {
+		date: Date;
+		add: { count: number; goal: number; reached: boolean };
+		review: { due: number; answered: number; reviews: number; reached: boolean; done: boolean };
+		level: 'full' | 'partial' | 'none';
+	};
 	type Props = {
-		progress: { goal: number; today: Day; streak: number; days: Day[] };
+		progress: { goal: number; today: Day; streak: number; best: number; days: Day[] };
 		bounds: { min: number; max: number };
 		/** Retour de l'action `?/goal` en cas de saisie refusée. */
 		error?: string;
@@ -29,13 +36,34 @@
 		...Array.from({ length: (7 - (progress.days.length % 7)) % 7 }, () => null)
 	]);
 	const weeks = $derived(cells.length / 7);
-	const reachedDays = $derived(progress.days.filter((d) => d.reached).length);
+	const fullDays = $derived(progress.days.filter((d) => d.level === 'full').length);
 	const today = $derived(progress.today);
-	const remaining = $derived(today.goal - today.count);
+	const levels = { full: 'bg-level-3', partial: 'bg-level-1', none: 'bg-line' } as const;
 
-	const describe = (day: Day) =>
-		`${formatWeekday(day.date)} : ${plural(day.count, 'carte')} sur ${day.goal}` +
-		(day.reached ? ', objectif atteint' : '');
+	const addText = ({ add }: Day) =>
+		`${add.count}/${add.goal} ${add.count > 1 ? 'cartes ajoutées' : 'carte ajoutée'}`;
+
+	/** Révision du jour : à jour sur les cartes dues, plafond de révisions, ou rien de dû. */
+	function reviewText({ review }: Day): string {
+		if (review.reached && review.answered < review.due) return `${review.reviews} révisions faites`;
+		if (review.due === 0 && !review.reached) return 'aucune carte due';
+		return `${review.answered}/${review.due} ${review.due > 1 ? 'cartes' : 'carte'} à jour`;
+	}
+
+	// Les deux objectifs du jour, cochés quand ils sont remplis.
+	const goals = $derived([
+		{ done: today.add.reached, text: addText(today) },
+		{ done: today.review.done, text: reviewText(today) }
+	]);
+
+	/** Une case claire nomme l'objectif qui manque. */
+	function describe(day: Day): string {
+		const base = `${formatWeekday(day.date)} : ${addText(day)}, ${reviewText(day)}`;
+		if (day.level === 'full') return `${base}. Journée complète`;
+		if (day.level === 'partial')
+			return `${base}. Il manque ${day.add.reached ? 'la révision' : "l'ajout"}`;
+		return base;
+	}
 
 	const submit: SubmitFunction = () => {
 		saving = true;
@@ -52,22 +80,30 @@
 	class="flex flex-col gap-4 rounded-2xl bg-surface p-4 md:p-5"
 >
 	<div class="flex items-start justify-between gap-4">
-		<div class="min-w-0">
+		<div class="flex min-w-0 flex-col gap-1">
 			<p class="text-lg font-semibold">
-				<span class="text-accent-text tabular-nums">{today.count}/{today.goal}</span>
-				aujourd'hui
+				{today.level === 'full' ? 'Journée complète' : "Aujourd'hui"}
 			</p>
-			<p class="text-sm text-ink-2">
-				{#if today.reached}
-					Objectif atteint
-				{:else}
-					Encore {plural(remaining, 'carte')} à ajouter
-				{/if}
-			</p>
+			<ul class="flex flex-col gap-0.5 text-sm text-ink-2">
+				{#each goals as goal, i (i)}
+					<li class="flex items-center gap-1.5">
+						{#if goal.done}
+							<Icon name="check" size={16} class="text-accent-text" />
+							<span class="sr-only">Fait :</span>
+						{:else}
+							<span class="flex size-4 items-center justify-center" aria-hidden="true">
+								<span class="size-1.5 rounded-full bg-ink-3"></span>
+							</span>
+						{/if}
+						<span class="tabular-nums">{goal.text}</span>
+					</li>
+				{/each}
+			</ul>
 		</div>
 		<div class="text-right">
 			<p class="text-lg font-semibold tabular-nums">{progress.streak}</p>
 			<p class="text-sm text-ink-2">{progress.streak > 1 ? 'jours' : 'jour'} de série</p>
+			<p class="text-xs text-ink-3 tabular-nums">Record : {progress.best}</p>
 		</div>
 	</div>
 
@@ -75,9 +111,9 @@
 		<div
 			role="img"
 			aria-label="{plural(
-				reachedDays,
-				'jour réussi',
-				'jours réussis'
+				fullDays,
+				'journée complète',
+				'journées complètes'
 			)} sur les {weeks} dernières semaines"
 			class="grid grid-flow-col gap-1 self-start"
 			style="grid-template-rows: repeat(7, 1rem); grid-template-columns: 1rem repeat({weeks}, 1rem)"
@@ -93,7 +129,7 @@
 						title={describe(day)}
 						class={[
 							'rounded-[3px]',
-							day.reached ? 'bg-level-3' : day.count > 0 ? 'bg-level-1' : 'bg-line',
+							levels[day.level],
 							day === today && 'ring-2 ring-accent ring-offset-1 ring-offset-surface'
 						]}
 					></span>
@@ -104,10 +140,10 @@
 		</div>
 		<p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3" aria-hidden="true">
 			<span class="flex items-center gap-1.5">
-				<span class="size-2.5 rounded-[2px] bg-level-3"></span>Objectif atteint
+				<span class="size-2.5 rounded-[2px] bg-level-3"></span>Ajout et révision
 			</span>
 			<span class="flex items-center gap-1.5">
-				<span class="size-2.5 rounded-[2px] bg-level-1"></span>Commencé
+				<span class="size-2.5 rounded-[2px] bg-level-1"></span>L'un des deux
 			</span>
 		</p>
 	</div>
