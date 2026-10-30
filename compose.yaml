@@ -2,6 +2,11 @@
 # `poj_sandbox`. Le profil `prod` lance en plus l'image de production sur sa propre base
 # `poj` (`bun run stack:up`, puis http://localhost:3000 ; `bun run stack:stop`).
 # Pas de `docker compose down` : il arrêterait aussi `db`.
+
+# Nom fixe : sans lui, Compose nommerait le projet d'après le dossier, et un worktree
+# (`.claude/worktrees/<nom>`) créerait ses propres conteneurs et son propre volume.
+name: poj
+
 services:
   db:
     image: postgres
