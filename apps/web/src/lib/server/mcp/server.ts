@@ -1,5 +1,5 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
-import { z } from 'zod';
+import * as z from 'zod';
 import {
 	directionFaces,
 	directionLabel,

@@ -1,4 +1,5 @@
-import { z, type OpenAPIHono } from '@hono/zod-openapi';
+import type { OpenAPIHono } from '@hono/zod-openapi';
+import * as z from 'zod';
 import { ErrorSchema, jsonContent } from './schemas';
 
 // Documentation uniquement : ces endpoints sont servis par Better Auth (hooks.server.ts),

@@ -2,6 +2,10 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { building } from '$app/env';
 import { auth } from '#lib/server/auth.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
+import * as z from 'zod';
+
+// Messages de Zod en français (formulaires, API, MCP), pour les règles sans message explicite.
+z.config(z.locales.fr());
 
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	const session = await auth.api.getSession({ headers: event.request.headers });

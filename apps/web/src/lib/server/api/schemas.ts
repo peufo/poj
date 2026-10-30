@@ -1,4 +1,6 @@
-import { z } from '@hono/zod-openapi';
+// Charge l'extension `.openapi()` des schémas Zod avant de nommer ceux d'ici.
+import '@hono/zod-openapi';
+import * as z from 'zod';
 
 export const ErrorSchema = z
 	.object({

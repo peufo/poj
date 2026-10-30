@@ -52,6 +52,29 @@ export default defineConfig(
 		}
 	},
 	{
+		// Zod 4 classique, importé d'une seule façon : `import { z }` embarque toutes les
+		// locales dans le bundle client, et `zod/mini` est une seconde API.
+		rules: {
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						"ImportDeclaration[source.value='zod'] > :matches(ImportSpecifier, ImportDefaultSpecifier)",
+					message: "Import Zod as a namespace: import * as z from 'zod'."
+				},
+				{
+					selector: 'ImportDeclaration[source.value=/^zod\\u002F/]',
+					message: "Use classic Zod 4 from 'zod' (no zod/mini, zod/v3 or other subpath)."
+				},
+				{
+					selector:
+						"ImportDeclaration[source.value='@hono/zod-openapi'] > ImportSpecifier[imported.name='z']",
+					message: "Import Zod as a namespace: import * as z from 'zod'."
+				}
+			]
+		}
+	},
+	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {}
