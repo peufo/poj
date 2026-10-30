@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { ConflictError } from '#lib/server/domain/index.js';
 import { deckFormValues, NAME_TAKEN, readDeckEditForm } from '#lib/server/web/deck-form.js';
+import { unconfirmedDelete } from '#lib/server/web/delete-confirm.js';
 import { ownerOf } from '#lib/server/web/guards.js';
 import { decks, idOf, orNotFound } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
@@ -31,13 +32,13 @@ export const actions: Actions = {
 		redirect(303, `/cards?deck=${id}`);
 	},
 
-	// Suppression en deux temps : sans `confirm`, on demande confirmation. Sans deck restant,
-	// `/cards` renvoie à la création du premier.
+	// Suppression en deux temps (`DeleteConfirm`). Sans deck restant, `/cards` renvoie à la
+	// création du premier.
 	delete: async (event) => {
 		const ownerId = ownerOf(event);
 		const id = idOf(event.params.id, 'Deck');
-		const form = await event.request.formData();
-		if (form.get('confirm') !== '1') return fail(400, { confirmDelete: true });
+		const unconfirmed = unconfirmedDelete(await event.request.formData());
+		if (unconfirmed) return unconfirmed;
 
 		await orNotFound(decks.softDelete(ownerId, id), 'Deck');
 		redirect(303, '/cards');

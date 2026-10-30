@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { enhance, type SubmitFunction } from '$app/forms';
+	import DeleteConfirm from '#lib/components/DeleteConfirm.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import MasteryMeter from '#lib/components/MasteryMeter.svelte';
 	import RatingPill from '#lib/components/RatingPill.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
-	import Notice from '#lib/ui/Notice.svelte';
-	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue } from '#lib/format/due.js';
 	import { directionLabel, faces } from '#lib/format/decks.js';
 	import {
@@ -19,20 +17,9 @@
 	} from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 	const card = $derived(data.card);
 	const face = $derived(faces(card.deck));
-
-	let confirmDelete = $state(false);
-	let deleting = $state(false);
-
-	const submitDelete: SubmitFunction = () => {
-		deleting = true;
-		return async ({ update }) => {
-			await update();
-			deleting = false;
-		};
-	};
 </script>
 
 <svelte:head><title>{card.sideA} · Poj</title></svelte:head>
@@ -145,48 +132,9 @@
 		{/if}
 	</section>
 
-	<!-- Sans JavaScript, le premier envoi demande confirmation en ligne. -->
-	<form method="post" action="?/delete" class="flex flex-col gap-4 border-t border-line pt-6">
-		{#if form?.confirmDelete}
-			<Notice tone="danger" title="Supprimer cette carte ?">
-				« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est
-				conservé.
-				{#snippet actions()}
-					<Button type="submit" variant="danger" icon="trash" name="confirm" value="1"
-						>Supprimer</Button
-					>
-					<Button href="/cards/{card.id}" variant="ghost">Annuler</Button>
-				{/snippet}
-			</Notice>
-		{:else}
-			<Button
-				type="submit"
-				variant="danger"
-				icon="trash"
-				class="self-start"
-				onclick={(event) => {
-					event.preventDefault();
-					confirmDelete = true;
-				}}
-			>
-				Supprimer la carte
-			</Button>
-		{/if}
-	</form>
+	<DeleteConfirm
+		label="Supprimer la carte"
+		title="Supprimer cette carte ?"
+		message="« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."
+	/>
 </div>
-
-<Sheet
-	bind:open={confirmDelete}
-	title="Supprimer cette carte ?"
-	description="« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."
->
-	{#snippet actions()}
-		<Button size="lg" onclick={() => (confirmDelete = false)}>Annuler</Button>
-		<form method="post" action="?/delete" use:enhance={submitDelete} class="contents">
-			<input type="hidden" name="confirm" value="1" />
-			<Button type="submit" size="lg" variant="danger" icon="trash" loading={deleting}>
-				Supprimer
-			</Button>
-		</form>
-	{/snippet}
-</Sheet>
