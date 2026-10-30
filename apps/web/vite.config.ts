@@ -32,6 +32,9 @@ export default defineConfig(({ mode }) => ({
 				experimental: { async: true }
 			},
 			adapter: adapter(),
+			// La vérification d'origine des formulaires est refaite dans `hooks.server.ts`
+			// (`handleCsrf`), avec une exception pour les endpoints OAuth de serveur à serveur.
+			csrf: { trustedOrigins: ['*'] },
 			experimental: { remoteFunctions: true }
 		})
 	],

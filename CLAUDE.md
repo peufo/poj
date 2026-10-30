@@ -106,6 +106,7 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 - **Types de hooks :** `Handle` s'importe depuis `@sveltejs/kit/hooks`, pas `@sveltejs/kit`.
 - **Variables d'environnement :** elles sont déclarées dans `src/env.ts` (`defineEnvVars`) et lues via `$app/env/private`. `DATABASE_URL_TEST` et `DATABASE_URL_SANDBOX` n'y figurent pas : Vitest et `scripts/sandbox.ts` les lisent via `process.env`.
   - Elles sont validées dès l'analyse des routes de `vite build` : le Dockerfile passe des valeurs factices.
+- **CSRF des formulaires :** la vérification du kit refuse tout envoi de formulaire sans `Origin` identique, même venant d'un serveur, et n'admet pas d'exception par chemin. Elle bloquait l'échange du code OAuth de Claude (`/api/auth/oauth2/token`, 403). Le kit est donc réglé sur `csrf.trustedOrigins: ['*']`, et la même règle est appliquée dans `hooks.server.ts` (`handleCsrf`, `web/csrf.ts`), avec une exception pour les endpoints OAuth de serveur à serveur (token, revoke, introspect). Les remote functions gardent leur propre vérification. Le kit ne vérifie qu'en production : les tests unitaires (`auth.handler` direct) ne voient pas ce genre de blocage.
 - **adapter-node ne lit pas `ORIGIN` :** il déduit l'URL des requêtes de l'en-tête `Host` et suppose HTTPS (sauf `PROTOCOL_HEADER`). Si elle ne correspond pas à `ORIGIN`, les formulaires répondent 403 et `/api/auth/*` 404.
 
 ### Prisma 7 et Better Auth

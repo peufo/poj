@@ -1,6 +1,7 @@
-import type { Handle } from '@sveltejs/kit/hooks';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { building } from '$app/env';
 import { auth } from '#lib/server/auth.js';
+import { handleCsrf } from '#lib/server/web/csrf.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import * as z from 'zod';
 
@@ -18,4 +19,5 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle: Handle = handleBetterAuth;
+// Le CSRF passe en premier : un envoi refusé ne doit atteindre ni la session ni Better Auth.
+export const handle: Handle = sequence(handleCsrf, handleBetterAuth);
