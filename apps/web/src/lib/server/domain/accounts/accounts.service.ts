@@ -4,7 +4,7 @@ export type { UserRole } from '../../db/generated/prisma/client';
 
 /**
  * Bornes du mot de passe de tout compte : passées à Better Auth (`minPasswordLength`,
- * `maxPasswordLength`) et appliquées aux comptes créés par invitation.
+ * `maxPasswordLength`) et au schéma des comptes créés par invitation (`inviteSchema`).
  */
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;

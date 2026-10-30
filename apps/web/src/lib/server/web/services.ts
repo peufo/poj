@@ -16,6 +16,7 @@ import {
 	type Deck,
 	type DeckWithCount
 } from '#lib/server/domain/index.js';
+import { idSchema } from './schemas/fields';
 
 // Services du domaine partagés par les pages web (origine `web`). `accounts`, sans origine,
 // sert aussi à `/mcp`.
@@ -46,12 +47,11 @@ export function deckSummary(deck: DeckWithCount): DeckSummary {
 	return { ...deckView(deck), id: deck.id, name: deck.name, cardCount: deck.cardCount };
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** Identifiant venu de l'URL ou d'un formulaire : autre chose qu'un UUID donne une 404. */
 export function idOf(value: unknown, what = 'Carte'): string {
-	if (typeof value !== 'string' || !UUID.test(value)) error(404, `${what} introuvable`);
-	return value;
+	const id = idSchema.safeParse(value);
+	if (!id.success) error(404, `${what} introuvable`);
+	return id.data;
 }
 
 /**

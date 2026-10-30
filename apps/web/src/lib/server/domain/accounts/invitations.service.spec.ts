@@ -147,17 +147,4 @@ describe('invitations', () => {
 		await expect(invitations.accept(token, tester, now)).rejects.toBeInstanceOf(ConflictError);
 		expect(await invitations.inspect(token, now)).toMatchObject({ status: 'valid' });
 	});
-
-	it('requires a name and a password of 8 to 128 characters', async () => {
-		const { token } = await invitations.create(admin, 'lea@test.dev', now);
-
-		for (const input of [
-			{ name: '  ', password: tester.password },
-			{ name: 'Léa', password: 'court' },
-			{ name: 'Léa', password: 'x'.repeat(129) }
-		]) {
-			await expect(invitations.accept(token, input, now)).rejects.toBeInstanceOf(RangeError);
-		}
-		expect(await invitations.inspect(token, now)).toMatchObject({ status: 'valid' });
-	});
 });

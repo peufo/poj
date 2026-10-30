@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { duplicateSide, resetsProgress } from '#lib/server/domain/index.js';
-import { duplicateWarning, readCardForm, translateAction } from '#lib/server/web/card-form.js';
+import { duplicateWarning, readCardForm, translateCard } from '#lib/server/web/card-form.js';
+import { cardSchema, cardTranslationSchema } from '#lib/server/web/schemas/cards.js';
 import { cards, deckView, idOf, orNotFound } from '#lib/server/web/services.js';
 import { ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
@@ -17,19 +18,23 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	translate: async (event) => {
 		const { request, params } = event;
-		const { deck } = await orNotFound(cards.get(ownerOf(event), idOf(params.id)));
-		return translateAction(await request.formData(), deck);
+		const ownerId = ownerOf(event);
+		const id = idOf(params.id);
+		const { values, errors, input } = readCardForm(await request.formData(), cardTranslationSchema);
+		if (!input) return fail(400, { values, errors });
+		const { deck } = await orNotFound(cards.get(ownerId, id));
+		return translateCard(values, deck, input);
 	},
 
 	update: async (event) => {
 		const { request, params } = event;
 		const ownerId = ownerOf(event);
 		const id = idOf(params.id);
+		const form = await request.formData();
+		const { values, errors, input } = readCardForm(form, cardSchema);
+		if (!input) return fail(400, { values, errors });
 		const existing = await orNotFound(cards.get(ownerId, id));
 		const { deck } = existing;
-		const form = await request.formData();
-		const { values, errors, input } = readCardForm(form, deck);
-		if (!input) return fail(400, { values, errors });
 
 		// L'avertissement de réinitialisation doit avoir été affiché avant d'enregistrer.
 		if (resetsProgress(existing, input) && form.get('acknowledge_reset') !== '1') {

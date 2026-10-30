@@ -17,6 +17,8 @@ import {
 	reviews
 } from '#lib/server/web/services.js';
 import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
+import { text } from '#lib/server/web/form-data.js';
+import { cardsSearchSchema, dailyGoalSchema } from '#lib/server/web/schemas/cards.js';
 import type { Actions, PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;
@@ -26,7 +28,7 @@ const GOAL_WEEKS = 8;
 export const load: PageServerLoad = async (event) => {
 	const { url } = event;
 	const ownerId = ownerOf(event);
-	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
+	const { q: query } = cardsSearchSchema.parse(Object.fromEntries(url.searchParams));
 	const now = new Date();
 	// Le deck de `?deck=` : liste, recherche, échéancier, maîtrise et révision ne portent que
 	// sur lui ; sans lui, sur tous (le seul deck s'il n'y en a qu'un). L'objectif reste global.
@@ -89,15 +91,13 @@ export const actions: Actions = {
 	goal: async (event) => {
 		const { request } = event;
 		const ownerId = ownerOf(event);
-		const value = (await request.formData()).get('goal')?.toString().trim() ?? '';
-		const goal = Number(value);
-		if (!/^\d+$/.test(value) || goal < MIN_DAILY_GOAL || goal > MAX_DAILY_GOAL) {
-			return fail(400, {
-				goalError: `Entre ${MIN_DAILY_GOAL} et ${MAX_DAILY_GOAL} cartes par jour.`,
-				goalValue: value
-			});
+		const value = text(await request.formData(), 'goal').trim();
+		// Champ vide : pas un nombre (`Number('')` vaut 0).
+		const parsed = dailyGoalSchema.safeParse({ goal: value ? Number(value) : undefined });
+		if (!parsed.success) {
+			return fail(400, { goalError: parsed.error.issues[0].message, goalValue: value });
 		}
-		await dailyGoal.setGoal(ownerId, goal);
+		await dailyGoal.setGoal(ownerId, parsed.data.goal);
 		return { goalSaved: true };
 	}
 };

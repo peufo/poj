@@ -100,7 +100,7 @@
 					bind:value={deckId}
 					options={deckOptions}
 					placeholder="Choisis un deck"
-					error={form && 'deckError' in form ? form.deckError : undefined}
+					error={errors.deckId}
 					onchange={() => (suggestion = { status: 'idle' })}
 				/>
 			{:else}

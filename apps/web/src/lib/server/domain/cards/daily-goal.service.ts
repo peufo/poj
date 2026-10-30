@@ -94,13 +94,10 @@ export function createDailyGoalService(db: Db) {
 
 		/**
 		 * Change l'objectif à partir d'aujourd'hui ; les jours passés gardent le leur. Un second
-		 * changement le même jour remplace le premier.
+		 * changement le même jour remplace le premier. L'objectif arrive validé
+		 * (`dailyGoalSchema`), entre `MIN_DAILY_GOAL` et `MAX_DAILY_GOAL`.
 		 */
 		async setGoal(userId: string, goal: number, now = new Date()): Promise<void> {
-			if (!Number.isInteger(goal) || goal < MIN_DAILY_GOAL || goal > MAX_DAILY_GOAL)
-				throw new RangeError(
-					`Daily goal must be an integer between ${MIN_DAILY_GOAL} and ${MAX_DAILY_GOAL}`
-				);
 			const effectiveFrom = startOfDay(now);
 			await db.dailyGoal.upsert({
 				where: { userId_effectiveFrom: { userId, effectiveFrom } },

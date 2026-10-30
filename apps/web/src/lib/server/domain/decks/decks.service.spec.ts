@@ -115,6 +115,18 @@ describe('decks service', () => {
 		).resolves.toMatchObject({ name: 'Pays du monde' });
 	});
 
+	it('keeps a language deck without labels', async () => {
+		const deck = await createDeck(db, alice, FR_EN_DECK);
+
+		const updated = await decks.update(alice, deck.id, {
+			name: 'Anglais',
+			labelA: 'Question',
+			labelB: 'Réponse',
+			bothDirections: true
+		});
+		expect(updated).toMatchObject({ name: 'Anglais', labelA: null, labelB: null });
+	});
+
 	it('adds the missing b_to_a reviews, due now, when both directions are turned on', async () => {
 		const deck = await decks.create(alice, capitals);
 		const card = await createCard(db, alice, { deckId: deck.id, now });

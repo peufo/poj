@@ -106,15 +106,19 @@ export function createDecksService(db: Db) {
 		},
 
 		/**
-		 * Modifie le nom, les libellés (laissés tels quels s'ils sont absents) et l'option des
-		 * deux sens ; le type et les langues ne changent pas. Activer les deux sens crée les
-		 * révisions `b_to_a` manquantes, dues immédiatement ; le désactiver ne supprime rien.
+		 * Modifie le nom, les libellés (laissés tels quels s'ils sont absents, ignorés pour une
+		 * langue) et l'option des deux sens ; le type et les langues ne changent pas. Activer
+		 * les deux sens crée les révisions `b_to_a` manquantes, dues immédiatement ; le
+		 * désactiver ne supprime rien.
 		 */
 		update(ownerId: string, id: string, input: DeckUpdate, now = new Date()): Promise<Deck> {
-			const data = { ...input, name: input.name.trim() };
 			return db.$transaction(async (tx) => {
 				await lockOwner(tx, ownerId);
 				const existing = await findOwnedDeck(tx, ownerId, id);
+				// Une langue nomme ses faces d'après ses langues : pas de libellés.
+				const { labelA, labelB, ...rest } = input;
+				const labels = existing.kind === 'subject' ? { labelA, labelB } : {};
+				const data = { ...rest, ...labels, name: input.name.trim() };
 				await assertNameFree(tx, ownerId, data.name, id);
 				if (data.bothDirections && !existing.bothDirections) {
 					const missing = await tx.card.findMany({

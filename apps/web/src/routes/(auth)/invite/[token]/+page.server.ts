@@ -4,10 +4,11 @@ import { authErrorMessages } from '#lib/server/auth-errors.js';
 import {
 	ConflictError,
 	InvitationUnavailableError,
-	PASSWORD_MAX_LENGTH,
 	PASSWORD_MIN_LENGTH,
 	type InvitationStatus
 } from '#lib/server/domain/index.js';
+import { text } from '#lib/server/web/form-data.js';
+import { inviteSchema } from '#lib/server/web/schemas/accounts.js';
 import { invitations } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -33,19 +34,14 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 export const actions: Actions = {
 	default: async ({ params, request }) => {
 		const form = await request.formData();
-		const name = form.get('name')?.toString().trim() ?? '';
-		const password = form.get('password')?.toString() ?? '';
-		if (!name) return fail(400, { name, message: 'Indique ton nom.' });
-		if (password.length < PASSWORD_MIN_LENGTH) {
-			return fail(400, { name, message: authErrorMessages.PASSWORD_TOO_SHORT });
-		}
-		if (password.length > PASSWORD_MAX_LENGTH) {
-			return fail(400, { name, message: authErrorMessages.PASSWORD_TOO_LONG });
-		}
+		const name = text(form, 'name');
+		const parsed = inviteSchema.safeParse({ name, password: text(form, 'password') });
+		if (!parsed.success) return fail(400, { name, message: parsed.error.issues[0].message });
+		const { password } = parsed.data;
 
 		let email: string;
 		try {
-			({ email } = await invitations.accept(params.token, { name, password }));
+			({ email } = await invitations.accept(params.token, parsed.data));
 		} catch (error) {
 			if (error instanceof InvitationUnavailableError) {
 				return fail(410, { name, message: unavailable[error.reason] });

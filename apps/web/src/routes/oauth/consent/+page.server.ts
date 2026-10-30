@@ -8,6 +8,8 @@ import {
 	oauthQuery,
 	oauthRedirect
 } from '#lib/server/oauth-flow.js';
+import { text } from '#lib/server/web/form-data.js';
+import { consentSchema } from '#lib/server/web/schemas/oauth.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // Page de consentement du serveur d'autorisation OAuth (`consentPage` de `mcp()`), hors
@@ -42,13 +44,16 @@ export const load: PageServerLoad = async ({ locals, url, request }) => {
 export const actions: Actions = {
 	default: async ({ request }) => {
 		const form = await request.formData();
-		const oauth_query = form.get('oauth_query')?.toString() ?? '';
-		const accept = form.get('accept') === 'true';
+		const parsed = consentSchema.safeParse({
+			oauth_query: text(form, 'oauth_query'),
+			accept: form.get('accept')?.toString()
+		});
+		if (!parsed.success) return fail(400, { message: parsed.error.issues[0].message });
 
 		let result: unknown;
 		try {
 			result = await auth.api.oauth2Consent({
-				body: { accept, oauth_query },
+				body: parsed.data,
 				...oauthApiContext(request)
 			});
 		} catch (e) {

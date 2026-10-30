@@ -191,12 +191,4 @@ describe('goal', () => {
 		expect(await goals.goal(alice, now)).toBe(4);
 		expect(await db.dailyGoal.count({ where: { userId: alice } })).toBe(1);
 	});
-
-	it('rejects a goal that is not a whole number between 1 and 20', async () => {
-		for (const goal of [0, 21, 1.5, Number.NaN]) {
-			await expect(goals.setGoal(alice, goal, now)).rejects.toThrow(RangeError);
-		}
-		await goals.setGoal(alice, 20, now);
-		expect(await goals.goal(alice, now)).toBe(20);
-	});
 });

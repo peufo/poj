@@ -1,12 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { NO_DECK } from '#lib/format/decks.js';
-import {
-	duplicateWarning,
-	readCardForm,
-	text,
-	translateAction
-} from '#lib/server/web/card-form.js';
-import { cards, decks, idOf, orNotFound } from '#lib/server/web/services.js';
+import { duplicateWarning, readCardForm, translateCard } from '#lib/server/web/card-form.js';
+import { newCardSchema, newCardTranslationSchema } from '#lib/server/web/schemas/cards.js';
+import { cards, decks, orNotFound } from '#lib/server/web/services.js';
 import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -22,20 +17,9 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 	};
 };
 
-/**
- * Deck choisi dans le formulaire (`deckId`, renvoyé avec les valeurs pour que la liste le
- * garde sans JavaScript), `null` si aucun ; 404 s'il n'est pas au propriétaire.
- */
-async function chosenDeck(ownerId: string, form: FormData) {
-	const value = text(form, 'deckId');
-	return value ? orNotFound(decks.get(ownerId, idOf(value, 'Deck')), 'Deck') : null;
-}
-
-/** Sans deck choisi : à choisir d'abord. */
-function noDeck(form: FormData) {
-	const { values } = readCardForm(form, NO_DECK);
-	return fail(400, { values, deckError: 'Choisis un deck.' });
-}
+/** Deck choisi dans le formulaire ; 404 s'il n'est pas au propriétaire. */
+const chosenDeck = (ownerId: string, deckId: string) =>
+	orNotFound(decks.get(ownerId, deckId), 'Deck');
 
 /** Page où revenir après l'enregistrement : le deck si l'on en vient, sinon toutes les cartes. */
 const cardsOf = (url: URL, deckId: string) =>
@@ -45,18 +29,17 @@ export const actions: Actions = {
 	translate: async (event) => {
 		const ownerId = ownerOf(event);
 		const form = await event.request.formData();
-		const deck = await chosenDeck(ownerId, form);
-		if (!deck) return noDeck(form);
-		return translateAction(form, deck);
+		const { values, errors, input } = readCardForm(form, newCardTranslationSchema);
+		if (!input) return fail(400, { values, errors });
+		return translateCard(values, await chosenDeck(ownerId, input.deckId), input);
 	},
 
 	create: async (event) => {
 		const ownerId = ownerOf(event);
 		const form = await event.request.formData();
-		const deck = await chosenDeck(ownerId, form);
-		if (!deck) return noDeck(form);
-		const { values, errors, input } = readCardForm(form, deck);
+		const { values, errors, input } = readCardForm(form, newCardSchema);
 		if (!input) return fail(400, { values, errors });
+		const deck = await chosenDeck(ownerId, input.deckId);
 
 		const warning = await duplicateWarning(cards, ownerId, deck, form, { values, input });
 		if (warning) return warning;

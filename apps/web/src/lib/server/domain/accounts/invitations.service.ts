@@ -1,6 +1,5 @@
 import type { Db } from '../db';
 import { ConflictError, DomainError } from '../errors';
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './accounts.service';
 
 /** Durée de validité d'un lien d'invitation. */
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -132,7 +131,7 @@ export function createInvitationsService(
 		/**
 		 * Crée le compte de l'invitation et la consomme, en une transaction : un lien ne sert
 		 * qu'une fois, même utilisé deux fois en même temps. Si la création échoue, le lien
-		 * reste valable.
+		 * reste valable. Le nom et le mot de passe arrivent validés (`inviteSchema`).
 		 */
 		async accept(
 			token: string,
@@ -140,10 +139,6 @@ export function createInvitationsService(
 			now = new Date()
 		): Promise<{ userId: string; email: string }> {
 			const displayName = name.trim();
-			if (!displayName) throw new RangeError('Name is required');
-			if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
-				throw new RangeError('Password length out of bounds');
-			}
 			const invitation = await find(token);
 			if (!invitation) throw new InvitationUnavailableError('invalid');
 			const reason = unavailableReason(invitation, now);

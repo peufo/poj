@@ -1,17 +1,30 @@
 import { fail } from '@sveltejs/kit';
-import { ConflictError, type Rating } from '#lib/server/domain/index.js';
+import { ConflictError } from '#lib/server/domain/index.js';
 import { deckParam, decks, deckView, idOf, orNotFound, reviews } from '#lib/server/web/services.js';
 import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
+import { text } from '#lib/server/web/form-data.js';
+import {
+	amendSchema,
+	answerSchema,
+	hintSchema,
+	reviewSearchSchema
+} from '#lib/server/web/schemas/reviews.js';
 import type { Actions, PageServerLoad } from './$types';
 
-const RATINGS: readonly string[] = ['again', 'hard', 'good', 'easy'];
-const isRating = (value: unknown): value is Rating =>
-	typeof value === 'string' && RATINGS.includes(value);
+/** Champs d'un formulaire de révision ; une révision qui n'en est pas une donne une 404. */
+async function reviewValues(request: Request) {
+	const form = await request.formData();
+	return {
+		reviewId: idOf(text(form, 'reviewId'), 'Révision'),
+		rating: form.get('rating')?.toString(),
+		version: form.get('version')?.toString()
+	};
+}
 
 export const load: PageServerLoad = async (event) => {
 	const { url } = event;
 	const ownerId = ownerOf(event);
-	const ahead = url.searchParams.get('ahead') === '1';
+	const { ahead, reveal } = reviewSearchSchema.parse(Object.fromEntries(url.searchParams));
 	const now = new Date();
 	// `?deck=` : la session ne propose que les cartes de ce deck ; sans lui, tous les decks.
 	const scope = { deckId: deckParam(url) };
@@ -39,7 +52,7 @@ export const load: PageServerLoad = async (event) => {
 		 */
 		session: explicit && deck ? { id: deck.id, name: deck.name } : null,
 		/** Réponse déjà affichée (sans JavaScript, via `?reveal=1`). */
-		revealed: url.searchParams.get('reveal') === '1',
+		revealed: reveal,
 		remaining: next.review ? next.remaining : 0,
 		current: current && {
 			id: current.id,
@@ -75,24 +88,17 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	/** Indice : le domaine mémorise la demande et plafonnera la note à Hard. */
 	hint: async (event) => {
-		const { request } = event;
 		const ownerId = ownerOf(event);
-		const form = await request.formData();
-		await orNotFound(
-			reviews.requestHint(ownerId, idOf(form.get('reviewId'), 'Révision')),
-			'Révision'
-		);
+		const { reviewId } = hintSchema.parse(await reviewValues(event.request));
+		await orNotFound(reviews.requestHint(ownerId, reviewId), 'Révision');
 		return { hinted: true };
 	},
 
 	answer: async (event) => {
-		const { request } = event;
 		const ownerId = ownerOf(event);
-		const form = await request.formData();
-		const reviewId = idOf(form.get('reviewId'), 'Révision');
-		const rating = form.get('rating');
-		const version = form.get('version')?.toString() ?? '';
-		if (!isRating(rating)) return fail(400, { answerError: 'Choisis une note.' });
+		const parsed = answerSchema.safeParse(await reviewValues(event.request));
+		if (!parsed.success) return fail(400, { answerError: parsed.error.issues[0].message });
+		const { reviewId, rating, version } = parsed.data;
 
 		try {
 			const result = await orNotFound(
@@ -112,12 +118,9 @@ export const actions: Actions = {
 
 	/** Corriger la dernière note. Sans note choisie (sans JavaScript), ouvre le choix. */
 	amend: async (event) => {
-		const { request } = event;
 		const ownerId = ownerOf(event);
-		const form = await request.formData();
-		const reviewId = idOf(form.get('reviewId'), 'Révision');
-		const rating = form.get('rating');
-		if (!isRating(rating)) return fail(400, { amendOpen: true });
+		const { reviewId, rating } = amendSchema.parse(await reviewValues(event.request));
+		if (!rating) return fail(400, { amendOpen: true });
 
 		try {
 			const result = await orNotFound(reviews.amend(ownerId, reviewId, rating), 'Révision');

@@ -1,6 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { faces, type DeckFaces } from '#lib/format/decks.js';
-import { capitalize } from '#lib/format/labels.js';
+import type * as z from 'zod';
 import {
 	duplicateSide,
 	languagePair,
@@ -10,11 +9,11 @@ import {
 	type Suggestion,
 	type TranslationFailure
 } from '#lib/server/domain/index.js';
+import { parseValues, text } from './form-data';
 import { translation } from './services';
 
-// Formulaire de carte (création et modification) : lecture, validation, suggestion DeepL.
-
-export const LIMITS = { sideA: 300, sideB: 300, context: 1000 } as const;
+// Formulaire de carte (création et modification) : lecture, suggestion DeepL, doublons.
+// La validation est dans `schemas/cards.ts`.
 
 /** Champs saisis ; `deckId` : le deck choisi à la création (vide en modification). */
 export type CardValues = { sideA: string; sideB: string; context: string; deckId: string };
@@ -38,34 +37,18 @@ export function suggestionView(suggestion: Suggestion): SuggestionView {
 		: { status: 'error', message: failureMessages[suggestion.reason] };
 }
 
-/** Champ texte d'un formulaire posté, vide s'il est absent. */
-export const text = (form: FormData, name: string) => form.get(name)?.toString() ?? '';
-
-export function readCardForm(
+/** Valeurs saisies, renvoyées telles quelles à la page, et leur lecture par `schema`. */
+export function readCardForm<T>(
 	form: FormData,
-	deck: DeckFaces
-): {
-	values: CardValues;
-	errors: CardErrors;
-	input: CardInput | null;
-} {
-	const { a, b } = faces(deck);
+	schema: z.ZodType<T, unknown>
+): { values: CardValues; errors: CardErrors; input: T | null } {
 	const values = {
 		sideA: text(form, 'sideA'),
 		sideB: text(form, 'sideB'),
 		context: text(form, 'context'),
 		deckId: text(form, 'deckId')
 	};
-	const errors: CardErrors = {};
-	if (!values.sideA.trim()) errors.sideA = `${capitalize(a.the)} est obligatoire.`;
-	if (!values.sideB.trim()) errors.sideB = `${capitalize(b.the)} est obligatoire.`;
-	for (const field of ['sideA', 'sideB', 'context'] as const) {
-		if (values[field].trim().length > LIMITS[field]) {
-			errors[field] = `${LIMITS[field]} caractères au plus.`;
-		}
-	}
-	const valid = Object.keys(errors).length === 0;
-	return { values, errors, input: valid ? values : null };
+	return { values, ...parseValues(values, schema) };
 }
 
 /**
@@ -91,18 +74,22 @@ export async function duplicateWarning(
 }
 
 /**
- * Action `translate` : la suggestion DeepL de la face A dans la langue de la face B, avec
- * le contexte s'il est renseigné. Un sujet n'a pas de second avis DeepL.
+ * Action `translate`, une fois la demande lue (`cardTranslationSchema`) : la suggestion
+ * DeepL de la face A dans la langue de la face B, avec le contexte s'il est renseigné. Un
+ * sujet n'a pas de second avis DeepL.
  */
-export async function translateAction(form: FormData, deck: Deck) {
-	const { values } = readCardForm(form, deck);
-	const refuse = (sideA: string) => fail(400, { values, errors: { sideA } as CardErrors });
+export async function translateCard(
+	values: CardValues,
+	deck: Deck,
+	{ sideA, context }: { sideA: string; context?: string }
+) {
 	const pair = languagePair(deck);
-	if (!pair) return refuse('Pas de traduction DeepL pour ce deck.');
-	if (!values.sideA.trim()) return refuse(`Écris d’abord ${faces(deck).a.the} à traduire.`);
-	if (values.sideA.trim().length > LIMITS.sideA || values.context.trim().length > LIMITS.context) {
-		return refuse('Texte trop long pour DeepL.');
+	if (!pair) {
+		return fail(400, {
+			values,
+			errors: { sideA: 'Pas de traduction DeepL pour ce deck.' } as CardErrors
+		});
 	}
-	const suggestion = await translation.suggest(pair, values.sideA, values.context);
+	const suggestion = await translation.suggest(pair, sideA, context);
 	return { values, suggestion: suggestionView(suggestion) };
 }

@@ -3,6 +3,8 @@ import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
 import { authErrorMessage } from '#lib/server/auth-errors.js';
 import { PASSWORD_MIN_LENGTH } from '#lib/server/domain/index.js';
+import { text } from '#lib/server/web/form-data.js';
+import { registerSchema } from '#lib/server/web/schemas/accounts.js';
 import { accounts } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -15,12 +17,15 @@ export const load: PageServerLoad = async () => {
 export const actions: Actions = {
 	default: async ({ request }) => {
 		const form = await request.formData();
-		const name = form.get('name')?.toString() ?? '';
-		const email = form.get('email')?.toString() ?? '';
-		const password = form.get('password')?.toString() ?? '';
+		const name = text(form, 'name');
+		const email = text(form, 'email');
+		const parsed = registerSchema.safeParse({ name, email, password: text(form, 'password') });
+		if (!parsed.success) {
+			return fail(400, { name, email, message: parsed.error.issues[0].message });
+		}
 
 		try {
-			await auth.api.signUpEmail({ body: { name, email, password }, headers: request.headers });
+			await auth.api.signUpEmail({ body: parsed.data, headers: request.headers });
 		} catch (error) {
 			if (error instanceof APIError) {
 				return fail(400, {

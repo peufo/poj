@@ -2,9 +2,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '#lib/server/auth.js';
 import { authErrorMessage } from '#lib/server/auth-errors.js';
+import { text } from '#lib/server/web/form-data.js';
 import { accounts } from '#lib/server/web/services.js';
 import { oauthApiContext, oauthQuery, oauthRedirect } from '#lib/server/oauth-flow.js';
 import { REDIRECT_PARAM, safeRedirectTo } from '#lib/server/web/redirect-to.js';
+import { loginSchema } from '#lib/server/web/schemas/accounts.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -15,8 +17,9 @@ export const load: PageServerLoad = async () => {
 export const actions: Actions = {
 	default: async ({ request, url }) => {
 		const form = await request.formData();
-		const email = form.get('email')?.toString() ?? '';
-		const password = form.get('password')?.toString() ?? '';
+		const email = text(form, 'email');
+		const parsed = loginSchema.safeParse({ email, password: text(form, 'password') });
+		if (!parsed.success) return fail(400, { email, message: parsed.error.issues[0].message });
 		// Connexion demandée par une autorisation OAuth (connecteur Claude) : le formulaire
 		// est posté sur l'URL de la page, qui porte la requête signée.
 		const oauth_query = oauthQuery(url);
@@ -24,7 +27,7 @@ export const actions: Actions = {
 		let result: unknown;
 		try {
 			result = await auth.api.signInEmail({
-				body: { email, password, ...(oauth_query && { oauth_query }) },
+				body: { ...parsed.data, ...(oauth_query && { oauth_query }) },
 				...oauthApiContext(request)
 			});
 		} catch (error) {

@@ -61,6 +61,17 @@ bunx vitest --run src/lib/server/domain/cards/cards.service.spec.ts -t "soft-del
 
 Les `load`, les form actions et les handlers Hono sont de fines couches : validation, puis appel au domaine, puis sérialisation. Les erreurs du domaine (`NotFoundError`, `ConflictError`) sont traduites en 404 et 409 par `api.onError`.
 
+### Validation (Zod 4)
+
+- **Une seule bibliothèque, une seule forme :** Zod 4 classique, toujours `import * as z from 'zod'`. `import { z }` (qui embarque toutes les locales dans le bundle client), `zod/mini`, les sous-chemins `zod/*` et le `z` de `@hono/zod-openapi` sont refusés par ESLint. L'extension `.openapi()` est chargée par `api/schemas.ts` (`import '@hono/zod-openapi'`).
+- **Chaque point d'entrée a son schéma :**
+  - formulaires et paramètres des `load` : `src/lib/server/web/schemas/<domaine>.ts` (un `z.object` par formulaire, avec les noms des champs) ; un id d'URL passe par `idOf` / `deckParam` (`idSchema`, 404 sinon) ;
+  - API : les schémas des `createRoute` ;
+  - MCP : les `inputSchema` des outils (`mcp/server.ts`), décrits pour Claude.
+- **Qui valide quoi :** le schéma valide la forme à la frontière (types, champs obligatoires, longueurs, formats, listes). Le domaine ne la revalide pas : il ne garde que les règles qui dépendent de l'état de la base (existence, unicité, invitation encore valable, version, doublons). Les bornes métier restent des constantes du domaine (`PASSWORD_MIN_LENGTH`, `MAX_DAILY_GOAL`…), importées par les schémas.
+- **Schémas prêts pour les remote functions** (`form(schema, fn)`) : ils lisent l'objet que SvelteKit tire du formulaire. Un champ absent n'y figure pas, un nombre arrive en `number` (champ `n:`), et un booléen doit être optionnel (`z.boolean().default(false)`), car une case non cochée n'est pas envoyée. En attendant t17, les form actions convertissent le `FormData` à la main (`web/form-data.ts`, `readCardForm`, `readDeckEditForm`).
+- **Messages en français :** chaque règle visible par l'utilisateur porte son message explicite. `hooks.server.ts` règle `z.config(z.locales.fr())` pour les autres (types invalides, API, MCP).
+
 ### Requêtes et authentification
 
 - **`hooks.server.ts` :**

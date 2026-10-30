@@ -119,13 +119,14 @@ describe('deck edit form', () => {
 		});
 	});
 
-	it('keeps the kind, the languages and the labels of a language deck', () => {
+	it('keeps the kind and the languages of a language deck (its labels left to the service)', () => {
 		const deck = { kind: 'language', languageA: 'fr', languageB: 'en-GB' } as const;
 		const { input, values } = readDeckEditForm(
 			formOf({ ...language, kind: 'subject', languageB: 'de' }),
 			deck
 		);
-		expect(input).toEqual({ name: 'Anglais', bothDirections: true });
+		expect(input).toMatchObject({ name: 'Anglais', bothDirections: true });
+		expect(input).not.toHaveProperty('languageB');
 		expect(values).toMatchObject({ kind: 'language', languageB: 'en-GB' });
 	});
 
