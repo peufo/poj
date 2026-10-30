@@ -1,5 +1,5 @@
 # `db` : Postgres de dev (`bun run db:start`), qui héberge aussi les bases `poj_test` et
-# `poj_sandbox`. Le profil `prod` lance en plus l'image de production sur sa propre base
+# `poj_sandbox`, et leurs variantes `poj_*_wt_<slug>` pour chaque worktree. Le profil `prod` lance en plus l'image de production sur sa propre base
 # `poj` (`bun run stack:up`, puis http://localhost:3000 ; `bun run stack:stop`).
 # Pas de `docker compose down` : il arrêterait aussi `db`.
 

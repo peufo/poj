@@ -386,7 +386,7 @@ let passwordHash: Promise<string> | undefined;
 
 /**
  * Vide la base puis y charge le compte et les cartes du bac à sable. Refuse toute base
- * autre que `poj_sandbox` ou `poj_test`.
+ * autre que `poj_sandbox` ou `poj_test` (ou leurs variantes de worktree).
  */
 export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } = {}) {
 	const [{ name }] = await db.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;

@@ -91,7 +91,7 @@ Les tests du domaine tournent contre une vraie base PostgreSQL (`DATABASE_URL_TE
 - Compte : `sandbox@poj.local` / `sandbox-poj`.
 - Seed (`src/lib/server/testing/seed.ts`) : ~25 vraies cartes FR→EN dont l'historique est rejoué par les services du domaine, à des dates relatives à maintenant. Elle couvre les cartes neuves, dues, très en retard, en apprentissage, mûres (avec un oubli), une note encore corrigeable, un indice, un sens inverse mis de côté, un doublon, une carte supprimée, une carte modifiée et les deux origines.
 - Le fuzz de FSRS dépend de la date de réponse : d'un chargement à l'autre, les intervalles varient de quelques pour cent, sans changer de catégorie.
-- Garde-fou : la remise à zéro et la seed refusent toute base autre que `poj_sandbox` ou `poj_test`, ainsi que `DATABASE_URL`.
+- Garde-fou : la remise à zéro et la seed refusent toute base autre que `poj_sandbox` ou `poj_test` (et leurs variantes de worktree `_wt_<slug>`), ainsi que `DATABASE_URL`.
 
 ## API
 

@@ -16,6 +16,8 @@
 		"sandbox": "bun --filter @poj/web sandbox",
 		"sandbox:reset": "bun --filter @poj/web sandbox:reset",
 		"sandbox:seed": "bun --filter @poj/web sandbox:seed",
+		"worktree:setup": "bun --filter @poj/web worktree:setup",
+		"worktree:prune": "bun --filter @poj/web worktree:prune",
 		"api:export": "bun --filter @poj/web api:export",
 		"api:check": "bun --filter @poj/web api:check",
 		"ios:project": "cd apps/ios && xcodegen generate",

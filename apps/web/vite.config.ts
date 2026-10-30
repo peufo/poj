@@ -1,10 +1,27 @@
 import tailwindcss from '@tailwindcss/vite';
+import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { assertAppPorts } from './src/lib/server/testing/worktree.ts';
 
-export default defineConfig({
+/**
+ * Ports du serveur de dev et du preview, tirés d'`ORIGIN` pour qu'elle suive le port réel
+ * (5173 et 4173 dans le checkout principal, ceux de `worktree:setup` dans un worktree). Un
+ * port pris fait échouer le lancement au lieu de glisser vers le suivant.
+ */
+function appServers(mode: string) {
+	const ports = assertAppPorts(loadEnv(mode, import.meta.dirname, 'ORIGIN').ORIGIN);
+	return {
+		server: { port: ports.dev, strictPort: true },
+		preview: { port: ports.preview, strictPort: true }
+	};
+}
+
+export default defineConfig(({ mode }) => ({
+	// Vitest lance ses propres serveurs, sur ses propres ports.
+	...(!process.env.VITEST && appServers(mode)),
 	plugins: [
 		tailwindcss(),
 		sveltekit({
@@ -54,4 +71,4 @@ export default defineConfig({
 			}
 		]
 	}
-});
+}));

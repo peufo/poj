@@ -1,13 +1,15 @@
 /**
- * Bac à sable manuel : base `poj_sandbox` (`DATABASE_URL_SANDBOX`), isolée de la base de
- * dev, chargée avec la seed de `src/lib/server/testing/seed.ts`.
+ * Bac à sable manuel : base `poj_sandbox` (`DATABASE_URL_SANDBOX`, `poj_sandbox_wt_<slug>`
+ * dans un worktree), isolée de la base de dev, chargée avec la seed de
+ * `src/lib/server/testing/seed.ts`.
  *
  *   bun scripts/sandbox.ts reset   (re)crée la base vide, applique les migrations, charge la seed
  *   bun scripts/sandbox.ts seed    recharge seulement la seed (vide d'abord toutes les tables)
- *   bun scripts/sandbox.ts dev     lance `vite dev` sur le port 5174, branché sur la sandbox
+ *   bun scripts/sandbox.ts dev     lance `vite dev` sur le port d'`ORIGIN` + 1 (5174 dans le
+ *                                  checkout principal), branché sur la sandbox
  *
- * Bun charge `.env` : seules `DATABASE_URL_SANDBOX` (cible) et `DATABASE_URL` (base de dev,
- * pour le garde-fou) sont lues. Le `.env` n'est jamais modifié.
+ * Bun charge `.env` : seules `DATABASE_URL_SANDBOX` (cible), `DATABASE_URL` (base de dev,
+ * pour le garde-fou) et `ORIGIN` (ports) sont lues. Le `.env` n'est jamais modifié.
  */
 import { spawn } from 'node:child_process';
 import { createCardsService, createReviewsService, type Db } from '../src/lib/server/domain/index';
@@ -19,8 +21,9 @@ import {
 	recreateDatabase
 } from '../src/lib/server/testing/database';
 import { SANDBOX_ACCOUNT, seedSandbox } from '../src/lib/server/testing/seed';
+import { assertAppPorts } from '../src/lib/server/testing/worktree';
 
-const PORT = 5174;
+const PORT = assertAppPorts(process.env.ORIGIN).sandbox;
 
 const url = process.env.DATABASE_URL_SANDBOX;
 if (!url) {

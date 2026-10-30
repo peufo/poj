@@ -17,7 +17,8 @@ declare module 'vitest' {
 export default async function setup(project: TestProject) {
 	const databaseUrl = process.env.DATABASE_URL_TEST;
 	if (!databaseUrl) throw new Error('DATABASE_URL_TEST is not set (see .env.example)');
-	// Chaque test vide toutes les tables : jamais la base de dev.
+	// Chaque test vide toutes les tables : jamais la base de dev, ni celle d'un autre
+	// checkout (chaque worktree a la sienne, voir `bun run worktree:setup`).
 	assertDisposableDatabase(databaseUrl, { devUrl: process.env.DATABASE_URL });
 
 	const created = await ensureDatabase(databaseUrl);

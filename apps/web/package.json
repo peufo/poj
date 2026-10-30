@@ -25,6 +25,8 @@
 		"sandbox": "bun scripts/sandbox.ts reset && bun scripts/sandbox.ts dev",
 		"sandbox:reset": "bun scripts/sandbox.ts reset",
 		"sandbox:seed": "bun scripts/sandbox.ts seed",
+		"worktree:setup": "bun scripts/worktree.ts setup",
+		"worktree:prune": "bun scripts/worktree.ts prune",
 		"auth:schema": "auth generate --config src/lib/server/auth.ts --output prisma/schema.prisma --yes",
 		"api:export": "bun scripts/export-openapi.ts",
 		"api:check": "bun scripts/export-openapi.ts --check"

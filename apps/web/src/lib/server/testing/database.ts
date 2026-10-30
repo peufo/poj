@@ -8,9 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../db/generated/prisma/client';
 import type { Db } from '../domain/index';
-
-/** Seules bases que les outils destructifs (remise à zéro, seed) acceptent de toucher. */
-export const DISPOSABLE_DATABASES = ['poj_sandbox', 'poj_test'] as const;
+import { isWorktreeDatabase, linkedWorktree, withDatabase, type Worktree } from './worktree';
 
 const webRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 
@@ -31,10 +29,22 @@ function sameDatabase(a: string, b: string): boolean {
 	return a === b || key(a) === key(b);
 }
 
-export function assertDisposableName(name: string): void {
-	if (!(DISPOSABLE_DATABASES as readonly string[]).includes(name)) {
+/**
+ * Seules bases que les outils destructifs (remise à zéro, seed) acceptent de toucher :
+ * `poj_test`, `poj_sandbox` et leurs variantes de worktree (`poj_test_wt_<slug>`). Dans un
+ * worktree (`worktree`, détecté par défaut), seulement ces dernières : celles du checkout
+ * principal y sont refusées (`.env` copié sans `bun run worktree:setup`).
+ */
+export function assertDisposableName(name: string, worktree?: Worktree | null): void {
+	if (isWorktreeDatabase(name)) return;
+	if (name !== 'poj_test' && name !== 'poj_sandbox') {
 		throw new Error(
-			`Refusing to touch database "${name}": only ${DISPOSABLE_DATABASES.join(', ')} are disposable`
+			`Refusing to touch database "${name}": only poj_test, poj_sandbox and their worktree variants (poj_test_wt_<slug>) are disposable`
+		);
+	}
+	if (worktree === undefined ? linkedWorktree() : worktree) {
+		throw new Error(
+			`Database "${name}" belongs to the main checkout: run \`bun run worktree:setup\` in this worktree`
 		);
 	}
 }
@@ -43,18 +53,19 @@ export function assertDisposableName(name: string): void {
  * Garde-fou avant toute opération destructive : refuse la base de dev (`devUrl`, en
  * pratique `DATABASE_URL`) et toute base qui n'est pas explicitement jetable.
  */
-export function assertDisposableDatabase(url: string, { devUrl }: { devUrl?: string } = {}): void {
+export function assertDisposableDatabase(
+	url: string,
+	{ devUrl, worktree }: { devUrl?: string; worktree?: Worktree | null } = {}
+): void {
 	if (devUrl && sameDatabase(url, devUrl)) {
 		throw new Error('Refusing to touch the development database (DATABASE_URL)');
 	}
-	assertDisposableName(databaseName(url));
+	assertDisposableName(databaseName(url), worktree);
 }
 
 /** Exécute `fn` connecté à la base d'administration `postgres` du même serveur. */
 async function withAdmin<T>(url: string, fn: (admin: Db) => Promise<T>): Promise<T> {
-	const adminUrl = new URL(url);
-	adminUrl.pathname = '/postgres';
-	const admin = createPrismaClient(adminUrl.toString());
+	const admin = createPrismaClient(withDatabase(url, 'postgres'));
 	try {
 		return await fn(admin);
 	} finally {
@@ -76,14 +87,30 @@ export async function ensureDatabase(url: string): Promise<boolean> {
 	});
 }
 
-/** Supprime (en coupant les connexions ouvertes) puis recrée la base, vide. */
-export async function recreateDatabase(url: string): Promise<void> {
+/** Noms des bases du serveur désigné par `url`. */
+export async function listDatabases(url: string): Promise<string[]> {
+	const rows = await withAdmin(
+		url,
+		(admin) => admin.$queryRaw<{ datname: string }[]>`SELECT datname FROM pg_database`
+	);
+	return rows.map((row) => row.datname);
+}
+
+/** Supprime la base (en coupant les connexions ouvertes) si elle existe. */
+export async function dropDatabase(url: string): Promise<void> {
 	const name = databaseName(url);
 	assertDisposableName(name);
-	await withAdmin(url, async (admin) => {
-		await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
-		await admin.$executeRawUnsafe(`CREATE DATABASE "${name}"`);
-	});
+	await withAdmin(url, (admin) =>
+		admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`)
+	);
+}
+
+/** Supprime (en coupant les connexions ouvertes) puis recrée la base, vide. */
+export async function recreateDatabase(url: string): Promise<void> {
+	await dropDatabase(url);
+	await withAdmin(url, (admin) =>
+		admin.$executeRawUnsafe(`CREATE DATABASE "${databaseName(url)}"`)
+	);
 }
 
 /**

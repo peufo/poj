@@ -4,13 +4,23 @@ import { assertDisposableDatabase } from './database';
 import { seedSandbox } from './seed';
 
 const server = 'postgres://root:secret@localhost:5433';
+const worktree = { root: '/repo/.claude/worktrees/t5', mainRoot: '/repo' };
 
 describe('disposable database guard', () => {
-	it('accepts the sandbox and test databases', () => {
-		expect(() => assertDisposableDatabase(`${server}/poj_sandbox`)).not.toThrow();
+	it('accepts the sandbox and test databases in the main checkout', () => {
 		expect(() =>
-			assertDisposableDatabase(`${server}/poj_test`, { devUrl: `${server}/local` })
+			assertDisposableDatabase(`${server}/poj_sandbox`, { worktree: null })
 		).not.toThrow();
+		expect(() =>
+			assertDisposableDatabase(`${server}/poj_test`, { devUrl: `${server}/local`, worktree: null })
+		).not.toThrow();
+	});
+
+	it('accepts the worktree variants of the sandbox and test databases anywhere', () => {
+		for (const name of ['poj_test_wt_agent_t5', 'poj_sandbox_wt_a1']) {
+			expect(() => assertDisposableDatabase(`${server}/${name}`, { worktree })).not.toThrow();
+			expect(() => assertDisposableDatabase(`${server}/${name}`, { worktree: null })).not.toThrow();
+		}
 	});
 
 	it('refuses the development database, however its URL is written', () => {
@@ -24,8 +34,26 @@ describe('disposable database guard', () => {
 	});
 
 	it('refuses any other database', () => {
-		for (const name of ['local', 'postgres', 'poj', 'poj_sandbox_old']) {
+		for (const name of [
+			'local',
+			'postgres',
+			'poj',
+			'poj_sandbox_old',
+			'poj_test_wt_',
+			'poj_test_wt_Agent',
+			'poj_test_wt_a"; DROP DATABASE local; --',
+			`poj_test_wt_${'a'.repeat(41)}`,
+			'poj_wt_a'
+		]) {
 			expect(() => assertDisposableDatabase(`${server}/${name}`)).toThrow(/Refusing/);
+		}
+	});
+
+	it('refuses, in a worktree, the databases of the main checkout', () => {
+		for (const name of ['poj_test', 'poj_sandbox']) {
+			expect(() => assertDisposableDatabase(`${server}/${name}`, { worktree })).toThrow(
+				/worktree:setup/
+			);
 		}
 	});
 
