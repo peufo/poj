@@ -134,6 +134,41 @@ describe('decks service', () => {
 		expect(reviews[1]).toMatchObject({ state: 'new', due: later, reps: 0 });
 	});
 
+	it('soft-deletes a deck and its cards, idempotently, the last one included', async () => {
+		const deck = await decks.create(alice, capitals);
+		const other = await decks.create(alice, { ...capitals, name: 'Autre' });
+		const card = await createCard(db, alice, { deckId: deck.id });
+		const kept = await createCard(db, alice, { deckId: other.id });
+		const earlier = new Date('2026-01-01T08:00:00Z');
+		const alreadyDeleted = await createCard(db, alice, { deckId: deck.id });
+		await db.card.update({ where: { id: alreadyDeleted.id }, data: { deletedAt: earlier } });
+
+		await decks.softDelete(alice, deck.id, now);
+		await decks.softDelete(alice, deck.id, new Date('2026-01-06T08:00:00Z'));
+
+		expect(await db.deck.findUnique({ where: { id: deck.id } })).toMatchObject({ deletedAt: now });
+		const deleted = await db.card.findMany({ where: { deckId: deck.id } });
+		expect(Object.fromEntries(deleted.map((c) => [c.id, c.deletedAt]))).toEqual({
+			[card.id]: now,
+			[alreadyDeleted.id]: earlier
+		});
+		expect(await db.card.findUnique({ where: { id: kept.id } })).toMatchObject({ deletedAt: null });
+		expect((await decks.list(alice)).map((d) => d.id)).toEqual([other.id]);
+		await expect(decks.get(alice, deck.id)).rejects.toBeInstanceOf(NotFoundError);
+
+		// Le dernier deck se supprime aussi : il n'en reste aucun.
+		await decks.softDelete(alice, other.id);
+		expect(await decks.first(alice)).toBeNull();
+	});
+
+	it('refuses to delete a deck of another owner', async () => {
+		const theirs = await createDeck(db, bob);
+		await expect(decks.softDelete(alice, theirs.id)).rejects.toBeInstanceOf(NotFoundError);
+		expect(await db.deck.findUnique({ where: { id: theirs.id } })).toMatchObject({
+			deletedAt: null
+		});
+	});
+
 	it('requires a language pair for a language deck and none for a subject', async () => {
 		await expect(createDeck(db, alice, { languageB: null })).rejects.toThrow();
 		await expect(createDeck(db, alice, { kind: 'subject' })).rejects.toThrow();

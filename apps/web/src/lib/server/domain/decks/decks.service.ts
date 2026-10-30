@@ -132,6 +132,26 @@ export function createDecksService(db: Db) {
 				}
 				return tx.deck.update({ where: { id }, data });
 			});
+		},
+
+		/**
+		 * Suppression logique du deck et de ses cartes, idempotente : supprimer un deck déjà
+		 * supprimé réussit. Le dernier deck se supprime aussi : l'utilisateur repart alors de
+		 * la création du premier.
+		 */
+		softDelete(ownerId: string, id: string, now = new Date()): Promise<void> {
+			return db.$transaction(async (tx) => {
+				// Le verrou écarte une carte créée dans le deck pendant sa suppression.
+				await lockOwner(tx, ownerId);
+				const existing = await tx.deck.findFirst({ where: { id, ownerId } });
+				if (!existing) throw new NotFoundError(`Deck ${id} not found`);
+				if (existing.deletedAt) return;
+				await tx.card.updateMany({
+					where: { deckId: id, deletedAt: null },
+					data: { deletedAt: now }
+				});
+				await tx.deck.update({ where: { id }, data: { deletedAt: now } });
+			});
 		}
 	};
 }

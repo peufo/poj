@@ -6,6 +6,7 @@ import { decks, idOf, orNotFound } from '#lib/server/web/services.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // Modification d'un deck : nom, option des deux sens et, pour un sujet, noms des faces.
+// Suppression du deck et de ses cartes.
 
 export const load: PageServerLoad = async (event) => {
 	const deck = await orNotFound(decks.get(ownerOf(event), idOf(event.params.id, 'Deck')), 'Deck');
@@ -13,7 +14,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-	default: async (event) => {
+	save: async (event) => {
 		const ownerId = ownerOf(event);
 		const id = idOf(event.params.id, 'Deck');
 		const deck = await orNotFound(decks.get(ownerId, id), 'Deck');
@@ -28,5 +29,17 @@ export const actions: Actions = {
 			throw cause;
 		}
 		redirect(303, `/cards?deck=${id}`);
+	},
+
+	// Suppression en deux temps : sans `confirm`, on demande confirmation. Sans deck restant,
+	// `/cards` renvoie à la création du premier.
+	delete: async (event) => {
+		const ownerId = ownerOf(event);
+		const id = idOf(event.params.id, 'Deck');
+		const form = await event.request.formData();
+		if (form.get('confirm') !== '1') return fail(400, { confirmDelete: true });
+
+		await orNotFound(decks.softDelete(ownerId, id), 'Deck');
+		redirect(303, '/cards');
 	}
 };
