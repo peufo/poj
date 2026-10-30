@@ -16,8 +16,6 @@
 		decks?: { id: string; name: string; cardCount: number }[];
 		/** Deck affiché (`?deck=`) ; avec un seul deck, c'est lui. */
 		activeDeck?: string | null;
-		/** Préfixe des liens (« /lab » pour les maquettes). */
-		base?: string;
 		user?: { email: string; isAdmin?: boolean };
 		focus?: boolean;
 		children: Snippet;
@@ -28,7 +26,6 @@
 		dueCount,
 		decks = [],
 		activeDeck = null,
-		base = '',
 		user,
 		focus = false,
 		children
@@ -58,7 +55,7 @@
 		label: 'Réviser',
 		short: 'Réviser',
 		icon: 'review',
-		href: `${base}/review`,
+		href: '/review',
 		active: current === 'review',
 		count: dueCount,
 		accent: true
@@ -69,7 +66,7 @@
 		short: 'Nouvelle',
 		icon: 'plus',
 		// La carte ira dans le deck affiché.
-		href: `${base}/cards/new${deckQuery}`,
+		href: `/cards/new${deckQuery}`,
 		active: current === 'new'
 	});
 	const connect = $derived<Item>({
@@ -77,7 +74,7 @@
 		label: 'Connecter Claude',
 		short: 'Claude',
 		icon: 'claude',
-		href: `${base}/connect`,
+		href: '/connect',
 		active: current === 'connect'
 	});
 
@@ -88,7 +85,7 @@
 			label: deck.name,
 			short: deck.name,
 			icon: 'cards' as const,
-			href: `${base}/cards?deck=${deck.id}`,
+			href: `/cards?deck=${deck.id}`,
 			active: current === 'cards' && shownDeck === deck.id,
 			count: deck.cardCount
 		})),
@@ -98,7 +95,7 @@
 			label: 'Nouveau deck',
 			short: 'Deck',
 			icon: 'deck-plus',
-			href: `${base}/decks/new`,
+			href: '/decks/new',
 			active: current === 'new-deck'
 		},
 		connect
@@ -111,7 +108,7 @@
 			label: 'Cartes',
 			short: 'Cartes',
 			icon: 'cards',
-			href: `${base}/cards`,
+			href: '/cards',
 			active: current === 'cards'
 		},
 		newCard,
@@ -124,7 +121,7 @@
 	<aside
 		class="sticky top-(--chrome-top,0px) hidden h-[calc(100dvh-var(--chrome-top,0px))] flex-col gap-6 border-r border-line bg-surface px-3 py-4 md:flex"
 	>
-		<a href="{base}/cards" class="self-start rounded-md px-2 py-1"><Wordmark /></a>
+		<a href="/cards" class="self-start rounded-md px-2 py-1"><Wordmark /></a>
 		<nav aria-label="Navigation principale" class="min-h-0 overflow-y-auto">
 			<ul class="flex flex-col gap-0.5">
 				{#each sidebar as item (item.key)}
@@ -166,7 +163,7 @@
 			>
 				<span class="truncate px-2.5 text-xs text-ink-3">{user.email}</span>
 				{#if user.isAdmin}
-					<a href="{base}/admin" class={footerItem}>
+					<a href="/admin" class={footerItem}>
 						<Icon name="user" size={17} class="text-ink-3" />Administration
 					</a>
 				{/if}

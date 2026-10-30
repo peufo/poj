@@ -207,7 +207,7 @@ components:
 
 Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres froids à peine teintés de bleu (teinte 265), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent indigo qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.
 
-Le clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme="light|dark"` force un thème sur n'importe quel sous-arbre (lab, aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.
+Le clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme="light|dark"` force un thème sur n'importe quel sous-arbre (aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.
 
 Rejets confirmés par la direction : le tableau de bord gamifié (trophées, confettis, badges) et la table grise de back-office. Seule exception, décidée le 2026-10-29 (doc/story/ajout-quotidien.md) : l'objectif quotidien d'ajout de cartes montre une série et un calendrier d'accomplissement, sobres (rampe d'encre neutre, l'accent seulement pour aujourd'hui).
 
@@ -271,7 +271,7 @@ Une palette neutre et froide, à un seul accent, où la couleur porte toujours u
 
 - **Display** (600, 2,125rem / 2,5rem, `-0.025em`) : la face de la carte en révision, question et réponse. Passe en **Display large** (600, 2,625rem / 3rem) sur grand écran.
 - **Headline** (700, 1,75rem / 2,125rem, `-0.025em`) : le grand titre d'écran façon iOS (« Cartes »), suivi du total en `ink-3` semi-gras.
-- **Title** (600, 1,4375rem / 1,875rem, `-0.025em`) : l'échéance d'un sens sur la fiche d'une carte, les titres de section du lab.
+- **Title** (600, 1,4375rem / 1,875rem, `-0.025em`) : l'échéance d'un sens sur la fiche d'une carte.
 - **Title small** (600, 1,1875rem / 1,625rem) : titres de section et titre de feuille.
 - **Body** (400, 1rem / 1,5rem) : texte courant, le français d'une ligne de carte, les champs. Lignes longues plafonnées entre 50 et 65ch.
 - **Body small** (400 à 500, 0,875rem / 1,25rem) : libellés de champs, navigation latérale, aides, légendes de l'horizon.
@@ -348,8 +348,6 @@ Nets et sobres, une seule action pleine par zone.
 - **Barre latérale :** éléments de 2,25rem, coins `lg`, 0,875rem medium ; inactif en `ink-2` avec icône `ink-3`, actif sur `hover` en `ink` avec icône `accent-text`. Le compteur de révisions dues devient une pastille indigo quand il est non nul.
 - **Barre d'onglets :** icônes de 22 px sur libellé de 11 px ; actif en `accent-text`, inactif en `ink-3`. Pastille indigo cerclée de `canvas` sur Réviser.
 - **En-tête d'écran (`PageHeader`) :** lien retour en `accent-text` avec chevron, grand titre Headline et total en `ink-3`, actions à droite. En mode `compact`, une barre seule (retour et actions) : le titre reste dans un `h1` masqué, le contenu fait office de titre.
-- **Contrôle segmenté :** rail `surface` cerclé de `line`, segment actif `raised` avec ombre de relief ; variante icônes seules, libellés conservés pour l'accessibilité.
-- **Navigation du lab :** liste horizontale défilante avec masque en fondu sur les bords ; le lien actif est ramené dans la vue à chaque changement de page.
 
 ### Horizon (signature)
 
@@ -379,7 +377,7 @@ Encadré `xl` sans bordure, icône à 18 px : `info` sur `surface`, `warn` sur `
 
 ### Do:
 
-- **Do** déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme` dans le lab.
+- **Do** déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme`.
 - **Do** réserver l'indigo à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte indigo.
 - **Do** séparer par paliers de surface et filets d'un pixel avant de recourir à une ombre.
 - **Do** mettre les nombres en chiffres tabulaires.

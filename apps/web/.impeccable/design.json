@@ -352,7 +352,7 @@
 	],
 	"narrative": {
 		"northStar": "L'échéancier en ordre",
-		"overview": "Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres froids à peine teintés de bleu (teinte 265), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent indigo qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.\n\nLe clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme=\"light|dark\"` force un thème sur n'importe quel sous-arbre (lab, aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.\n\nRejets confirmés par la direction : le tableau de bord gamifié (séries, trophées, confettis) et la table grise de back-office.",
+		"overview": "Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres froids à peine teintés de bleu (teinte 265), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent indigo qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.\n\nLe clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme=\"light|dark\"` force un thème sur n'importe quel sous-arbre (aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.\n\nRejets confirmés par la direction : le tableau de bord gamifié (séries, trophées, confettis) et la table grise de back-office.",
 		"keyCharacteristics": [
 			"Police système (SF sur iPhone et Mac), échelle fixe d'environ 1,2.",
 			"Neutres froids en paliers : canvas, surface, raised, inset, hover.",
@@ -395,7 +395,7 @@
 			}
 		],
 		"dos": [
-			"Do déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme` dans le lab.",
+			"Do déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme` dans le bac à sable.",
 			"Do réserver l'indigo à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte indigo.",
 			"Do séparer par paliers de surface et filets d'un pixel avant de recourir à une ombre.",
 			"Do mettre les nombres en chiffres tabulaires.",

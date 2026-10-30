@@ -7,7 +7,7 @@
 		color-scheme: light dark;
 	}
 
-	/* Forcer un thème, sur la page ou sur un sous-arbre (lab, aperçus côte à côte) */
+	/* Forcer un thème, sur la page ou sur un sous-arbre (aperçus côte à côte) */
 	[data-theme='light'] {
 		color-scheme: light;
 	}
