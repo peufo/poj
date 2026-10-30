@@ -1,4 +1,5 @@
 import { error, redirect, type RequestEvent } from '@sveltejs/kit';
+import { resolveDeck, type Deck } from '#lib/server/domain/index.js';
 import { loginUrl } from '#lib/server/web/redirect-to.js';
 
 // Gardes des pages web, sans accès à la base : testables sous node avec un faux event.
@@ -39,14 +40,14 @@ export function requireAdmin(event: GuardEvent): string {
  * l'utilisateur : celui de `?deck=` (404 s'il n'est pas à lui, `explicit`), sinon le seul
  * deck, sinon `null` (tous les decks). Sans aucun deck, direction la création du premier.
  */
-export function deckInScope<T extends { id: string }>(
+export function deckInScope<T extends Pick<Deck, 'id' | 'name'>>(
 	url: URL,
-	decks: T[]
+	decks: readonly T[]
 ): { deck: T | null; explicit: boolean } {
-	if (decks.length === 0) redirect(303, '/decks/new');
 	const id = url.searchParams.get('deck');
-	if (id === null) return { deck: decks.length === 1 ? decks[0] : null, explicit: false };
-	const deck = decks.find((d) => d.id === id);
-	if (!deck) error(404, 'Deck introuvable');
-	return { deck, explicit: true };
+	const choice = resolveDeck(decks, id === null ? undefined : { id });
+	if (choice.status === 'none') redirect(303, '/decks/new');
+	if (choice.status === 'unknown') error(404, 'Deck introuvable');
+	if (choice.status === 'several') return { deck: null, explicit: false };
+	return { deck: choice.deck, explicit: id !== null };
 }

@@ -62,10 +62,10 @@ describe('admin guard', () => {
 });
 
 describe('deck in scope', () => {
-	const english = { id: 'd1' };
-	const capitals = { id: 'd2' };
+	const english = { id: 'd1', name: 'Anglais' };
+	const capitals = { id: 'd2', name: 'Capitales' };
 	const at = (path: string) => new URL(path, 'http://poj.test');
-	const scope = (path: string, decks: { id: string }[]) => {
+	const scope = (path: string, decks: { id: string; name: string }[]) => {
 		try {
 			return deckInScope(at(path), decks).deck;
 		} catch (thrown) {

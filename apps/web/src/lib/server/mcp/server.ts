@@ -17,6 +17,7 @@ import {
 	formatRelative,
 	languagePair,
 	NotFoundError,
+	resolveDeck,
 	type CardInput,
 	type CardsService,
 	type Deck,
@@ -291,22 +292,31 @@ export function createPojMcpServer({
 	/** Ligne d'en-tête « Deck « Anglais ». » quand l'utilisateur a plusieurs decks. */
 	const deckHeader = (deck: Pick<Deck, 'name'>) => (several ? [`Deck ${quote(deck.name)}.`] : []);
 
+	const unknownDeck = (name: string) =>
+		toolError(`Deck ${quote(name)} introuvable. Decks de l'utilisateur : ${names}.`);
+
 	/** Deck nommé, ou erreur d'outil qui liste les decks de l'utilisateur. */
 	const namedDeck = (name: string): Deck | CallToolResult =>
-		findDeckByName(decks, name) ??
-		toolError(`Deck ${quote(name)} introuvable. Decks de l'utilisateur : ${names}.`);
+		findDeckByName(decks, name) ?? unknownDeck(name);
 
 	/**
 	 * Deck d'une carte capturée : celui nommé, ou le seul deck de l'utilisateur. Avec
 	 * plusieurs decks, Claude doit le nommer : il le déduit ou le demande.
 	 */
 	function captureDeck(name: string | undefined): Deck | CallToolResult {
-		if (decks.length === 0) return toolError(noDeck);
-		if (name !== undefined) return namedDeck(name);
-		if (!several) return decks[0];
-		return toolError(
-			`L'utilisateur a plusieurs decks (${names}) : passe le nom du deck en deck. Déduis-le de la carte, ou demande-le-lui en cas de doute.`
-		);
+		const choice = resolveDeck(decks, name === undefined ? undefined : { name });
+		switch (choice.status) {
+			case 'none':
+				return toolError(noDeck);
+			case 'unknown':
+				return unknownDeck(choice.request.name);
+			case 'several':
+				return toolError(
+					`L'utilisateur a plusieurs decks (${names}) : passe le nom du deck en deck. Déduis-le de la carte, ou demande-le-lui en cas de doute.`
+				);
+			case 'found':
+				return choice.deck;
+		}
 	}
 
 	const reviewDeckField = deckNameSchema.describe(

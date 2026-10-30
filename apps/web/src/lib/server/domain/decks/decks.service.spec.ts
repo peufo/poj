@@ -7,7 +7,13 @@ import {
 	FR_EN_DECK,
 	SUBJECT_DECK
 } from '../../testing/factories';
-import { createDecksService, directionsOf, findDeckByName, languagePair } from './decks.service';
+import {
+	createDecksService,
+	directionsOf,
+	findDeckByName,
+	languagePair,
+	resolveDeck
+} from './decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 
 const db = useTestDatabase();
@@ -194,6 +200,27 @@ describe('decks service', () => {
 		expect(findDeckByName(listed, ' anglais ')).toBe(listed[0]);
 		expect(findDeckByName(listed, 'CAPITALES  du monde')).toBe(listed[1]);
 		expect(findDeckByName(listed, 'Allemand')).toBeUndefined();
+	});
+
+	it('resolves the requested deck, or the only one, by id or by name', () => {
+		const english = { id: 'd1', name: 'Anglais' };
+		const capitals = { id: 'd2', name: 'Capitales' };
+		const both = [english, capitals];
+
+		expect(resolveDeck([], undefined)).toEqual({ status: 'none' });
+		expect(resolveDeck([], { id: 'd1' })).toEqual({ status: 'none' });
+		expect(resolveDeck([english], undefined)).toEqual({ status: 'found', deck: english });
+		expect(resolveDeck(both, undefined)).toEqual({ status: 'several' });
+		expect(resolveDeck(both, { id: 'd2' })).toEqual({ status: 'found', deck: capitals });
+		expect(resolveDeck(both, { name: ' capitales ' })).toEqual({ status: 'found', deck: capitals });
+		expect(resolveDeck([english], { id: 'd2' })).toEqual({
+			status: 'unknown',
+			request: { id: 'd2' }
+		});
+		expect(resolveDeck([english], { name: 'Allemand' })).toEqual({
+			status: 'unknown',
+			request: { name: 'Allemand' }
+		});
 	});
 
 	it('reviews both directions, or a_to_b only for a one-way deck', () => {

@@ -57,8 +57,8 @@ export async function findOwnedDeck(db: Db | Tx, ownerId: string, id: string): P
 }
 
 /**
- * Deck de ce nom parmi `decks`, casse et espaces ignorés comme pour l'unicité des noms :
- * Claude désigne un deck par son nom, souvent dicté.
+ * Deck de ce nom parmi `decks`, casse et espaces ignorés. C'est la seule comparaison des
+ * noms de deck : unicité à l'enregistrement, et nom passé par Claude, souvent dicté.
  */
 export function findDeckByName<T extends Pick<Deck, 'name'>>(
 	decks: readonly T[],
@@ -68,13 +68,46 @@ export function findDeckByName<T extends Pick<Deck, 'name'>>(
 	return decks.find((deck) => comparisonKey(deck.name) === key);
 }
 
+/** Deck demandé par son id (page web, `?deck=`) ou par son nom (Claude). */
+export type DeckRequest = { id: string } | { name: string };
+
+/**
+ * Deck retenu parmi ceux de l'utilisateur :
+ * - `none` : il n'a aucun deck, qu'un deck soit demandé ou non ;
+ * - `unknown` : le deck demandé (`request`) n'est pas à lui ;
+ * - `several` : aucun deck demandé, et il en a plusieurs ;
+ * - `found` : le deck demandé, ou son seul deck.
+ */
+export type DeckChoice<T, R extends DeckRequest = DeckRequest> =
+	| { status: 'none' }
+	| { status: 'unknown'; request: R }
+	| { status: 'several' }
+	| { status: 'found'; deck: T };
+
+/**
+ * Deck d'une action parmi les decks de l'utilisateur : celui demandé, sinon son seul deck.
+ * Chaque appelant décide de ce que valent les autres cas.
+ */
+export function resolveDeck<T extends Pick<Deck, 'id' | 'name'>, R extends DeckRequest>(
+	decks: readonly T[],
+	request?: R
+): DeckChoice<T, R> {
+	if (decks.length === 0) return { status: 'none' };
+	if (request === undefined) {
+		return decks.length === 1 ? { status: 'found', deck: decks[0] } : { status: 'several' };
+	}
+	const deck =
+		'id' in request ? decks.find((d) => d.id === request.id) : findDeckByName(decks, request.name);
+	return deck ? { status: 'found', deck } : { status: 'unknown', request };
+}
+
 /** Refuse un nom déjà porté par un autre deck non supprimé du propriétaire. */
 async function assertNameFree(tx: Tx, ownerId: string, name: string, excludeId?: string) {
 	const others = await tx.deck.findMany({
 		where: { ownerId, deletedAt: null, ...(excludeId && { id: { not: excludeId } }) },
 		select: { name: true }
 	});
-	if (others.some((other) => comparisonKey(other.name) === comparisonKey(name))) {
+	if (findDeckByName(others, name)) {
 		throw new ConflictError(`Deck name "${name}" is already taken`);
 	}
 }
