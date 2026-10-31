@@ -5,7 +5,7 @@ import type { Db } from '../db';
 import type { Direction } from '../cards/types';
 import { startOfDay } from '../time';
 import { opposite, SIBLING_BURY_MS } from './availability';
-import { parseState, type SerializedState } from './scheduler';
+import { parseState } from './scheduler';
 import type { ReviewDay } from './types';
 
 /** Révisions dans la journée au-delà desquelles le jour est réussi, retard ou pas. */
@@ -86,8 +86,8 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 	for (const track of tracks) {
 		if (!track.reviewed) continue;
 		const sibling = byCard
-			.get(track.cardId)!
-			.find((other) => other.reviewed && other.direction === opposite[track.direction]);
+			.get(track.cardId)
+			?.find((other) => other.reviewed && other.direction === opposite[track.direction]);
 		/** Le sens inverse a été répondu dans les 24 h qui précèdent `t` : mis de côté. */
 		const buried = (t: number) =>
 			sibling?.logs.some(({ at }) => at.getTime() < t && at.getTime() > t - SIBLING_BURY_MS);
@@ -152,7 +152,7 @@ export async function loadReviewTracks(
 		due: row.due,
 		logs: row.logs.map((log) => ({
 			at: log.reviewedAt,
-			dueBefore: parseState(log.stateBefore as unknown as SerializedState).due
+			dueBefore: parseState(log.stateBefore).due
 		}))
 	}));
 }

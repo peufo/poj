@@ -6,7 +6,7 @@
 	import TextField from '#lib/ui/TextField.svelte';
 	import FormIssues from './form/FormIssues.svelte';
 	import SubmitButton from './form/SubmitButton.svelte';
-	import type { CardEditForm, NewCardForm } from '#lib/server/web/card-form.js';
+	import type { CardEditForm, NewCardForm, SuggestionView } from '#lib/server/web/card-form.js';
 
 	// Formulaire de carte (création et modification, WEB-2 et WEB-5), sur le remote form de la
 	// page (`createCard`, `updateCard`). Deux boutons d'envoi : « Traduire avec DeepL »
@@ -15,11 +15,8 @@
 	// confirmer (`confirm` : la face confirmée telle quelle), ou demander l'accord sur la
 	// réinitialisation (`acknowledge_reset`, envoyé dès que l'avertissement est affiché).
 
-	type Suggestion =
-		| { status: 'idle' }
-		| { status: 'loading' }
-		| { status: 'ready'; text: string }
-		| { status: 'error'; message: string };
+	/** Suggestion affichée : celle du serveur, ou l'attente avant ou pendant la demande. */
+	type Suggestion = { status: 'idle' } | { status: 'loading' } | SuggestionView;
 
 	/** Remote form de chaque mode : `mode` et `form` vont ensemble. */
 	type Forms = { create: NewCardForm; edit: CardEditForm };

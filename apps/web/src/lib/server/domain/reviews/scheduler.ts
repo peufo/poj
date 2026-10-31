@@ -8,6 +8,7 @@ import {
 	type Card as FsrsCard,
 	type Grade
 } from 'ts-fsrs';
+import * as z from 'zod';
 import type { Rating, ReviewState } from '../../db/generated/prisma/client';
 
 /** Champs FSRS d'une ligne `Review` : une `Review` Prisma s'y conforme telle quelle. */
@@ -127,11 +128,24 @@ export function previewDue(state: FsrsState, now: Date): Record<Rating, Date> {
 	};
 }
 
+/**
+ * État stocké en JSON dans `ReviewLog.stateBefore` (dates en ISO 8601). Lu depuis la base sans
+ * garantie de forme : `parseState` le valide et rend les dates.
+ */
+const serializedStateSchema = z.object({
+	due: z.iso.datetime().pipe(z.coerce.date()),
+	stability: z.number(),
+	difficulty: z.number(),
+	scheduledDays: z.int(),
+	learningSteps: z.int(),
+	reps: z.int(),
+	lapses: z.int(),
+	state: z.enum(Object.values(fromFsrsState)),
+	lastReview: z.iso.datetime().pipe(z.coerce.date()).nullable()
+});
+
 /** Forme JSON de l'état, stockée dans `ReviewLog.stateBefore`. */
-export type SerializedState = Omit<FsrsState, 'due' | 'lastReview'> & {
-	due: string;
-	lastReview: string | null;
-};
+export type SerializedState = z.input<typeof serializedStateSchema>;
 
 export function serializeState(s: FsrsState): SerializedState {
 	return {
@@ -141,10 +155,11 @@ export function serializeState(s: FsrsState): SerializedState {
 	};
 }
 
-export function parseState(json: SerializedState): FsrsState {
-	return {
-		...json,
-		due: new Date(json.due),
-		lastReview: json.lastReview ? new Date(json.lastReview) : null
-	};
+/** État relu d'un `ReviewLog.stateBefore` ; lève une erreur explicite s'il est malformé. */
+export function parseState(json: unknown): FsrsState {
+	const parsed = serializedStateSchema.safeParse(json);
+	if (!parsed.success) {
+		throw new Error(`Malformed review state: ${z.prettifyError(parsed.error)}`);
+	}
+	return parsed.data;
 }

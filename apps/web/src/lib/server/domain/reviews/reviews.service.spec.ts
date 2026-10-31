@@ -233,6 +233,28 @@ describe('reviews service', () => {
 		expect(logs[0]).toMatchObject({ rating: 'again', amendedAt: at(5) });
 	});
 
+	it('fails explicitly on a malformed stored state, without amending', async () => {
+		await createCard(db, alice, { now: t0 });
+		const review = presented(await reviews.next(alice, t0));
+		await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'good', version: review.version, origin: 'web' },
+			t0
+		);
+		await db.reviewLog.updateMany({
+			where: { reviewId: review.id },
+			data: { stateBefore: { due: 'tomorrow' } }
+		});
+		const before = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+
+		await expect(reviews.lastAnswer(alice, at(5))).rejects.toThrow(/^Malformed review state/);
+		await expect(reviews.amend(alice, review.id, 'again', at(5))).rejects.toThrow(
+			/^Malformed review state/
+		);
+		expect(await db.review.findUniqueOrThrow({ where: { id: review.id } })).toEqual(before);
+	});
+
 	it('leaves everything untouched when the amended rating is the one already recorded', async () => {
 		await createCard(db, alice, { context: 'au bureau', now: t0 });
 		const review = presented(await reviews.next(alice, t0));

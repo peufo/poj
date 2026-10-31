@@ -12,7 +12,11 @@ function localParts(date: Date, timeZone: string) {
 		minute: '2-digit',
 		second: '2-digit'
 	}).formatToParts(date);
-	const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+	const get = (type: string) => {
+		const part = parts.find((p) => p.type === type);
+		if (!part) throw new Error(`Intl.DateTimeFormat gave no ${type} for ${timeZone}`);
+		return Number(part.value);
+	};
 	return {
 		year: get('year'),
 		month: get('month'),

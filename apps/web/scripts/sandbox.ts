@@ -25,15 +25,21 @@ import { assertAppPorts } from '../src/lib/server/testing/worktree';
 
 const PORT = assertAppPorts(process.env.ORIGIN).sandbox;
 
-const url = process.env.DATABASE_URL_SANDBOX;
-if (!url) {
-	console.error('✗ DATABASE_URL_SANDBOX non définie (voir .env.example)');
-	process.exit(1);
-}
+const url = sandboxUrl();
 assertDisposableDatabase(url, { devUrl: process.env.DATABASE_URL });
 
+/** Base du bac à sable ; arrête le script si elle n'est pas définie. */
+function sandboxUrl(): string {
+	const url = process.env.DATABASE_URL_SANDBOX;
+	if (!url) {
+		console.error('✗ DATABASE_URL_SANDBOX non définie (voir .env.example)');
+		process.exit(1);
+	}
+	return url;
+}
+
 async function seed() {
-	const db = createPrismaClient(url!);
+	const db = createPrismaClient(url);
 	try {
 		const now = new Date();
 		const { userId } = await seedSandbox(db, { now });
@@ -53,7 +59,7 @@ async function summarize(db: Db, userId: string, now: Date) {
 	]);
 	const dueNow = next.review ? next.remaining : 0;
 	console.log(`
-✓ Bac à sable prêt (${databaseName(url!)})
+✓ Bac à sable prêt (${databaseName(url)})
   compte       ${SANDBOX_ACCOUNT.email} / ${SANDBOX_ACCOUNT.password}
   cartes       ${stats.totalCards} (+ ${deleted} supprimée)
   révisions    ${dueNow} à présenter maintenant, ${stats.dueToday} dues aujourd'hui, ${newReviews} neuves

@@ -1,4 +1,5 @@
 // Client de l'API DeepL : https://developers.deepl.com/api-reference/translate
+import * as z from 'zod';
 import { baseLanguage } from '#lib/format/decks.js';
 import { TranslatorError, type Language, type Translator } from '#lib/server/domain/index.js';
 
@@ -9,6 +10,11 @@ export const deeplSource = (language: Language) => baseLanguage(language).toUppe
 export const deeplTarget = (language: Language) => language.toUpperCase();
 
 const TIMEOUT_MS = 5_000;
+
+/** Réponse attendue de `/v2/translate` : une traduction par texte envoyé (un seul ici). */
+const responseSchema = z.object({
+	translations: z.array(z.object({ text: z.string() })).nonempty()
+});
 
 /** Les clés du plan gratuit se terminent par `:fx` et passent par un autre hôte. */
 export function deeplBaseUrl(apiKey: string): string {
@@ -48,12 +54,20 @@ export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fe
 				throw new TranslatorError('unavailable', message);
 			}
 
-			const body = (await response.json()) as { translations?: { text: string }[] };
-			const translated = body.translations?.[0]?.text;
-			if (translated === undefined) {
-				throw new TranslatorError('unavailable', 'DeepL returned no translation');
+			let body: unknown;
+			try {
+				body = await response.json();
+			} catch (error) {
+				throw new TranslatorError('unavailable', `DeepL returned invalid JSON: ${String(error)}`);
 			}
-			return translated;
+			const parsed = responseSchema.safeParse(body);
+			if (!parsed.success) {
+				throw new TranslatorError(
+					'unavailable',
+					`DeepL returned an unexpected response: ${z.prettifyError(parsed.error)}`
+				);
+			}
+			return parsed.data.translations[0].text;
 		}
 	};
 }

@@ -87,4 +87,17 @@ describe('DeepL translator', () => {
 		expect(error).toBeInstanceOf(TranslatorError);
 		expect(error.reason).toBe('unavailable');
 	});
+
+	it.each([
+		['no translation', json({ translations: [] })],
+		['a translation without text', json({ translations: [{ detected_source_language: 'FR' }] })],
+		['an unexpected shape', json({ text: 'to take for granted' })],
+		['a body that is not JSON', new Response('<html>busy</html>', { status: 200 })]
+	])('maps a response with %s to unavailable', async (_, response) => {
+		const translator = createDeeplTranslator('key', fakeFetch(response).fn);
+
+		const error = await translator.translate({ text: 'a', from: 'fr', to: 'en' }).catch((e) => e);
+		expect(error).toBeInstanceOf(TranslatorError);
+		expect(error.reason).toBe('unavailable');
+	});
 });
