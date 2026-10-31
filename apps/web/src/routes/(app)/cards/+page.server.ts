@@ -1,4 +1,3 @@
-import { fail } from '@sveltejs/kit';
 import {
 	calendarDaysBetween,
 	MAX_DAILY_GOAL,
@@ -17,9 +16,8 @@ import {
 	reviews
 } from '#lib/server/web/services.js';
 import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
-import { text } from '#lib/server/web/form-data.js';
-import { cardsSearchSchema, dailyGoalSchema } from '#lib/server/web/schemas/cards.js';
-import type { Actions, PageServerLoad } from './$types';
+import { cardsSearchSchema } from '#lib/server/web/schemas/cards.js';
+import type { PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;
 /** Semaines du calendrier d'accomplissement, la dernière étant la semaine en cours. */
@@ -85,19 +83,4 @@ export const load: PageServerLoad = async (event) => {
 			})
 		}))
 	};
-};
-
-export const actions: Actions = {
-	goal: async (event) => {
-		const { request } = event;
-		const ownerId = ownerOf(event);
-		const value = text(await request.formData(), 'goal').trim();
-		// Champ vide : pas un nombre (`Number('')` vaut 0).
-		const parsed = dailyGoalSchema.safeParse({ goal: value ? Number(value) : undefined });
-		if (!parsed.success) {
-			return fail(400, { goalError: parsed.error.issues[0].message, goalValue: value });
-		}
-		await dailyGoal.setGoal(ownerId, parsed.data.goal);
-		return { goalSaved: true };
-	}
 };

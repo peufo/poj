@@ -1,25 +1,7 @@
-import { fail } from '@sveltejs/kit';
-import { ConflictError } from '#lib/server/domain/index.js';
-import { deckParam, decks, deckView, idOf, orNotFound, reviews } from '#lib/server/web/services.js';
+import { deckParam, decks, deckView, reviews } from '#lib/server/web/services.js';
 import { deckInScope, ownerOf } from '#lib/server/web/guards.js';
-import { text } from '#lib/server/web/form-data.js';
-import {
-	amendSchema,
-	answerSchema,
-	hintSchema,
-	reviewSearchSchema
-} from '#lib/server/web/schemas/reviews.js';
-import type { Actions, PageServerLoad } from './$types';
-
-/** Champs d'un formulaire de révision ; une révision qui n'en est pas une donne une 404. */
-async function reviewValues(request: Request) {
-	const form = await request.formData();
-	return {
-		reviewId: idOf(text(form, 'reviewId'), 'Révision'),
-		rating: form.get('rating')?.toString(),
-		version: form.get('version')?.toString()
-	};
-}
+import { reviewSearchSchema } from '#lib/server/web/schemas/reviews.js';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const { url } = event;
@@ -83,57 +65,4 @@ export const load: PageServerLoad = async (event) => {
 			preview: last.preview
 		}
 	};
-};
-
-export const actions: Actions = {
-	/** Indice : le domaine mémorise la demande et plafonnera la note à Hard. */
-	hint: async (event) => {
-		const ownerId = ownerOf(event);
-		const { reviewId } = hintSchema.parse(await reviewValues(event.request));
-		await orNotFound(reviews.requestHint(ownerId, reviewId), 'Révision');
-		return { hinted: true };
-	},
-
-	answer: async (event) => {
-		const ownerId = ownerOf(event);
-		const parsed = answerSchema.safeParse(await reviewValues(event.request));
-		if (!parsed.success) return fail(400, { answerError: parsed.error.issues[0].message });
-		const { reviewId, rating, version } = parsed.data;
-
-		try {
-			const result = await orNotFound(
-				reviews.answer(ownerId, reviewId, { rating, version, origin: 'web' }),
-				'Révision'
-			);
-			return { answered: { rating: result.rating, replayed: result.replayed } };
-		} catch (cause) {
-			if (cause instanceof ConflictError) {
-				return fail(409, {
-					answerError: 'Cette carte a changé entre-temps : la note n’a pas été enregistrée.'
-				});
-			}
-			throw cause;
-		}
-	},
-
-	/** Corriger la dernière note. Sans note choisie (sans JavaScript), ouvre le choix. */
-	amend: async (event) => {
-		const ownerId = ownerOf(event);
-		const { reviewId, rating } = amendSchema.parse(await reviewValues(event.request));
-		if (!rating) return fail(400, { amendOpen: true });
-
-		try {
-			const result = await orNotFound(reviews.amend(ownerId, reviewId, rating), 'Révision');
-			// Même note qu'avant (plafond après indice compris) : rien n'a été modifié.
-			return { amended: true, amendUnchanged: !result.changed };
-		} catch (cause) {
-			if (cause instanceof ConflictError) {
-				return fail(409, {
-					amendError:
-						'Cette note ne peut plus être corrigée : seule la dernière réponse l’est, dans l’heure qui suit.'
-				});
-			}
-			throw cause;
-		}
-	}
 };

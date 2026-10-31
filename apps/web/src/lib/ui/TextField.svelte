@@ -1,10 +1,14 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { issueOf, type FormField } from './field.js';
 	import { NO_AUTOFILL } from './autofill.js';
 
 	type Props = {
 		label: string;
-		name: string;
+		/** Champ d'un remote form : donne le nom et l'erreur du champ. */
+		field?: FormField;
+		/** Sans `field` : nom du champ. */
+		name?: string;
 		value?: string;
 		multiline?: boolean;
 		rows?: number;
@@ -28,12 +32,13 @@
 
 	let {
 		label,
+		field,
 		name,
 		value = $bindable(''),
 		multiline = false,
 		rows = 2,
 		hint,
-		error,
+		error: errorProp,
 		required = false,
 		optional = false,
 		placeholder,
@@ -47,6 +52,8 @@
 	}: Props = $props();
 
 	const id = $props.id();
+	const fieldName = $derived(field?.as('text').name ?? name);
+	const error = $derived(errorProp ?? issueOf(field));
 	const autofill = $derived(autocomplete ? { autocomplete } : NO_AUTOFILL);
 	const describedBy = $derived(
 		[hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined
@@ -74,7 +81,7 @@
 	{#if multiline}
 		<textarea
 			{id}
-			{name}
+			name={fieldName}
 			{rows}
 			{required}
 			{placeholder}
@@ -89,7 +96,7 @@
 	{:else}
 		<input
 			{id}
-			{name}
+			name={fieldName}
 			{type}
 			{required}
 			{placeholder}

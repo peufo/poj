@@ -1,7 +1,8 @@
 import type * as z from 'zod';
 
-// Lecture des formulaires postés aux form actions, en attendant les remote functions (t17),
-// qui lisent elles-mêmes les champs et exposent les erreurs de chaque champ.
+// Lecture des formulaires postés aux form actions qui restent (connexion, inscription,
+// invitation, consentement OAuth), et des erreurs des schémas dans leurs specs. Les remote
+// functions lisent elles-mêmes les champs et exposent les erreurs de chaque champ.
 
 /** Champ texte d'un formulaire posté, vide s'il est absent. */
 export const text = (form: FormData, name: string) => form.get(name)?.toString() ?? '';

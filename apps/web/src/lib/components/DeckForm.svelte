@@ -1,16 +1,16 @@
 <script lang="ts">
-	import type { SubmitFunction } from '$app/forms';
-	import { enhance as kitEnhance } from '$app/forms';
-	import { fromAction } from 'svelte/attachments';
 	import { languageName, type DeckFormValues } from '#lib/format/decks.js';
 	import { capitalize } from '#lib/format/labels.js';
 	import { languageOption, languageOptions } from '#lib/format/languages.js';
 	import Button from '#lib/ui/Button.svelte';
 	import SelectField from '#lib/ui/SelectField.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
+	import FormIssues from './form/FormIssues.svelte';
+	import SubmitButton from './form/SubmitButton.svelte';
+	import type { AnyRemoteForm } from './form/remote-form.js';
 
-	// Formulaire de deck (création et modification). Purement présentationnel : la page
-	// fournit l'action, les valeurs et les erreurs.
+	// Formulaire de deck (création et modification), sur le remote form de la page
+	// (`createDeck`, `saveDeck`).
 	//
 	// À la création, on choisit le type : une langue (langue connue, langue apprise) ou un
 	// sujet (noms des deux faces). Les champs de l'autre type sont masqués par CSS, ce qui
@@ -18,20 +18,18 @@
 	// modification, le type et les langues sont figés.
 
 	type Props = {
+		/** Remote form du deck (schéma `newDeckSchema` ou `deckUpdateSchema`). */
+		form: AnyRemoteForm;
 		mode: 'create' | 'edit';
 		values: DeckFormValues;
-		errors?: Partial<Record<keyof DeckFormValues, string>>;
-		saving?: boolean;
-		action?: string;
-		/** Amélioration progressive de l'action serveur (`use:enhance`). */
-		enhance?: SubmitFunction;
 		/** Sans lien d'annulation (premier deck : il n'y a nulle part où revenir). */
 		cancelHref?: string;
 	};
 
-	let { mode, values, errors = {}, saving = false, action, enhance, cancelHref }: Props = $props();
+	let { form, mode, values, cancelHref }: Props = $props();
+	const fields = $derived(form.fields);
 
-	// Les champs partent des valeurs reçues (dernière soumission sans JavaScript), puis vivent ici.
+	// Les champs partent des valeurs reçues, puis vivent ici.
 	// svelte-ignore state_referenced_locally
 	let name = $state(values.name);
 	// svelte-ignore state_referenced_locally
@@ -48,8 +46,6 @@
 	let bothDirections = $state(values.bothDirections);
 	/** Option des deux sens modifiée à la main : changer de type ne la change plus. */
 	let directionsTouched = $state(false);
-
-	const enhanceForm = (form: HTMLFormElement, submit: SubmitFunction) => kitEnhance(form, submit);
 
 	/** Une langue : les deux sens par défaut ; un sujet : à sens unique par défaut. */
 	function chooseKind(next: DeckFormValues['kind']) {
@@ -88,18 +84,12 @@
 	] as const;
 </script>
 
-<form
-	method="post"
-	{action}
-	{@attach enhance && fromAction(enhanceForm, () => enhance)}
-	class="flex flex-col gap-6"
->
+<form {...form} class="flex flex-col gap-6">
 	<TextField
 		label="Nom"
-		name="name"
+		field={fields.name}
 		bind:value={name}
 		required
-		error={errors.name}
 		placeholder={namePlaceholder}
 	/>
 
@@ -113,7 +103,7 @@
 					>
 						<input
 							type="radio"
-							name="kind"
+							name={fields.kind.as('radio', option.value).name}
 							value={option.value}
 							checked={kind === option.value}
 							onchange={() => chooseKind(option.value)}
@@ -131,19 +121,17 @@
 		<div class="language-only grid gap-6 sm:grid-cols-2">
 			<SelectField
 				label="Langue connue"
-				name="languageA"
+				field={fields.languageA}
 				bind:value={languageA}
 				options={languageOptions}
 				placeholder="Choisis une langue"
-				error={errors.languageA}
 			/>
 			<SelectField
 				label="Langue apprise"
-				name="languageB"
+				field={fields.languageB}
 				bind:value={languageB}
 				options={languageOptions}
 				placeholder="Choisis une langue"
-				error={errors.languageB}
 			/>
 		</div>
 	{:else if kind === 'language'}
@@ -157,18 +145,16 @@
 		<div class="subject-only grid gap-6 sm:grid-cols-2">
 			<TextField
 				label="Première face"
-				name="labelA"
+				field={fields.labelA}
 				bind:value={labelA}
 				placeholder="Question"
-				error={errors.labelA}
 				hint="Ce qui est montré, par exemple « Pays »."
 			/>
 			<TextField
 				label="Seconde face"
-				name="labelB"
+				field={fields.labelB}
 				bind:value={labelB}
 				placeholder="Réponse"
-				error={errors.labelB}
 				hint="Ce qu’il faut retrouver, par exemple « Capitale »."
 			/>
 		</div>
@@ -177,8 +163,7 @@
 	<label class="flex cursor-pointer items-start gap-3">
 		<input
 			type="checkbox"
-			name="bothDirections"
-			value="1"
+			name={fields.bothDirections.as('checkbox').name}
 			bind:checked={bothDirections}
 			onchange={() => (directionsTouched = true)}
 			class="mt-0.5 size-4 shrink-0 accent-accent"
@@ -191,22 +176,24 @@
 		</span>
 	</label>
 
+	<FormIssues issues={fields.issues()} />
+
 	<div
 		class="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t border-line bg-canvas/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:static md:mx-0 md:justify-end md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
 	>
 		{#if cancelHref}
 			<Button href={cancelHref} size="lg" variant="ghost" class="max-md:hidden">Annuler</Button>
 		{/if}
-		<Button type="submit" size="lg" variant="primary" block loading={saving} class="md:w-auto">
+		<SubmitButton remote={form} size="lg" variant="primary" block class="md:w-auto">
 			{mode === 'create' ? 'Créer le deck' : 'Enregistrer les modifications'}
-		</Button>
+		</SubmitButton>
 	</div>
 </form>
 
 <style>
 	/* Champs du type choisi seulement, avec ou sans JavaScript. */
-	form:has(input[name='kind'][value='subject']:checked) .language-only,
-	form:has(input[name='kind'][value='language']:checked) .subject-only {
+	form:has(input[name^='kind'][value='subject']:checked) .language-only,
+	form:has(input[name^='kind'][value='language']:checked) .subject-only {
 		display: none;
 	}
 </style>

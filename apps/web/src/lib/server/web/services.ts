@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, invalid } from '@sveltejs/kit';
 import { hashPassword } from 'better-auth/crypto';
 import { db } from '#lib/server/db/index.js';
 import { translator } from '#lib/server/deepl/index.js';
@@ -12,6 +12,7 @@ import {
 	duplicateSide,
 	createReviewsService,
 	createTranslationService,
+	ConflictError,
 	NotFoundError,
 	type Deck,
 	type DeckWithCount
@@ -70,6 +71,22 @@ export async function orNotFound<T>(promise: Promise<T>, what = 'Carte'): Promis
 		return await promise;
 	} catch (cause) {
 		if (cause instanceof NotFoundError) error(404, `${what} introuvable`);
+		throw cause;
+	}
+}
+
+/**
+ * Traduit le refus du domaine (`ConflictError`) en erreur du remote form : `issue` est le
+ * message global, ou l'erreur d'un champ (`issue.name('…')`).
+ */
+export async function orInvalid<T>(
+	promise: Promise<T>,
+	issue: Parameters<typeof invalid>[0]
+): Promise<T> {
+	try {
+		return await promise;
+	} catch (cause) {
+		if (cause instanceof ConflictError) invalid(issue);
 		throw cause;
 	}
 }

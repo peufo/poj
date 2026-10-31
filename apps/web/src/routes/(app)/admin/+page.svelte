@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import FormIssues from '#lib/components/form/FormIssues.svelte';
+	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import { formatDate } from '#lib/format/labels.js';
 	import Button from '#lib/ui/Button.svelte';
-	import Notice from '#lib/ui/Notice.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
+	import { invite, revoke } from './admin.remote';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 
-	let pending = $state(false);
 	let copied = $state(false);
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
-	const invited = $derived(form && 'invited' in form ? form.invited : undefined);
-	const failure = $derived(form && 'message' in form ? form : undefined);
+	/** Invitation créée : son lien, affiché une seule fois. */
+	const invited = $derived(invite.result);
 
 	async function copy(link: string) {
 		try {
@@ -43,29 +43,23 @@
 		</div>
 
 		<form
-			method="post"
-			action="?/invite"
-			class="flex flex-col gap-3"
-			use:enhance={() => {
-				pending = true;
+			{...invite.enhance(async ({ element, submit }) => {
 				copied = false;
-				return async ({ update }) => {
-					await update();
-					pending = false;
-				};
-			}}
+				if (await submit()) element.reset();
+			})}
+			class="flex flex-col gap-3"
 		>
 			<TextField
 				label="Email du testeur"
-				name="email"
+				field={invite.fields.email}
 				type="email"
 				required
-				value={failure?.email ?? ''}
+				value={invite.fields.email.value() ?? ''}
 			/>
-			{#if failure}<Notice tone="danger">{failure.message}</Notice>{/if}
-			<Button type="submit" variant="primary" loading={pending} class="self-start">
+			<FormIssues issues={invite.fields.issues()} />
+			<SubmitButton remote={invite} variant="primary" class="self-start">
 				Générer le lien
-			</Button>
+			</SubmitButton>
 		</form>
 
 		{#if invited}
@@ -103,6 +97,7 @@
 		{:else}
 			<ul class="flex flex-col divide-y divide-line rounded-2xl border border-line bg-raised">
 				{#each data.pending as invitation (invitation.id)}
+					{@const revoking = revoke.for(invitation.id)}
 					<li class="flex items-center gap-3 px-4 py-3">
 						<div class="flex min-w-0 flex-1 flex-col">
 							<span class="truncate font-medium">{invitation.email}</span>
@@ -110,9 +105,8 @@
 								Expire le {formatDate(invitation.expiresAt)}
 							</span>
 						</div>
-						<form method="post" action="?/revoke" use:enhance>
-							<input type="hidden" name="id" value={invitation.id} />
-							<Button type="submit" size="sm" variant="danger">Révoquer</Button>
+						<form {...revoking}>
+							<SubmitButton remote={revoking} size="sm" variant="danger">Révoquer</SubmitButton>
 						</form>
 					</li>
 				{/each}

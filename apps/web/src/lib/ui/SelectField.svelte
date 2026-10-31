@@ -1,10 +1,14 @@
 <script lang="ts">
+	import { issueOf, type FormField } from './field.js';
 	import Icon from './Icon.svelte';
 
 	// Liste déroulante native, à l'image de `TextField` : libellé, aide ou erreur.
 	type Props = {
 		label: string;
-		name: string;
+		/** Champ d'un remote form : donne le nom et l'erreur du champ. */
+		field?: FormField;
+		/** Sans `field` : nom du champ. */
+		name?: string;
 		value?: string;
 		options: { value: string; label: string }[];
 		/** Première option, vide : rien n'est choisi d'avance. */
@@ -17,17 +21,20 @@
 
 	let {
 		label,
+		field,
 		name,
 		value = $bindable(''),
 		options,
 		placeholder,
 		hint,
-		error,
+		error: errorProp,
 		disabled = false,
 		onchange
 	}: Props = $props();
 
 	const id = $props.id();
+	const fieldName = $derived(field?.as('text').name ?? name);
+	const error = $derived(errorProp ?? issueOf(field));
 	const describedBy = $derived(
 		[hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined
 	);
@@ -41,7 +48,7 @@
 	<div class="relative">
 		<select
 			{id}
-			{name}
+			name={fieldName}
 			{disabled}
 			bind:value
 			onchange={() => onchange?.(value)}

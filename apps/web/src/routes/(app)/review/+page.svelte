@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { enhance, type SubmitFunction } from '$app/forms';
+	import FormIssues from '#lib/components/form/FormIssues.svelte';
+	import FormSuccess from '#lib/components/form/FormSuccess.svelte';
+	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import RatingBar from '#lib/components/RatingBar.svelte';
 	import RatingPill from '#lib/components/RatingPill.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Kbd from '#lib/ui/Kbd.svelte';
-	import Notice from '#lib/ui/Notice.svelte';
 	import Sheet from '#lib/ui/Sheet.svelte';
 	import { describeDue, formatInterval } from '#lib/format/due.js';
 	import { directionFaces, directionLabel } from '#lib/format/decks.js';
@@ -18,9 +19,10 @@
 		ratingLabels,
 		type Rating
 	} from '#lib/format/labels.js';
+	import { amend, answer, hint } from './review.remote';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 
 	const current = $derived(data.current);
 	const last = $derived(data.last);
@@ -32,15 +34,11 @@
 	const revealed = $derived(key !== null && revealedFor === key);
 	const hintShown = $derived(current?.hintUsed ?? false);
 
-	let hinting = $state(false);
-	let answering = $state(false);
 	let answered = $state(0);
 	let amending = $state(false);
-	// Sans JavaScript, « Corriger » renvoie la page avec le choix de la note en ligne.
-	const amendInline = $derived(Boolean(form && 'amendOpen' in form));
 
 	const endsWithPunctuation = (text: string) => /[.?!…]$/.test(text);
-	// Paramètres de la session, gardés par les actions sans JavaScript et les liens.
+	// Paramètres de la session, gardés par les liens (les formulaires gardent ceux de la page).
 	const deckQuery = $derived(data.session ? `deck=${data.session.id}&` : '');
 	const query = $derived(`${deckQuery}${data.ahead ? 'ahead=1&' : ''}`);
 	const cardsHref = $derived(data.session ? `/cards?deck=${data.session.id}` : '/cards');
@@ -58,40 +56,29 @@
 	const intervals = $derived(current && intervalsFrom(current.preview, data.now));
 	const lastIntervals = $derived(last && intervalsFrom(last.preview, last.reviewedAt));
 
-	let hintForm: HTMLFormElement | undefined = $state();
-	let answerForm: HTMLFormElement | undefined = $state();
+	let hintElement: HTMLFormElement | undefined = $state();
+	let answerElement: HTMLFormElement | undefined = $state();
 
-	const submitHint: SubmitFunction = ({ cancel }) => {
-		if (hinting) return cancel();
-		hinting = true;
-		return async ({ update }) => {
-			await update();
-			hinting = false;
-		};
-	};
+	// Un seul envoi à la fois (raccourcis clavier compris : celui-ci est déjà compté).
+	const hintEnhanced = hint.enhance(async ({ submit }) => {
+		if (hint.pending > 1) return;
+		await submit();
+	});
 
-	const submitAnswer: SubmitFunction = ({ cancel }) => {
-		if (answering) return cancel();
-		answering = true;
-		return async ({ result, update }) => {
-			await update();
-			if (result.type === 'success' && !result.data?.answered?.replayed) answered += 1;
-			answering = false;
-		};
-	};
+	const answerEnhanced = answer.enhance(async ({ submit }) => {
+		if (answer.pending > 1) return;
+		if ((await submit()) && !answer.result?.replayed) answered += 1;
+	});
 
-	const submitAmend: SubmitFunction = () => {
-		return async ({ result, update }) => {
-			await update();
-			if (result.type === 'success') amending = false;
-		};
-	};
+	const amendEnhanced = amend.enhance(async ({ submit }) => {
+		if (await submit()) amending = false;
+	});
 
 	function rate(rating: Rating) {
-		const button = answerForm?.querySelector<HTMLButtonElement>(
-			`button[name="rating"][value="${rating}"]`
+		const button = answerElement?.querySelector<HTMLButtonElement>(
+			`button[type="submit"][value="${rating}"]`
 		);
-		if (button && !button.disabled) answerForm?.requestSubmit(button);
+		if (button && !button.disabled) answerElement?.requestSubmit(button);
 	}
 
 	function onkeydown(event: KeyboardEvent) {
@@ -107,7 +94,7 @@
 			event.preventDefault();
 			revealedFor = key;
 		} else if (!revealed && event.key.toLowerCase() === 'h' && current.context && !hintShown) {
-			hintForm?.requestSubmit();
+			hintElement?.requestSubmit();
 		} else if (revealed && ['1', '2', '3', '4'].includes(event.key)) {
 			rate((['again', 'hard', 'good', 'easy'] as const)[Number(event.key) - 1]);
 		}
@@ -189,24 +176,12 @@
 					</div>
 
 					{#if !revealed && current.context && !hintShown}
-						<form
-							method="post"
-							action="?{query}/hint"
-							bind:this={hintForm}
-							use:enhance={submitHint}
-							class="self-start"
-						>
-							<input type="hidden" name="reviewId" value={current.id} />
-							<Button
-								type="submit"
-								variant="ghost"
-								icon="hint"
-								size="sm"
-								class="-ml-2"
-								loading={hinting}
-							>
+						<form {...hintEnhanced} bind:this={hintElement} class="self-start">
+							<input {...hint.fields.reviewId.as('hidden', current.id)} />
+							<FormIssues issues={hint.fields.allIssues()} />
+							<SubmitButton remote={hint} variant="ghost" icon="hint" size="sm" class="-ml-2">
 								Voir le contexte <Kbd>H</Kbd>
-							</Button>
+							</SubmitButton>
 						</form>
 					{:else if hintShown}
 						<p class="text-sm text-hard">Contexte vu : Hard au mieux pour cette réponse.</p>
@@ -221,20 +196,18 @@
 		>
 			{@render lastAnswer()}
 
-			{#if form && 'answerError' in form && form.answerError}
-				<Notice tone="warn">{form.answerError}</Notice>
-			{/if}
+			<FormIssues tone="warn" issues={answer.fields.allIssues()} />
 
 			{#if revealed && intervals}
-				<form
-					method="post"
-					action="?{query}/answer"
-					bind:this={answerForm}
-					use:enhance={submitAnswer}
-				>
-					<input type="hidden" name="reviewId" value={current.id} />
-					<input type="hidden" name="version" value={current.version} />
-					<RatingBar {intervals} hintUsed={hintShown} name="rating" />
+				<form {...answerEnhanced} bind:this={answerElement}>
+					<input {...answer.fields.reviewId.as('hidden', current.id)} />
+					<input {...answer.fields.version.as('hidden', current.version)} />
+					<RatingBar
+						{intervals}
+						hintUsed={hintShown}
+						name={answer.fields.rating.as('submit', 'good').name}
+						disabled={answer.pending > 0}
+					/>
 				</form>
 			{:else}
 				<!-- Sans JavaScript, la réponse s'affiche par un rechargement (`?reveal=1`). -->
@@ -314,58 +287,23 @@
 					)}
 				</span>
 			</p>
-			<!-- Sans JavaScript, le premier envoi ouvre le choix de la note. -->
-			<form method="post" action="?{query}/amend" class="shrink-0">
-				<input type="hidden" name="reviewId" value={last.reviewId} />
-				<Button
-					type="submit"
-					size="sm"
-					variant="ghost"
-					icon="undo"
-					class="-mr-2.5"
-					onclick={(event) => {
-						event.preventDefault();
-						amending = true;
-					}}
-				>
-					Corriger <Kbd>Z</Kbd>
-				</Button>
-			</form>
+			<Button
+				size="sm"
+				variant="ghost"
+				icon="undo"
+				class="-mr-2.5 shrink-0"
+				onclick={() => (amending = true)}
+			>
+				Corriger <Kbd>Z</Kbd>
+			</Button>
 		</div>
-		{#if form && 'amendUnchanged' in form && form.amendUnchanged}
-			<p class="text-sm text-ink-3" role="status">
-				Note inchangée : c’était déjà {ratingLabels[last.rating]}.
-			</p>
+		{#if amend.result}
+			<FormSuccess>
+				{amend.result.unchanged
+					? `Note inchangée : c’était déjà ${ratingLabels[last.rating]}.`
+					: `Note corrigée : ${ratingLabels[last.rating]}.`}
+			</FormSuccess>
 		{/if}
-		{#if amendInline}
-			<div class="flex flex-col gap-2 rounded-xl bg-surface p-3">
-				<p class="text-sm font-medium">Nouvelle note pour « {last.prompt} »</p>
-				{@render amendForm()}
-			</div>
-		{/if}
-	{/if}
-{/snippet}
-
-{#snippet amendForm()}
-	{#if last && lastIntervals}
-		<form
-			method="post"
-			action="?{query}/amend"
-			use:enhance={submitAmend}
-			class="flex flex-col gap-4"
-		>
-			<input type="hidden" name="reviewId" value={last.reviewId} />
-			<RatingBar
-				intervals={lastIntervals}
-				hintUsed={last.hintUsed}
-				selected={last.rating}
-				shortcuts={false}
-				name="rating"
-			/>
-			{#if form && 'amendError' in form && form.amendError}
-				<Notice tone="warn">{form.amendError}</Notice>
-			{/if}
-		</form>
 	{/if}
 {/snippet}
 
@@ -375,6 +313,17 @@
 		title="Corriger la dernière note"
 		description="« {last.prompt} » : la nouvelle note remplace la précédente. Possible pendant une heure."
 	>
-		{@render amendForm()}
+		<form {...amendEnhanced} class="flex flex-col gap-4">
+			<input {...amend.fields.reviewId.as('hidden', last.reviewId)} />
+			<RatingBar
+				intervals={lastIntervals}
+				hintUsed={last.hintUsed}
+				selected={last.rating}
+				shortcuts={false}
+				name={amend.fields.rating.as('submit', 'good').name}
+				disabled={amend.pending > 0}
+			/>
+			<FormIssues tone="warn" issues={amend.fields.allIssues()} />
+		</form>
 	</Sheet>
 {/if}

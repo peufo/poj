@@ -33,11 +33,35 @@ export const cardTranslationSchema = z.object({
 });
 
 /** Suggestion DeepL à la création, dans le deck choisi. */
-export const newCardTranslationSchema = z.object({ ...cardTranslationSchema.shape, deckId });
+const newCardTranslationSchema = z.object({ ...cardTranslationSchema.shape, deckId });
+
+/**
+ * Enregistrement (bouton `intent=save`). `confirm` : la face déjà présente dans une autre
+ * carte, confirmée telle quelle après l'avertissement de doublon.
+ */
+const save = { intent: z.literal('save'), confirm: z.string().optional() };
+
+/** Suggestion DeepL (bouton `intent=translate`) : la face B n'est pas encore exigée. */
+const translate = { intent: z.literal('translate') };
+
+/** Formulaire de nouvelle carte : enregistrer, ou demander la suggestion DeepL. */
+export const newCardFormSchema = z.discriminatedUnion('intent', [
+	z.object({ ...newCardSchema.shape, ...save }),
+	z.object({ ...newCardTranslationSchema.shape, ...translate })
+]);
+
+/**
+ * Formulaire de modification d'une carte, comme `newCardFormSchema`.
+ * `acknowledge_reset=1` : l'avertissement de réinitialisation de la progression a été vu.
+ */
+export const cardFormSchema = z.discriminatedUnion('intent', [
+	z.object({ ...cardSchema.shape, ...save, acknowledge_reset: z.string().optional() }),
+	z.object({ ...cardTranslationSchema.shape, ...translate })
+]);
 
 const goalMessage = `Entre ${MIN_DAILY_GOAL} et ${MAX_DAILY_GOAL} cartes par jour.`;
 
-/** `/cards?/goal` : l'objectif de cartes par jour. */
+/** Objectif de cartes à ajouter par jour (`/cards`). */
 export const dailyGoalSchema = z.object({
 	goal: z
 		.number({ error: goalMessage })

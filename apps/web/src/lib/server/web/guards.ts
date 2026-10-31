@@ -4,7 +4,7 @@ import { loginUrl } from '#lib/server/web/redirect-to.js';
 
 // Gardes des pages web, sans accès à la base : testables sous node avec un faux event.
 
-/** Ce que les gardes lisent de la requête (`load` ou form action). */
+/** Ce que les gardes lisent de la requête (`load`, remote function ou form action). */
 export type GuardEvent = Pick<RequestEvent, 'locals' | 'url'>;
 
 /**
@@ -18,14 +18,14 @@ export function userOf({ locals, url }: GuardEvent): NonNullable<App.Locals['use
 
 /**
  * Propriétaire de la requête. Les `load` sont protégés par le layout `(app)`, mais pas
- * les form actions : chacune passe par ici.
+ * les remote functions : chacune passe par ici.
  */
 export function ownerOf(event: GuardEvent): string {
 	return userOf(event).id;
 }
 
 /**
- * Garde de l'administration : à appeler dans le `load` et dans chaque form action de
+ * Garde de l'administration : à appeler dans le `load` et dans chaque remote function de
  * `/admin`. Sans session, retour à la connexion ; sans le rôle `admin`, 403. Renvoie l'id
  * de l'administrateur.
  */

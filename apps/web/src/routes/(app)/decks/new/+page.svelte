@@ -1,20 +1,11 @@
 <script lang="ts">
-	import type { SubmitFunction } from '$app/forms';
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
 	import DeckForm from '#lib/components/DeckForm.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
+	import { createDeck } from './deck.remote';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
-
-	let saving = $state(false);
-	const submit: SubmitFunction = () => {
-		saving = true;
-		return async ({ update }) => {
-			await update({ reset: false });
-			saving = false;
-		};
-	};
+	let { data }: PageProps = $props();
 </script>
 
 <svelte:head><title>Nouveau deck · Poj</title></svelte:head>
@@ -36,11 +27,9 @@
 	{/if}
 
 	<DeckForm
+		form={createDeck}
 		mode="create"
-		values={form?.values ?? data.values}
-		errors={form?.errors}
-		{saving}
-		enhance={submit}
+		values={data.values}
 		cancelHref={data.firstDeck ? undefined : '/cards'}
 	/>
 </div>

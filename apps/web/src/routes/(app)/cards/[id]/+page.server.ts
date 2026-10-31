@@ -1,10 +1,8 @@
-import { redirect } from '@sveltejs/kit';
 import { masteryOf } from '#lib/format/mastery.js';
 import { presentations } from '#lib/server/domain/index.js';
-import { unconfirmedDelete } from '#lib/server/web/delete-confirm.js';
 import { cards, deckView, idOf, orNotFound } from '#lib/server/web/services.js';
 import { ownerOf } from '#lib/server/web/guards.js';
-import type { Actions, PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const { params } = event;
@@ -49,18 +47,4 @@ export const load: PageServerLoad = async (event) => {
 				.sort((a, b) => b.at.getTime() - a.at.getTime())
 		}
 	};
-};
-
-export const actions: Actions = {
-	// Suppression en deux temps (`DeleteConfirm`).
-	delete: async (event) => {
-		const { request, params } = event;
-		const ownerId = ownerOf(event);
-		const id = idOf(params.id);
-		const unconfirmed = unconfirmedDelete(await request.formData());
-		if (unconfirmed) return unconfirmed;
-
-		await orNotFound(cards.softDelete(ownerId, id));
-		redirect(303, '/cards');
-	}
 };

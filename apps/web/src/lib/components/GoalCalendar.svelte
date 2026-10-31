@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { enhance, type SubmitFunction } from '$app/forms';
-	import Button from '#lib/ui/Button.svelte';
+	import type { RemoteForm } from '$app/server';
 	import Icon from '#lib/ui/Icon.svelte';
+	import FormSuccess from './form/FormSuccess.svelte';
+	import SubmitButton from './form/SubmitButton.svelte';
+	import { issueOf } from '#lib/ui/field.js';
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 
 	// La journée Poj réunit deux objectifs : ajouter des cartes et réviser celles qui étaient
@@ -18,17 +20,21 @@
 	type Props = {
 		progress: { goal: number; today: Day; streak: number; best: number; days: Day[] };
 		bounds: { min: number; max: number };
-		/** Retour de l'action `?/goal` en cas de saisie refusée. */
-		error?: string;
-		value?: string;
+		/** Remote form de l'objectif (`setGoal`). */
+		form: RemoteForm<{ goal: number }, { saved: true }>;
 	};
 
-	let { progress, bounds, error, value }: Props = $props();
+	let { progress, bounds, form }: Props = $props();
 
 	const weekdays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
+	const goal = $derived(form.fields.goal);
+	const error = $derived(issueOf(goal));
+	// Ouvert aussi quand la saisie a été refusée.
 	let open = $state(false);
-	let saving = $state(false);
+	$effect(() => {
+		if (error) open = true;
+	});
 
 	// La période commence un lundi et finit aujourd'hui ; la fin de la semaine reste vide.
 	const cells = $derived<(Day | null)[]>([
@@ -65,14 +71,12 @@
 		return base;
 	}
 
-	const submit: SubmitFunction = () => {
-		saving = true;
-		return async ({ result, update }) => {
-			await update({ reset: false });
-			saving = false;
-			if (result.type === 'success') open = false;
-		};
-	};
+	// Enregistré : le choix se referme, la saisie reste telle quelle.
+	const enhanced = $derived(
+		form.enhance(async ({ submit }) => {
+			if (await submit()) open = false;
+		})
+	);
 </script>
 
 <section
@@ -148,12 +152,7 @@
 		</p>
 	</div>
 
-	<!-- Ouvert aussi sans JavaScript quand la saisie a été refusée. -->
-	<details
-		open={open || !!error}
-		ontoggle={(event) => (open = event.currentTarget.open)}
-		class="group border-t border-line pt-3"
-	>
+	<details bind:open class="group border-t border-line pt-3">
 		<summary
 			class="flex cursor-pointer list-none items-center gap-1 text-sm text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden"
 		>
@@ -164,18 +163,18 @@
 			/>
 			Objectif : {plural(progress.goal, 'carte')} par jour
 		</summary>
-		<form method="post" action="?/goal" use:enhance={submit} class="mt-3 flex flex-col gap-1.5">
+		<form {...enhanced} class="mt-3 flex flex-col gap-1.5">
 			<label for="daily-goal" class="text-sm font-medium text-ink">Cartes à ajouter par jour</label>
 			<div class="flex items-center gap-2">
 				<input
 					id="daily-goal"
-					name="goal"
+					name={goal.as('number').name}
 					type="number"
 					inputmode="numeric"
 					required
 					min={bounds.min}
 					max={bounds.max}
-					value={value ?? progress.goal}
+					value={goal.value() ?? progress.goal}
 					aria-invalid={error ? 'true' : undefined}
 					aria-describedby="daily-goal-help"
 					class={[
@@ -185,11 +184,14 @@
 						error ? 'border-danger' : 'border-line-strong hover:border-ink-3'
 					]}
 				/>
-				<Button type="submit" variant="primary" loading={saving}>Enregistrer</Button>
+				<SubmitButton remote={form} variant="primary">Enregistrer</SubmitButton>
 			</div>
 			<p id="daily-goal-help" class={['text-sm', error ? 'text-danger' : 'text-ink-3']}>
 				{error ?? "S'applique dès aujourd'hui ; les jours passés gardent leur objectif."}
 			</p>
 		</form>
 	</details>
+	{#if form.result?.saved}
+		<FormSuccess>Objectif enregistré : {plural(progress.goal, 'carte')} par jour.</FormSuccess>
+	{/if}
 </section>

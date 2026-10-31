@@ -27,7 +27,7 @@ bun run sandbox             # sandbox:reset, puis l'app sur http://localhost:517
 bun run sandbox:reset       # recrée poj_sandbox (migrations) et charge la seed
 bun run sandbox:seed        # recharge seulement la seed (vide d'abord toutes les tables)
 bun run worktree:setup      # dans un worktree : bases et ports propres, écrits dans son apps/web/.env
-bun run worktree:prune      # supprime les bases des worktrees disparus
+bun run worktree:prune      # supprime les bases des worktrees disparus et des lancements e2e interrompus
 bun run api:export          # régénère packages/api-contract/openapi.json
 bun run api:check           # échoue si le contrat versionné est obsolète
 bun run ios:project         # XcodeGen : apps/ios/project.yml → Poj.xcodeproj (ignoré par git)
@@ -40,13 +40,17 @@ Depuis `apps/web`, pour un test ciblé :
 ```sh
 bunx vitest --run --project server                                  # tests serveur seulement
 bunx vitest --run src/lib/server/domain/cards/cards.service.spec.ts -t "soft-deletes"
+bunx playwright test --workers=1                                    # e2e (build + preview, plusieurs minutes)
 ```
 
 - **Base de test :** les tests serveur tournent contre une vraie base PostgreSQL, désignée par `DATABASE_URL_TEST` (`poj_test`, ou `poj_test_wt_<slug>` dans un worktree).
   - `vitest.global-setup.ts` la crée si besoin, y applique les migrations en attente (`migrate deploy` est sauté si tout est à jour), puis transmet l'URL aux tests via `inject('databaseUrl')`.
   - Les specs passent par `src/lib/server/testing/` : `useTestDatabase()` (client Prisma, toutes les tables vidées avant chaque test), `createUser` / `createCard`, `createTestAuth` (Better Auth minimal). Ce dossier est interdit au code de prod (règle ESLint).
   - Le projet `server` tourne un fichier à la fois et sans isolation (`isolate: false`) : pas d'état global ni de `vi.mock` dans les specs serveur.
-- **Bac à sable :** base `poj_sandbox` (`DATABASE_URL_SANDBOX`, ou `poj_sandbox_wt_<slug>` dans un worktree), jamais la base de dev. La seed (`testing/seed.ts`) crée le compte `sandbox@poj.local` / `sandbox-poj` et ~25 cartes dont l'historique est rejoué par les services à des dates relatives à maintenant. Les outils destructifs refusent toute base autre que `poj_sandbox` / `poj_test` et leurs variantes `_wt_<slug>`, ainsi que `DATABASE_URL`.
+- **Bac à sable :** base `poj_sandbox` (`DATABASE_URL_SANDBOX`, ou `poj_sandbox_wt_<slug>` dans un worktree), jamais la base de dev. La seed (`testing/seed.ts`) crée le compte `sandbox@poj.local` / `sandbox-poj` et ~25 cartes dont l'historique est rejoué par les services à des dates relatives à maintenant. Les outils destructifs refusent toute base autre que `poj_sandbox` / `poj_test`, leurs variantes `_wt_<slug>` et les bases e2e `poj_e2e_<pid>`, ainsi que `DATABASE_URL`.
+- **Tests e2e (`apps/web/e2e/*.e2e.ts`) :** chaque lancement de Playwright a sa base jetable `poj_e2e_<pid>` (pid du lanceur), sur le serveur de `DATABASE_URL_TEST`.
+  - Playwright démarre le serveur de preview **avant** `globalSetup` : c'est sa commande qui prépare la base (`scripts/e2e.ts prepare` : création, migrations, seed du bac à sable), puis lance build et preview avec cette base en `DATABASE_URL`. `e2e/global-teardown.ts` la supprime à la fin ; celle d'un lancement interrompu part avec `worktree:prune`.
+  - Les specs tournent avec JavaScript (le fonctionnement sans JavaScript n'est pas un objectif) : `open()` attend le démarrage de l'app, sinon l'envoi part en rechargeant la page.
 - **Projet `client` :** il a besoin du Chromium de Playwright (`bunx playwright install chromium`).
 
 ## Architecture web (`apps/web`)
@@ -59,7 +63,15 @@ bunx vitest --run src/lib/server/domain/cards/cards.service.spec.ts -t "soft-del
 - les imports venant de Prisma sont des imports de **types** uniquement ;
 - les services sont des fabriques qui reçoivent le client Prisma (`createNotesService(db)`). Les tests leur passent leur propre `PrismaClient`.
 
-Les `load`, les form actions et les handlers Hono sont de fines couches : validation, puis appel au domaine, puis sérialisation. Les erreurs du domaine (`NotFoundError`, `ConflictError`) sont traduites en 404 et 409 par `api.onError`.
+Les `load`, les remote functions, les form actions et les handlers Hono sont de fines couches : validation, puis appel au domaine, puis sérialisation. Les erreurs du domaine (`NotFoundError`, `ConflictError`) sont traduites en 404 et 409 par `api.onError`.
+
+### Formulaires (remote functions)
+
+- **Où :** un `*.remote.ts` à côté de la page (`form(schéma, fn)`), avec un schéma Zod de `lib/server/web/schemas/`. La fonction lit l'utilisateur et les paramètres par `getRequestEvent()` (`ownerOf`, `idOf(event.params.id)`), appelle le service, puis redirige ou renvoie un résultat. Une `ConflictError` du domaine devient une erreur du formulaire par `orInvalid(promesse, issue.champ('…') | '…')` (`services.ts`) ; `fail()` y est interdit. L'auth et l'OAuth restent pour l'instant en form actions.
+- **Retour standard (`lib/components/form/`) :** `SubmitButton` (envoi en cours), `TextField` / `SelectField` avec `field={form.fields.x}` (nom et erreur du champ), `FormIssues` (erreur globale), `FormSuccess` (succès sans redirection). Un composant partagé par plusieurs remote forms les reçoit en `AnyRemoteForm`.
+- **JavaScript requis :** les étapes en deux temps (doublon, réinitialisation, suppression) s'appuient sur le résultat du remote form et l'état de la page, sans repli serveur.
+- **Envoi :** par défaut, un envoi réussi vide le formulaire et recharge les données de la page. Pour garder la saisie, passer par `form.enhance(async ({ submit }) => { await submit(); })` ; `submit().updates()` évite le rechargement.
+- **Plusieurs formulaires du même remote form dans la page :** `form.for(clé)`, une instance par clé (`revoke.for(invitation.id)`).
 
 ### Validation (Zod 4)
 
@@ -169,7 +181,7 @@ La spec est construite à partir des `createRoute` et des schémas Zod de `@hono
 - **Vérifications supplémentaires selon les zones touchées :**
   - **`apps/ios/` ou le contrat modifié** (d'un côté ou de l'autre) : `bun run ios:test` ;
   - **`ios:build`** (précédé de `bun run ios:project`, plusieurs minutes) : seulement en cas de doute que `ios:test` ne tranche pas, par exemple un conflit résolu dans `apps/ios/Poj/`, `project.yml` ou `Package.swift` ;
-  - **e2e Playwright** (`*.e2e.ts`, preview sur le port 4173, ou 4183, 4193… dans un worktree) : seulement si une spec couvre une zone où deux changements de comportement ont été fusionnés. Vérifier d'abord `lsof -i :<port du preview>` : un preview déjà lancé servirait un build périmé. Lancer ensuite `bunx playwright test --workers=1 --reporter=list <spec>` depuis `apps/web`.
+  - **e2e Playwright** (`e2e/*.e2e.ts`, preview sur le port 4173, ou 4183, 4193… dans un worktree) : seulement si une spec couvre une zone où deux changements de comportement ont été fusionnés. Vérifier d'abord `lsof -i :<port du preview>` : un preview déjà lancé servirait un build périmé. Lancer ensuite `bunx playwright test --workers=1 --reporter=list <spec>` depuis `apps/web`.
 - **Chaque checkout a sa base de test**, et chaque test vide les tables. Deux suites lancées en même temps depuis le même checkout produisent des échecs aléatoires : en cas d'échec inexplicable, vérifier `pgrep -fl vitest`. Une migration testée dans un worktree ne reste appliquée qu'à sa propre base.
-- **Après la suppression d'un worktree :** lancer `bun run worktree:prune`, depuis n'importe quel checkout. Il supprime les bases `poj_*_wt_*` dont le worktree n'apparaît plus dans `git worktree list`.
+- **Après la suppression d'un worktree :** lancer `bun run worktree:prune`, depuis n'importe quel checkout. Il supprime les bases `poj_*_wt_*` dont le worktree n'apparaît plus dans `git worktree list`, et les bases `poj_e2e_<pid>` dont le lanceur Playwright ne tourne plus.
 - **Après l'intégration d'une migration :** lancer `bun run db:migrate` dans le checkout principal pour la base de dev. C'est à Jonas de le faire.

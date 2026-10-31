@@ -3,6 +3,7 @@
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Horizon from '#lib/components/Horizon.svelte';
 	import GoalCalendar from '#lib/components/GoalCalendar.svelte';
+	import { setGoal } from './goal.remote';
 	import MasteryBar from '#lib/components/MasteryBar.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
 	import DeckChips from '#lib/components/DeckChips.svelte';
@@ -14,7 +15,7 @@
 	import { formatWeekday, plural } from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 	// Deck affiché, `null` pour tous les decks : ses liens gardent `?deck=`.
 	const deck = $derived(data.deck);
 	const deckQuery = $derived(deck ? `?deck=${deck.id}` : '');
@@ -65,12 +66,7 @@
 		<DeckChips decks={data.nav.decks} active={deck?.id ?? null} class="pt-2 md:hidden" />
 	</PageHeader>
 
-	<GoalCalendar
-		progress={data.goal}
-		bounds={data.goalBounds}
-		error={form?.goalError}
-		value={form?.goalValue}
-	/>
+	<GoalCalendar progress={data.goal} bounds={data.goalBounds} form={setGoal} />
 
 	{#if data.stats.totalCards === 0}
 		<div class="flex flex-col items-start gap-3 py-8">

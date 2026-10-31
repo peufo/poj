@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type * as z from 'zod';
 import { parseValues } from '../form-data';
 import {
+	cardFormSchema,
 	cardSchema,
 	cardsSearchSchema,
 	cardTranslationSchema,
 	dailyGoalSchema,
+	newCardFormSchema,
 	newCardSchema
 } from './cards';
 
 const DECK = '0199a0a0-0000-7000-8000-000000000000';
 
-/** Premier message de chaque champ refusé, comme les form actions les affichent. */
+/** Premier message de chaque champ refusé. */
 const errors = (schema: z.ZodType, values: Record<string, unknown>) =>
 	parseValues(values, schema).errors;
 
@@ -51,6 +53,47 @@ describe('card form', () => {
 		expect(errors(cardTranslationSchema, { sideA: ' ' })).toEqual({
 			sideA: 'Écris d’abord le texte à traduire.'
 		});
+	});
+});
+
+describe('card form intents', () => {
+	it('saves a card with both faces, keeping the confirmed duplicate', () => {
+		expect(
+			newCardFormSchema.parse({
+				intent: 'save',
+				deckId: DECK,
+				sideA: ' chat ',
+				sideB: 'cat',
+				confirm: 'chat'
+			})
+		).toEqual({ intent: 'save', deckId: DECK, sideA: 'chat', sideB: 'cat', confirm: 'chat' });
+		expect(
+			errors(newCardFormSchema, { intent: 'save', deckId: DECK, sideA: 'chat', sideB: '' })
+		).toEqual({
+			sideB: 'Ce champ est obligatoire.'
+		});
+	});
+
+	it('asks DeepL without the second face', () => {
+		expect(cardFormSchema.parse({ intent: 'translate', sideA: 'chat', sideB: '' })).toEqual({
+			intent: 'translate',
+			sideA: 'chat'
+		});
+		expect(errors(cardFormSchema, { intent: 'translate', sideA: ' ' })).toEqual({
+			sideA: 'Écris d’abord le texte à traduire.'
+		});
+	});
+
+	it('keeps the acknowledged progress reset of an edit', () => {
+		expect(
+			cardFormSchema.parse({ intent: 'save', sideA: 'a', sideB: 'b', acknowledge_reset: '1' })
+		).toMatchObject({ acknowledge_reset: '1' });
+	});
+
+	it('refuses a submission without its button', () => {
+		expect(newCardFormSchema.safeParse({ deckId: DECK, sideA: 'a', sideB: 'b' }).success).toBe(
+			false
+		);
 	});
 });
 

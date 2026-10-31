@@ -21,10 +21,11 @@ describe('review forms', () => {
 		}
 	});
 
-	it('opens the choice of a correction without a valid rating', () => {
+	it('requires a rating to amend', () => {
 		expect(amendSchema.parse({ reviewId: REVIEW, rating: 'hard' }).rating).toBe('hard');
-		expect(amendSchema.parse({ reviewId: REVIEW }).rating).toBeUndefined();
-		expect(amendSchema.parse({ reviewId: REVIEW, rating: 'perfect' }).rating).toBeUndefined();
+		for (const rating of [undefined, 'perfect']) {
+			expect(amendSchema.safeParse({ reviewId: REVIEW, rating }).success).toBe(false);
+		}
 	});
 
 	it('reads the options of the review page', () => {

@@ -1,86 +1,92 @@
-<script lang="ts" module>
-	export type Suggestion =
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	import { exampleFor, faces, type DeckView } from '#lib/format/decks.js';
+	import Button from '#lib/ui/Button.svelte';
+	import Notice from '#lib/ui/Notice.svelte';
+	import TextField from '#lib/ui/TextField.svelte';
+	import FormIssues from './form/FormIssues.svelte';
+	import SubmitButton from './form/SubmitButton.svelte';
+	import type { AnyRemoteForm } from './form/remote-form.js';
+
+	// Formulaire de carte (création et modification, WEB-2 et WEB-5), sur le remote form de la
+	// page (`createCard`, `updateCard`). Deux boutons d'envoi : « Traduire avec DeepL »
+	// (`intent=translate`), dont la suggestion arrive sans recharger la page, et
+	// l'enregistrement (`intent=save`). Le serveur peut d'abord renvoyer un doublon, à
+	// confirmer (`confirm` : la face confirmée telle quelle), ou demander l'accord sur la
+	// réinitialisation (`acknowledge_reset`, envoyé dès que l'avertissement est affiché).
+
+	type Suggestion =
 		| { status: 'idle' }
 		| { status: 'loading' }
 		| { status: 'ready'; text: string }
 		| { status: 'error'; message: string };
 
-	export type Duplicate = { href: string; sideA: string; sideB: string; context: string | null };
-</script>
-
-<script lang="ts">
-	import type { SubmitFunction } from '$app/forms';
-	import { onMount, type Snippet } from 'svelte';
-	import { fromAction } from 'svelte/attachments';
-	import { enhance as kitEnhance } from '$app/forms';
-	import { exampleFor, faces, type DeckView } from '#lib/format/decks.js';
-	import Button from '#lib/ui/Button.svelte';
-	import Notice from '#lib/ui/Notice.svelte';
-	import TextField from '#lib/ui/TextField.svelte';
-
-	// Formulaire de carte (création et modification, WEB-2 et WEB-5). Purement présentationnel :
-	// la page fournit l'action du formulaire, la suggestion DeepL et l'éventuel doublon.
-	//
-	// Sans JavaScript, il reste utilisable : « Traduire avec DeepL » poste le formulaire sur
-	// `translateAction`, la confirmation d'un doublon renvoie la face confirmée
-	// (`confirmValue`), et l'accord sur la réinitialisation part dans `acknowledge_reset`
-	// dès que l'avertissement est affiché.
-
 	type Props = {
+		/** Remote form de la carte (schéma `newCardFormSchema` ou `cardFormSchema`). */
+		form: AnyRemoteForm;
 		mode: 'create' | 'edit';
 		/** Deck de la carte : nomme les faces ; DeepL seulement pour un deck de langue. */
 		deck: DeckView;
+		/** Deck choisi, à la création : changer de deck écarte la suggestion et le doublon. */
+		deckId?: string;
 		sideA?: string;
 		sideB?: string;
 		context?: string;
 		/** Texte enregistré, en modification : un écart réinitialise la progression. */
 		original?: { sideA: string; sideB: string };
-		suggestion?: Suggestion;
-		duplicate?: Duplicate | null;
-		saving?: boolean;
-		errors?: Partial<Record<'sideA' | 'sideB' | 'context', string>>;
-		action?: string;
-		/** Action serveur de la suggestion DeepL : le bouton devient un envoi du formulaire. */
-		translateAction?: string;
-		/** Valeur envoyée avec `confirm` par « Enregistrer quand même ». */
-		confirmValue?: string;
-		/** Amélioration progressive des actions serveur (`use:enhance`). */
-		enhance?: SubmitFunction;
 		cancelHref: string;
 		/** Champs en tête du formulaire (ex. le choix du deck). */
 		header?: Snippet;
-		ontranslate?: () => void;
-		onsubmit?: (event: SubmitEvent) => void;
 	};
 
 	let {
+		form,
 		mode,
 		deck,
+		deckId,
 		sideA = $bindable(''),
 		sideB = $bindable(''),
 		context = $bindable(''),
 		original,
-		suggestion = { status: 'idle' },
-		duplicate = null,
-		saving = false,
-		errors = {},
-		action,
-		translateAction,
-		confirmValue = '1',
-		enhance,
 		cancelHref,
-		header,
-		ontranslate,
-		onsubmit
+		header
 	}: Props = $props();
 
-	const enhanceForm = (form: HTMLFormElement, submit: SubmitFunction) => kitEnhance(form, submit);
+	const IDLE: Suggestion = { status: 'idle' };
 
 	const face = $derived(faces(deck));
+	const translate = $derived(form.fields.intent.as('submit', 'translate'));
+	const save = $derived(form.fields.intent.as('submit', 'save'));
 
-	// Sans JavaScript, le bouton DeepL reste actif : le serveur valide la face A.
-	let hydrated = $state(false);
-	onMount(() => (hydrated = true));
+	/** Suggestion demandée, et le deck pour lequel elle l'a été. */
+	let asked: { deckId?: string; suggestion: Suggestion } = $state({ suggestion: IDLE });
+	const suggestion = $derived(asked.deckId === deckId ? asked.suggestion : IDLE);
+
+	// La suggestion DeepL arrive sans recharger les données de la page ; la saisie reste.
+	const enhanced = $derived(
+		form.enhance(async ({ fields, submit }) => {
+			if (fields.intent.value() !== 'translate') {
+				await submit();
+				return;
+			}
+			const scope = deckId;
+			asked = { deckId: scope, suggestion: { status: 'loading' } };
+			await submit().updates();
+			asked = { deckId: scope, suggestion: form.result?.suggestion ?? IDLE };
+		})
+	);
+
+	/** Face qui identifie la carte, renvoyée telle quelle pour confirmer un doublon. */
+	const duplicateKey = $derived((deck.duplicateSide === 'sideA' ? sideA : sideB).trim());
+
+	// L'avertissement vaut pour la face vérifiée et son deck : changer l'une ou l'autre
+	// relance la vérification.
+	const duplicate = $derived.by(() => {
+		const found = form.result?.duplicate;
+		if (!found || found.forValue !== duplicateKey) return null;
+		if (deckId !== undefined && found.deckId !== deckId) return null;
+		return found as { id: string; sideA: string; sideB: string; context: string | null };
+	});
 
 	const resets = $derived(
 		mode === 'edit' &&
@@ -90,48 +96,39 @@
 	const taken = $derived(suggestion.status === 'ready' && sideB.trim() === suggestion.text);
 </script>
 
-<form
-	method="post"
-	{action}
-	{onsubmit}
-	{@attach enhance && fromAction(enhanceForm, () => enhance)}
-	class="flex flex-col gap-6"
->
+<form {...enhanced} class="flex flex-col gap-6">
 	{@render header?.()}
 
 	<TextField
 		label={face.a.label}
-		name="sideA"
+		field={form.fields.sideA}
 		bind:value={sideA}
 		multiline
 		rows={1}
 		required
 		lang={face.a.lang ?? undefined}
-		error={errors.sideA}
 		placeholder={exampleFor(face.a)}
 	/>
 
 	<TextField
 		label="Contexte d'origine"
-		name="context"
+		field={form.fields.context}
 		bind:value={context}
 		multiline
 		rows={2}
 		optional
 		lang="fr"
-		error={errors.context}
 		hint="Où, quand, avec qui ? Il lève l'ambiguïté et servira d'indice en révision."
 	/>
 
 	<TextField
 		label={face.b.label}
-		name="sideB"
+		field={form.fields.sideB}
 		bind:value={sideB}
 		multiline
 		rows={1}
 		required
 		lang={face.b.lang ?? undefined}
-		error={errors.sideB}
 		placeholder={exampleFor(face.b)}
 	>
 		{#snippet action()}
@@ -141,12 +138,12 @@
 					variant="ghost"
 					icon="translate"
 					class="-mr-2 text-accent-text! hover:bg-accent-soft!"
-					type={translateAction ? 'submit' : 'button'}
-					formaction={translateAction}
-					formnovalidate={translateAction ? true : undefined}
-					disabled={hydrated && !sideA.trim()}
+					type="submit"
+					name={translate.name}
+					value={translate.value}
+					formnovalidate
+					disabled={!sideA.trim()}
 					loading={suggestion.status === 'loading'}
-					onclick={ontranslate}
 				>
 					Traduire avec DeepL
 				</Button>{/if}
@@ -184,7 +181,7 @@
 	</TextField>
 
 	{#if resets}
-		<input type="hidden" name="acknowledge_reset" value="1" />
+		<input {...form.fields.acknowledge_reset.as('hidden', '1')} />
 		<Notice tone="warn" title="La progression repartira de zéro">
 			Tu modifies {face.a.the} ou {face.b.the} :
 			{deck.bothDirections
@@ -195,12 +192,13 @@
 	{/if}
 
 	{#if duplicate}
+		<input {...form.fields.confirm.as('hidden', duplicateKey)} />
 		<Notice
 			tone="warn"
 			title="Une carte a déjà {face[deck.duplicateSide === 'sideA' ? 'a' : 'b'].same}"
 		>
 			<a
-				href={duplicate.href}
+				href="/cards/{duplicate.id}"
 				class="font-medium text-ink underline decoration-line-strong hover:decoration-ink"
 			>
 				<span lang={face.b.lang}>{duplicate.sideB}</span> ·
@@ -213,22 +211,24 @@
 		</Notice>
 	{/if}
 
+	<FormIssues issues={form.fields.issues()} />
+
 	<div
 		class="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t border-line bg-canvas/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:static md:mx-0 md:justify-end md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
 	>
 		<Button href={cancelHref} size="lg" variant="ghost" class="max-md:hidden">Annuler</Button>
-		<Button
-			type="submit"
+		<SubmitButton
+			remote={form}
+			active={suggestion.status !== 'loading'}
+			name={save.name}
+			value={save.value}
 			size="lg"
 			variant="primary"
 			block
-			loading={saving}
 			class="md:w-auto"
-			name={duplicate ? 'confirm' : undefined}
-			value={duplicate ? confirmValue : undefined}
 		>
 			{#if duplicate}Enregistrer quand même{:else if mode === 'create'}Enregistrer la carte{:else}Enregistrer
 				les modifications{/if}
-		</Button>
+		</SubmitButton>
 	</div>
 </form>

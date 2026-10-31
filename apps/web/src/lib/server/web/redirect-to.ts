@@ -26,7 +26,7 @@ export function safeRedirectTo(value: string | null | undefined): string | null 
 
 /**
  * Page de connexion qui ramènera à `page` (sauf la page d'accueil par défaut), sans ses
- * paramètres de form action (`?/goal`) : on y revient par un GET.
+ * paramètres d'envoi de formulaire (`?/login`, `?/remote=…`) : on y revient par un GET.
  */
 export function loginUrl({ pathname, searchParams }: URL): string {
 	const query = new URLSearchParams([...searchParams].filter(([key]) => !key.startsWith('/')));

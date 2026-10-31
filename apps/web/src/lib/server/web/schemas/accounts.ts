@@ -27,8 +27,8 @@ export const registerSchema = z.object({ name, email, password: newPassword });
 /** `/invite/[token]` : l'adresse vient de l'invitation. */
 export const inviteSchema = z.object({ name, password: newPassword });
 
-/** `/admin?/invite` : l'adresse du testeur à inviter. */
+/** Invitation (`/admin`) : l'adresse du testeur à inviter. */
 export const invitationSchema = z.object({ email });
 
-/** `/admin?/revoke`. */
+/** Révocation d'une invitation (`/admin`). */
 export const revokeInvitationSchema = z.object({ id: idSchema });

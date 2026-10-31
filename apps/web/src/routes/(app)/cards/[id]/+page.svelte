@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DeleteConfirm from '#lib/components/DeleteConfirm.svelte';
+	import { deleteCard } from './card.remote';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import MasteryMeter from '#lib/components/MasteryMeter.svelte';
 	import RatingPill from '#lib/components/RatingPill.svelte';
@@ -133,6 +134,7 @@
 	</section>
 
 	<DeleteConfirm
+		form={deleteCard}
 		label="Supprimer la carte"
 		title="Supprimer cette carte ?"
 		message="« {card.sideA} » ne reviendra plus en révision et disparaîtra de la liste. Son historique est conservé."

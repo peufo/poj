@@ -4,20 +4,20 @@ import { idSchema } from './fields';
 
 // Formulaires de la révision (indice, note, correction de la note) et paramètres de `/review`.
 
-/** `?/hint` : l'indice de la révision en cours. */
+/** Indice de la révision en cours. */
 export const hintSchema = z.object({ reviewId: idSchema });
 
-/** `?/answer` : la note, sur la version présentée de la révision. */
+/** Note, sur la version présentée de la révision. */
 export const answerSchema = z.object({
 	reviewId: idSchema,
 	version: z.string().default(''),
 	rating: z.enum(ratings, 'Choisis une note.')
 });
 
-/** `?/amend` : sans note choisie (sans JavaScript), la page ouvre le choix. */
+/** Correction de la dernière note. */
 export const amendSchema = z.object({
 	reviewId: idSchema,
-	rating: z.enum(ratings).optional().catch(undefined)
+	rating: z.enum(ratings, 'Choisis une note.')
 });
 
 /** Option de l'URL, active avec `1`. */

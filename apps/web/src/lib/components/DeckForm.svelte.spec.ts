@@ -3,10 +3,32 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { NEW_DECK_VALUES } from '#lib/format/decks.js';
 import DeckForm from './DeckForm.svelte';
+import type { AnyRemoteForm } from './form/remote-form.js';
+
+/** Remote form inerte : des champs nommés comme ceux du kit, sans erreur ni envoi. */
+function fakeForm(): AnyRemoteForm {
+	const methods = { issues: () => undefined, allIssues: () => undefined, value: () => undefined };
+	const field = (name: string) => ({ ...methods, as: () => ({ name: `${name}/fake` }) });
+	const attributes = { method: 'POST' as const, action: '?/remote=fake' };
+	// Comme dans le kit, seuls la méthode et l'action se répandent sur `<form>`.
+	return Object.defineProperties(
+		{ ...attributes },
+		{
+			pending: { value: 0 },
+			result: { value: undefined },
+			fields: {
+				value: new Proxy(methods, {
+					get: (root, key) => (key in root ? root[key as keyof typeof root] : field(String(key)))
+				})
+			},
+			enhance: { value: () => attributes }
+		}
+	) as AnyRemoteForm;
+}
 
 describe('DeckForm', () => {
 	it('asks for the two languages of a language deck, both directions checked', async () => {
-		render(DeckForm, { mode: 'create', values: NEW_DECK_VALUES });
+		render(DeckForm, { form: fakeForm(), mode: 'create', values: NEW_DECK_VALUES });
 
 		await expect.element(page.getByRole('radio', { name: /Langue/ })).toBeChecked();
 		await expect.element(page.getByLabelText('Langue connue')).toHaveValue('fr');
@@ -18,7 +40,7 @@ describe('DeckForm', () => {
 	});
 
 	it('switches to the faces of a subject, Question / Réponse, one way by default', async () => {
-		render(DeckForm, { mode: 'create', values: NEW_DECK_VALUES });
+		render(DeckForm, { form: fakeForm(), mode: 'create', values: NEW_DECK_VALUES });
 
 		await page.getByRole('radio', { name: /Sujet/ }).click();
 
@@ -31,7 +53,7 @@ describe('DeckForm', () => {
 	});
 
 	it('keeps the directions chosen by hand when the kind changes', async () => {
-		render(DeckForm, { mode: 'create', values: NEW_DECK_VALUES });
+		render(DeckForm, { form: fakeForm(), mode: 'create', values: NEW_DECK_VALUES });
 		const both = page.getByRole('checkbox', { name: /Réviser dans les deux sens/ });
 
 		await both.click();
@@ -43,6 +65,7 @@ describe('DeckForm', () => {
 
 	it('does not offer to change the kind or the languages of a saved deck', async () => {
 		render(DeckForm, {
+			form: fakeForm(),
 			mode: 'edit',
 			values: { ...NEW_DECK_VALUES, name: 'Anglais', languageB: 'en-GB' },
 			cancelHref: '/cards?deck=d1'
