@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../db/generated/prisma/client';
 import type { Db } from '../domain/index';
+import { e2eDatabasePid } from './e2e';
 import { isWorktreeDatabase, linkedWorktree, withDatabase, type Worktree } from './worktree';
 
 const webRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -31,15 +32,16 @@ function sameDatabase(a: string, b: string): boolean {
 
 /**
  * Seules bases que les outils destructifs (remise à zéro, seed) acceptent de toucher :
- * `poj_test`, `poj_sandbox` et leurs variantes de worktree (`poj_test_wt_<slug>`). Dans un
- * worktree (`worktree`, détecté par défaut), seulement ces dernières : celles du checkout
- * principal y sont refusées (`.env` copié sans `bun run worktree:setup`).
+ * `poj_test`, `poj_sandbox` et leurs variantes de worktree (`poj_test_wt_<slug>`), et les
+ * bases e2e d'un lancement de Playwright (`poj_e2e_<pid>`, voir `e2e.ts`). Dans un worktree
+ * (`worktree`, détecté par défaut), pas celles du checkout principal (`.env` copié sans
+ * `bun run worktree:setup`).
  */
 export function assertDisposableName(name: string, worktree?: Worktree | null): void {
-	if (isWorktreeDatabase(name)) return;
+	if (isWorktreeDatabase(name) || e2eDatabasePid(name) !== null) return;
 	if (name !== 'poj_test' && name !== 'poj_sandbox') {
 		throw new Error(
-			`Refusing to touch database "${name}": only poj_test, poj_sandbox and their worktree variants (poj_test_wt_<slug>) are disposable`
+			`Refusing to touch database "${name}": only poj_test, poj_sandbox, their worktree variants (poj_test_wt_<slug>) and e2e runs (poj_e2e_<pid>) are disposable`
 		);
 	}
 	if (worktree === undefined ? linkedWorktree() : worktree) {

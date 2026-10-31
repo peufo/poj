@@ -5,5 +5,12 @@
 		"sourceMap": true,
 		"strict": true
 	},
-	"include": ["src", "scripts", "prisma.config.ts", "vitest.global-setup.ts"]
+	"include": [
+		"src",
+		"scripts",
+		"e2e",
+		"prisma.config.ts",
+		"playwright.config.ts",
+		"vitest.global-setup.ts"
+	]
 }

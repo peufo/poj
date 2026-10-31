@@ -13,12 +13,9 @@ import {
 } from '../domain/index';
 import { assertDisposableName, resetDatabase } from './database';
 import { FR_EN_DECK } from './factories';
+import { SANDBOX_ACCOUNT } from './sandbox-account';
 
-export const SANDBOX_ACCOUNT = {
-	name: 'Sandbox',
-	email: 'sandbox@poj.local',
-	password: 'sandbox-poj'
-} as const;
+export { SANDBOX_ACCOUNT };
 
 const MINUTE = 1;
 const HOUR = 60 * MINUTE;

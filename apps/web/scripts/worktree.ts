@@ -5,7 +5,9 @@
  *                                   s'il manque, puis y écrit ses propres `DATABASE_URL_TEST`,
  *                                   `DATABASE_URL_SANDBOX` (`poj_*_wt_<slug>`) et `ORIGIN`
  *                                   (port libre parmi 5183, 5193…). Relançable sans risque.
- *   bun scripts/worktree.ts prune   supprime les bases `poj_*_wt_*` des worktrees disparus
+ *   bun scripts/worktree.ts prune   supprime les bases `poj_*_wt_*` des worktrees disparus, et
+ *                                   les bases e2e (`poj_e2e_<pid>`) des lancements de
+ *                                   Playwright terminés sans les supprimer (pid disparu)
  *
  * Le checkout principal garde ses bases et ses ports (5173, 5174, 4173). `setup` ne dépend
  * pas du client Prisma : il tourne avant `db:generate`, qui a besoin du `.env`.
@@ -25,6 +27,7 @@ import {
 	worktreeDatabaseName,
 	worktreeSlug
 } from '../src/lib/server/testing/worktree';
+import { e2eDatabasePid, isProcessAlive } from '../src/lib/server/testing/e2e';
 
 const ENV_FILE = 'apps/web/.env';
 const webRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -85,14 +88,19 @@ async function prune() {
 			return [worktreeDatabaseName('test', slug), worktreeDatabaseName('sandbox', slug)];
 		})
 	);
+	/** Base e2e d'un lancement de Playwright qui ne tourne plus. */
+	const finishedRun = (name: string) => {
+		const pid = e2eDatabasePid(name);
+		return pid !== null && !isProcessAlive(pid);
+	};
 	const orphans = (await listDatabases(url)).filter(
-		(name) => isWorktreeDatabase(name) && !live.has(name)
+		(name) => (isWorktreeDatabase(name) && !live.has(name)) || finishedRun(name)
 	);
 	for (const name of orphans) {
 		await dropDatabase(withDatabase(url, name));
 		console.log(`✓ ${name} supprimée`);
 	}
-	if (orphans.length === 0) console.log('✓ Aucune base de worktree orpheline');
+	if (orphans.length === 0) console.log('✓ Aucune base de worktree ni e2e orpheline');
 }
 
 switch (process.argv[2]) {

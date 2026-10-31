@@ -23,6 +23,13 @@ describe('disposable database guard', () => {
 		}
 	});
 
+	it('accepts the database of an e2e run anywhere', () => {
+		expect(() => assertDisposableDatabase(`${server}/poj_e2e_4242`, { worktree })).not.toThrow();
+		expect(() =>
+			assertDisposableDatabase(`${server}/poj_e2e_4242`, { worktree: null })
+		).not.toThrow();
+	});
+
 	it('refuses the development database, however its URL is written', () => {
 		const devUrl = `${server}/poj_sandbox`;
 		expect(() => assertDisposableDatabase(devUrl, { devUrl })).toThrow(/development database/);
@@ -43,7 +50,10 @@ describe('disposable database guard', () => {
 			'poj_test_wt_Agent',
 			'poj_test_wt_a"; DROP DATABASE local; --',
 			`poj_test_wt_${'a'.repeat(41)}`,
-			'poj_wt_a'
+			'poj_wt_a',
+			'poj_e2e_',
+			'poj_e2e_12a',
+			'poj_e2e_1; DROP DATABASE local'
 		]) {
 			expect(() => assertDisposableDatabase(`${server}/${name}`)).toThrow(/Refusing/);
 		}
