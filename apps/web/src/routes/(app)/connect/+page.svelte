@@ -1,24 +1,10 @@
 <script lang="ts">
+	import CopyField from '#lib/components/CopyField.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
-	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-
-	let copied = $state(false);
-	let timer: ReturnType<typeof setTimeout> | undefined;
-
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(data.connectorUrl);
-		} catch {
-			return; // Sans presse-papiers, l'URL reste sélectionnable dans le champ.
-		}
-		copied = true;
-		clearTimeout(timer);
-		timer = setTimeout(() => (copied = false), 2000);
-	}
 
 	const steps = [
 		{
@@ -46,19 +32,7 @@
 	</p>
 
 	<section class="flex flex-col gap-2 rounded-2xl border border-line bg-raised p-5">
-		<label for="connector-url" class="text-sm font-medium text-ink-2">URL du connecteur</label>
-		<div class="flex items-center gap-2">
-			<input
-				id="connector-url"
-				readonly
-				value={data.connectorUrl}
-				onfocus={(e) => e.currentTarget.select()}
-				class="h-11 min-w-0 flex-1 rounded-lg bg-inset px-3 font-mono text-sm text-ink"
-			/>
-			<Button variant="primary" icon={copied ? 'check' : undefined} onclick={copy}>
-				{copied ? 'Copié' : 'Copier'}
-			</Button>
-		</div>
+		<CopyField label="URL du connecteur" value={data.connectorUrl} />
 	</section>
 
 	<ol class="flex flex-col gap-4">

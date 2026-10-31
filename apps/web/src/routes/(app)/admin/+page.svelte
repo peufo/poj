@@ -1,31 +1,17 @@
 <script lang="ts">
+	import CopyField from '#lib/components/CopyField.svelte';
 	import FormIssues from '#lib/components/form/FormIssues.svelte';
 	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import { formatDate } from '#lib/format/labels.js';
-	import Button from '#lib/ui/Button.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
 	import { invite, revoke } from './admin.remote';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	let copied = $state(false);
-	let timer: ReturnType<typeof setTimeout> | undefined;
-
 	/** Invitation créée : son lien, affiché une seule fois. */
 	const invited = $derived(invite.result);
-
-	async function copy(link: string) {
-		try {
-			await navigator.clipboard.writeText(link);
-		} catch {
-			return; // Sans presse-papiers, le lien reste sélectionnable dans le champ.
-		}
-		copied = true;
-		clearTimeout(timer);
-		timer = setTimeout(() => (copied = false), 2000);
-	}
 </script>
 
 <svelte:head><title>Administration · Poj</title></svelte:head>
@@ -44,7 +30,6 @@
 
 		<form
 			{...invite.enhance(async ({ element, submit }) => {
-				copied = false;
 				if (await submit()) element.reset();
 			})}
 			class="flex flex-col gap-3"
@@ -64,25 +49,7 @@
 
 		{#if invited}
 			<div class="flex flex-col gap-2 rounded-2xl border border-line bg-raised p-5">
-				<label for="invite-link" class="text-sm font-medium text-ink-2">
-					Lien pour {invited.email}
-				</label>
-				<div class="flex items-center gap-2">
-					<input
-						id="invite-link"
-						readonly
-						value={invited.link}
-						onfocus={(e) => e.currentTarget.select()}
-						class="h-11 min-w-0 flex-1 rounded-lg bg-inset px-3 font-mono text-sm text-ink"
-					/>
-					<Button
-						variant="primary"
-						icon={copied ? 'check' : undefined}
-						onclick={() => copy(invited.link)}
-					>
-						{copied ? 'Copié' : 'Copier'}
-					</Button>
-				</div>
+				<CopyField label="Lien pour {invited.email}" value={invited.link} />
 				<p class="text-xs text-ink-3">
 					Il ne sera plus affiché. Perdu ? Génère un nouveau lien : l’ancien sera révoqué.
 				</p>
