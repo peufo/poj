@@ -145,7 +145,7 @@ describe('decks service', () => {
 
 	it('keeps a language deck without labels, named after its learned language', async () => {
 		// Un deck nommé autrement (créé avant la règle) prend le nom de sa langue apprise.
-		const deck = await createDeck(db, alice, FR_EN_DECK);
+		const deck = await createDeck(db, alice, { name: 'Français → Anglais' });
 
 		const updated = await decks.update(alice, deck.id, {
 			name: 'Autre nom',

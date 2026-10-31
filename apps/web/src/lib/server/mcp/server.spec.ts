@@ -123,7 +123,7 @@ describe('MCP server', () => {
 
 			const check = await call(client, 'check_card', { ...args, context: 'réunion' });
 			expect(data(check)).toEqual({
-				deck: 'Français → Anglais',
+				deck: 'Anglais',
 				deepl_a_to_b: 'to take for granted',
 				deepl_b_to_a: 'tenir pour acquis',
 				duplicates: []
@@ -135,7 +135,7 @@ describe('MCP server', () => {
 				...args,
 				context: 'réunion',
 				created: true,
-				deck: 'Français → Anglais'
+				deck: 'Anglais'
 			});
 
 			clock = at(2);
@@ -176,7 +176,7 @@ describe('MCP server', () => {
 
 			const result = await call(await connect(alice, quota), 'check_card', args);
 			expect(data(result)).toEqual({
-				deck: 'Français → Anglais',
+				deck: 'Anglais',
 				deepl_a_to_b: null,
 				deepl_b_to_a: null,
 				deepl_error: 'le quota DeepL est épuisé',
@@ -299,7 +299,7 @@ describe('MCP server', () => {
 
 			expect(data(result).decks).toEqual([
 				{
-					name: 'Français → Anglais',
+					name: 'Anglais',
 					kind: 'language',
 					side_a: 'Français',
 					side_b: 'Anglais',
@@ -321,7 +321,7 @@ describe('MCP server', () => {
 			]);
 			expect(text(result)).toBe(
 				[
-					'« Français → Anglais » : langue, Français → anglais (deux sens), 1 carte.',
+					'« Anglais » : langue, Français → anglais (deux sens), 1 carte.',
 					'« Capitales » : sujet, Pays → Capitale, 0 carte.'
 				].join('\n')
 			);
@@ -339,7 +339,7 @@ describe('MCP server', () => {
 			const instructions = client.getInstructions()!;
 
 			expect(instructions).toContain(
-				'- « Français → Anglais » (langue) : le français (side_a), l’anglais (side_b), révisé dans les deux sens.'
+				'- « Anglais » (langue) : le français (side_a), l’anglais (side_b), révisé dans les deux sens.'
 			);
 			expect(instructions).toContain(
 				'- « Capitales » (sujet) : « Pays » (side_a), « Capitale » (side_b), révisé de « Pays » vers « Capitale » seulement.'
@@ -373,7 +373,7 @@ describe('MCP server', () => {
 			for (const tool of ['check_card', 'create_card']) {
 				const result = await call(client, tool, args);
 				expect(result.isError).toBe(true);
-				expect(text(result)).toContain('plusieurs decks (« Français → Anglais », « Capitales »)');
+				expect(text(result)).toContain('plusieurs decks (« Anglais », « Capitales »)');
 			}
 			expect(await db.card.count()).toBe(0);
 		});
@@ -400,10 +400,10 @@ describe('MCP server', () => {
 
 			const english = await call(await connect(alice), 'check_card', {
 				...args,
-				deck: 'Français → Anglais'
+				deck: 'Anglais'
 			});
 			expect(data(english)).toMatchObject({
-				deck: 'Français → Anglais',
+				deck: 'Anglais',
 				deepl_a_to_b: 'to take for granted'
 			});
 		});
@@ -420,7 +420,7 @@ describe('MCP server', () => {
 					const result = await call(client, tool, input);
 					expect(result.isError).toBe(true);
 					expect(text(result)).toBe(
-						`Deck « ${deck} » introuvable. Decks de l'utilisateur : « Français → Anglais », « Capitales ».`
+						`Deck « ${deck} » introuvable. Decks de l'utilisateur : « Anglais », « Capitales ».`
 					);
 				}
 			}
@@ -435,7 +435,7 @@ describe('MCP server', () => {
 			).toMatchObject({ description: expect.stringContaining("n'a qu'un deck") });
 
 			expect(data(await call(client, 'create_card', args))).toMatchObject({ created: true });
-			const named = await call(client, 'check_card', { ...args, deck: 'français → anglais' });
+			const named = await call(client, 'check_card', { ...args, deck: 'anglais' });
 			expect(data(named).duplicates).toHaveLength(1);
 			expect(await db.card.count({ where: { ownerId: bob, deckId: bobDeck } })).toBe(1);
 		});
@@ -447,7 +447,7 @@ describe('MCP server', () => {
 			const client = await connect(alice);
 
 			const mixed = data(await call(client, 'next_review'));
-			expect(mixed).toMatchObject({ deck: 'Français → Anglais', remaining: 2 });
+			expect(mixed).toMatchObject({ deck: 'Anglais', remaining: 2 });
 
 			const scoped = await call(client, 'next_review', { deck: 'Capitales' });
 			expect(data(scoped)).toMatchObject({ deck: 'Capitales', prompt: 'Suisse', remaining: 1 });

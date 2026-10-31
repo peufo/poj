@@ -3,7 +3,7 @@ import { SANDBOX_ACCOUNT } from '../src/lib/server/testing/sandbox-account';
 
 // Outils partagés des specs e2e. La base est chargée avec la seed du bac à sable
 // (`src/lib/server/testing/seed.ts`) : un compte administrateur et le deck
-// « Français → Anglais », avec des révisions dues.
+// « Anglais », avec des révisions dues.
 
 /**
  * Ouvre `path` et attend que l'app ait démarré (SvelteKit marque alors l'entrée
@@ -30,11 +30,11 @@ export async function signIn(page: Page) {
 	await expect(page).toHaveURL(/\/cards/);
 }
 
-/** Id du deck « Français → Anglais » de la seed (deck de langue, avec DeepL). */
+/** Id du deck « Anglais » de la seed (deck de langue, avec DeepL). */
 export async function languageDeckId(page: Page) {
 	await open(page, '/cards');
 	const href = await page
-		.getByRole('link', { name: /^Français → Anglais/ })
+		.getByRole('link', { name: /^Anglais/ })
 		.first()
 		.getAttribute('href');
 	return new URL(href!, page.url()).searchParams.get('deck')!;

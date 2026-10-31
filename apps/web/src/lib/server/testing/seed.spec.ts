@@ -3,6 +3,7 @@ import {
 	ConflictError,
 	createAccountsService,
 	createCardsService,
+	createDecksService,
 	createReviewsService,
 	type Direction
 } from '../domain/index';
@@ -13,6 +14,7 @@ import { SANDBOX_ACCOUNT, SANDBOX_CARDS, seedSandbox } from './seed';
 // La seed vide elle-même la base : les tests en lecture seule partagent un seul chargement.
 const db = useTestDatabase({ reset: false });
 const cards = createCardsService(db);
+const decks = createDecksService(db);
 const reviews = createReviewsService(db);
 
 const now = new Date('2026-03-10T09:00:00Z');
@@ -53,6 +55,12 @@ describe('sandbox seed', () => {
 			expect(user.role).toBe('admin');
 			expect(token).toBeTruthy();
 			expect(await createAccountsService(db).isSignUpOpen()).toBe(false);
+		});
+
+		it('creates one language deck, named after its learned language', async () => {
+			expect(await decks.list(owner)).toEqual([
+				expect.objectContaining({ name: 'Anglais', kind: 'language', languageB: 'en-GB' })
+			]);
 		});
 
 		it('covers new, due, very overdue, learning and mature reviews', async () => {

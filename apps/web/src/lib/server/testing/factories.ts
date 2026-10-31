@@ -19,9 +19,9 @@ export async function createUser(
 	return user.id;
 }
 
-/** Deck de langue des tests et de la seed : français → anglais, révisé dans les deux sens. */
+/** Deck de langue des tests et de la seed : « Anglais », depuis le français, deux sens. */
 export const FR_EN_DECK = {
-	name: 'Français → Anglais',
+	name: 'Anglais',
 	kind: 'language',
 	languageA: 'fr',
 	languageB: 'en-GB',

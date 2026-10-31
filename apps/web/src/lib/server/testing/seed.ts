@@ -5,6 +5,7 @@ import { hashPassword } from 'better-auth/crypto';
 import {
 	createCardsService,
 	createReviewsService,
+	deckName,
 	type CardInput,
 	type Db,
 	type Direction,
@@ -46,7 +47,7 @@ export interface SeedCard extends CardInput {
 	deleted?: true;
 }
 
-// Cartes du deck « Français → Anglais » : la face A est le français, la face B l'anglais.
+// Cartes du deck « Anglais » : la face A est le français, la face B l'anglais.
 const fr = 'a_to_b';
 const en = 'b_to_a';
 
@@ -414,9 +415,10 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 		}
 	});
 
-	// Le deck des cartes, créé explicitement comme le ferait l'utilisateur.
+	// Le deck des cartes, créé explicitement comme le ferait l'utilisateur, et nommé par la
+	// même règle.
 	const deck = await db.deck.create({
-		data: { ...FR_EN_DECK, ownerId: user.id, createdAt: at(365 * DAY) }
+		data: { ...FR_EN_DECK, name: deckName(FR_EN_DECK), ownerId: user.id, createdAt: at(365 * DAY) }
 	});
 
 	for (const seed of SANDBOX_CARDS) {
