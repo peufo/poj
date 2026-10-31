@@ -6,15 +6,20 @@ export type { Deck, DeckKind } from '../../db/generated/prisma/client';
 export type DeckWithCount = Deck & { cardCount: number };
 
 /**
- * Nouveau deck. Un deck de langue porte sa paire de langues, un sujet n'en a aucune
- * (contrainte `decks_language_pair`). Libellés `null` : nom de la langue, ou
- * « Question » / « Réponse ».
+ * Nouveau deck. Un deck de langue porte sa paire de langues et prend le nom de sa langue
+ * apprise (`deckName`) ; un sujet n'a aucune langue (contrainte `decks_language_pair`) et
+ * porte le nom saisi. Libellés `null` : nom de la langue, ou « Question » / « Réponse ».
  */
 export type DeckInput = Pick<
 	Deck,
-	'name' | 'kind' | 'languageA' | 'languageB' | 'labelA' | 'labelB' | 'bothDirections'
->;
+	'languageA' | 'languageB' | 'labelA' | 'labelB' | 'bothDirections'
+> &
+	({ kind: 'language' } | { kind: 'subject'; name: string });
 
-/** Ce qui se modifie après la création : le type et les langues restent figés. */
-export type DeckUpdate = Pick<Deck, 'name' | 'bothDirections'> &
-	Partial<Pick<Deck, 'labelA' | 'labelB'>>;
+/**
+ * Ce qui se modifie après la création : le type et les langues restent figés. Le nom et les
+ * libellés d'un sujet restent tels quels s'ils sont absents ; une langue garde le nom de sa
+ * langue apprise et n'a pas de libellés.
+ */
+export type DeckUpdate = Pick<Deck, 'bothDirections'> &
+	Partial<Pick<Deck, 'name' | 'labelA' | 'labelB'>>;

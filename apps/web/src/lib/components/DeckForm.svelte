@@ -1,5 +1,5 @@
 <script lang="ts" generics="Mode extends 'create' | 'edit'">
-	import { languageName, type DeckFormValues } from '#lib/format/decks.js';
+	import { languageDeckName, languageName, type DeckFormValues } from '#lib/format/decks.js';
 	import { capitalize } from '#lib/format/labels.js';
 	import { languageOption, languageOptions } from '#lib/format/languages.js';
 	import Button from '#lib/ui/Button.svelte';
@@ -12,10 +12,11 @@
 	// Formulaire de deck (création et modification), sur le remote form de la page
 	// (`createDeck`, `saveDeck`).
 	//
-	// À la création, on choisit le type : une langue (langue connue, langue apprise) ou un
-	// sujet (noms des deux faces). Les champs de l'autre type sont masqués par CSS, ce qui
-	// marche aussi sans JavaScript ; le serveur ignore ceux du type non choisi. En
-	// modification, le type et les langues sont figés.
+	// À la création, on choisit d'abord le type : une langue (langue connue, langue apprise)
+	// ou un sujet (nom, noms des deux faces). Une langue n'a pas de champ nom : le deck prend
+	// le nom de sa langue apprise (`deckName` du domaine). Les champs de l'autre type sont
+	// masqués par CSS ; le serveur ignore ceux du type non choisi. En modification, le type et
+	// les langues sont figés.
 
 	/** Remote form de chaque mode : `mode` et `form` vont ensemble. */
 	type Forms = { create: NewDeckForm; edit: DeckEditForm };
@@ -67,12 +68,11 @@
 			: `« ${label.trim() || fallback} »`;
 	const faceA = $derived(faceName(languageA, labelA, 'Question'));
 	const faceB = $derived(faceName(languageB, labelB, 'Réponse'));
-	const namePlaceholder = $derived(
-		kind === 'subject'
-			? 'Capitales'
-			: languageA && languageB
-				? `${capitalize(languageName(languageA))} → ${capitalize(languageName(languageB))}`
-				: 'Français → Anglais'
+	/** Nom que prendra un deck de langue, annoncé sous la langue apprise. */
+	const languageHint = $derived(
+		languageB
+			? `Le deck s’appellera « ${languageDeckName(languageB)} ».`
+			: 'Elle donne son nom au deck.'
 	);
 
 	const kinds = [
@@ -90,14 +90,6 @@
 </script>
 
 <form {...form} class="flex flex-col gap-6">
-	<TextField
-		label="Nom"
-		field={fields.name}
-		bind:value={name}
-		required
-		placeholder={namePlaceholder}
-	/>
-
 	{#if creation}
 		<fieldset class="flex flex-col gap-1.5">
 			<legend class="flex min-h-8 items-center pb-2 text-sm font-medium text-ink">Type</legend>
@@ -137,31 +129,44 @@
 				bind:value={languageB}
 				options={languageOptions}
 				placeholder="Choisis une langue"
+				hint={languageHint}
 			/>
 		</div>
 	{:else if kind === 'language'}
 		<p class="text-sm text-ink-2">
-			Langues : {languageOption(languageA)} → {languageOption(languageB)}. Le type et les langues
-			d’un deck ne se modifient pas.
+			Deck de langue : {languageOption(languageA)} → {languageOption(languageB)}. Son nom est celui
+			de la langue apprise. Le type et les langues d’un deck ne se modifient pas.
 		</p>
+	{:else}
+		<p class="text-sm text-ink-2">Deck de sujet. Le type d’un deck ne se modifie pas.</p>
 	{/if}
 
 	{#if mode === 'create' || kind === 'subject'}
-		<div class="subject-only grid gap-6 sm:grid-cols-2">
+		<div class="subject-only flex flex-col gap-6">
 			<TextField
-				label="Première face"
-				field={fields.labelA}
-				bind:value={labelA}
-				placeholder="Question"
-				hint="Ce qui est montré, par exemple « Pays »."
+				label="Nom"
+				field={fields.name}
+				bind:value={name}
+				required={kind === 'subject'}
+				placeholder="Capitales"
 			/>
-			<TextField
-				label="Seconde face"
-				field={fields.labelB}
-				bind:value={labelB}
-				placeholder="Réponse"
-				hint="Ce qu’il faut retrouver, par exemple « Capitale »."
-			/>
+
+			<div class="grid gap-6 sm:grid-cols-2">
+				<TextField
+					label="Première face"
+					field={fields.labelA}
+					bind:value={labelA}
+					placeholder="Question"
+					hint="Ce qui est montré, par exemple « Pays »."
+				/>
+				<TextField
+					label="Seconde face"
+					field={fields.labelB}
+					bind:value={labelB}
+					placeholder="Réponse"
+					hint="Ce qu’il faut retrouver, par exemple « Capitale »."
+				/>
+			</div>
 		</div>
 	{/if}
 

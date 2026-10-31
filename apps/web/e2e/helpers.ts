@@ -46,8 +46,8 @@ export const unique = (prefix: string) => `${prefix} ${Math.random().toString(36
 /** Crée un deck de sujet (`Question` / `Réponse`) et renvoie son id. */
 export async function createSubjectDeck(page: Page, name = unique('Sujet')) {
 	await open(page, '/decks/new');
-	await page.getByLabel('Nom').fill(name);
 	await page.getByRole('radio', { name: /Sujet/ }).check();
+	await page.getByLabel('Nom').fill(name);
 	await page.getByRole('button', { name: 'Créer le deck' }).click();
 	await expect(page).toHaveURL(/\/cards\?deck=/);
 	return new URL(page.url()).searchParams.get('deck')!;

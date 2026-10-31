@@ -28,13 +28,14 @@ const bothDirections = z.boolean().default(false);
 const field = z.string().default('');
 
 /**
- * Nouveau deck : une langue (deux langues différentes de la liste) ou un sujet (noms des
- * faces). Les champs de l'autre type, masqués, sont postés quand même : ignorés.
+ * Nouveau deck : une langue (deux langues différentes de la liste), nommée par le domaine
+ * d'après sa langue apprise, ou un sujet (nom et noms des faces). Les champs de l'autre
+ * type, masqués, sont postés quand même : ignorés.
  */
 export const newDeckSchema = z
 	.object({
 		kind: z.enum(['language', 'subject']),
-		name,
+		name: field,
 		languageA: field,
 		languageB: field,
 		labelA: field,
@@ -45,6 +46,8 @@ export const newDeckSchema = z
 		const issue = (path: keyof typeof deck, message: string) =>
 			ctx.addIssue({ code: 'custom', path: [path], message, input: deck[path] });
 		if (deck.kind === 'subject') {
+			const named = name.safeParse(deck.name);
+			if (!named.success) issue('name', named.error.issues[0].message);
 			for (const path of ['labelA', 'labelB'] as const) {
 				if (deck[path].trim().length > DECK_LIMITS.label) issue(path, tooLong(DECK_LIMITS.label));
 			}
@@ -64,10 +67,10 @@ export const newDeckSchema = z
 	})
 	.transform(({ kind, name, languageA, languageB, labelA, labelB, bothDirections }): DeckInput =>
 		kind === 'language'
-			? { kind, name, languageA, languageB, labelA: null, labelB: null, bothDirections }
+			? { kind, languageA, languageB, labelA: null, labelB: null, bothDirections }
 			: {
 					kind,
-					name,
+					name: name.trim(),
 					languageA: null,
 					languageB: null,
 					labelA: labelA.trim() || null,
@@ -78,10 +81,11 @@ export const newDeckSchema = z
 
 /**
  * Modification : nom, option des deux sens et noms des faces. Le type et les langues ne
- * changent pas ; `decks.update` ignore les noms des faces d'une langue.
+ * changent pas. Une langue n'a pas de champ nom (elle garde celui de sa langue apprise), et
+ * `decks.update` ignore ses noms de faces.
  */
 export const deckUpdateSchema = z.object({
-	name,
+	name: name.optional(),
 	labelA: label,
 	labelB: label,
 	bothDirections

@@ -26,6 +26,11 @@ function fakeForm<F extends NewDeckForm | DeckEditForm>(): F {
 	) as unknown as F;
 }
 
+/** `first` précède `then` dans le formulaire, donc aussi à la tabulation. */
+function expectBefore(first: Element, then: Element) {
+	expect(first.compareDocumentPosition(then) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}
+
 describe('DeckForm', () => {
 	it('asks for the two languages of a language deck, both directions checked', async () => {
 		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
@@ -37,6 +42,27 @@ describe('DeckForm', () => {
 		await expect
 			.element(page.getByRole('checkbox', { name: /Réviser dans les deux sens/ }))
 			.toBeChecked();
+	});
+
+	it('names a language deck after its learned language, without a name field', async () => {
+		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+
+		await expect.element(page.getByLabelText('Nom')).not.toBeVisible();
+		await page.getByLabelText('Langue apprise').selectOptions('fi');
+		await expect.element(page.getByText('Le deck s’appellera « Finnois ».')).toBeVisible();
+		await page.getByLabelText('Langue apprise').selectOptions('de');
+		await expect.element(page.getByText('Le deck s’appellera « Allemand ».')).toBeVisible();
+	});
+
+	it('asks for the kind first, then the name of a subject', async () => {
+		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+
+		await page.getByRole('radio', { name: /Sujet/ }).click();
+
+		const name = page.getByLabelText('Nom');
+		await expect.element(name).toBeVisible();
+		await expect.element(name).toBeRequired();
+		expectBefore(page.getByRole('group', { name: 'Type' }).element(), name.element());
 	});
 
 	it('switches to the faces of a subject, Question / Réponse, one way by default', async () => {
@@ -71,12 +97,26 @@ describe('DeckForm', () => {
 			cancelHref: '/cards?deck=d1'
 		});
 
-		await expect.element(page.getByLabelText('Nom')).toHaveValue('Anglais');
+		await expect.element(page.getByLabelText('Nom')).not.toBeInTheDocument();
 		await expect.element(page.getByRole('radio')).not.toBeInTheDocument();
 		await expect.element(page.getByRole('combobox')).not.toBeInTheDocument();
 		await expect.element(page.getByText(/ne se modifient pas/)).toBeInTheDocument();
+		await expect.element(page.getByText(/Son nom est celui\s+de la langue apprise/)).toBeVisible();
 		await expect
 			.element(page.getByRole('button', { name: 'Enregistrer les modifications' }))
 			.toBeInTheDocument();
+	});
+
+	it('shows the kind of a saved subject before its name', async () => {
+		render(DeckForm, {
+			form: fakeForm<DeckEditForm>(),
+			mode: 'edit',
+			values: { ...NEW_DECK_VALUES, kind: 'subject', name: 'Capitales', languageB: '' },
+			cancelHref: '/cards?deck=d1'
+		});
+
+		const name = page.getByLabelText('Nom');
+		await expect.element(name).toHaveValue('Capitales');
+		expectBefore(page.getByText(/Deck de sujet/).element(), name.element());
 	});
 });

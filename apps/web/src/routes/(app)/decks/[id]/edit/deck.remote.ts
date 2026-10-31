@@ -13,11 +13,13 @@ function deckOfPage() {
 
 /**
  * Nom, option des deux sens et noms des faces (ignorés pour une langue par `decks.update`).
- * Le type et les langues ne changent pas.
+ * Le type et les langues ne changent pas. Une langue n'a pas de champ nom : son nom déjà
+ * pris (un ancien deck renommé d'après sa langue apprise) est signalé sur le formulaire.
  */
 export const saveDeck = form(deckUpdateSchema, async (input, issue) => {
 	const { ownerId, id } = deckOfPage();
-	await orNotFound(orInvalid(decks.update(ownerId, id, input), issue.name(NAME_TAKEN)), 'Deck');
+	const taken = input.name === undefined ? NAME_TAKEN : issue.name(NAME_TAKEN);
+	await orNotFound(orInvalid(decks.update(ownerId, id, input), taken), 'Deck');
 	redirect(303, `/cards?deck=${id}`);
 });
 

@@ -79,12 +79,7 @@ describe('decks service', () => {
 	});
 
 	it('creates a language or subject deck, refusing a name already taken', async () => {
-		const english = await decks.create(alice, {
-			...FR_EN_DECK,
-			name: '  Anglais ',
-			labelA: null,
-			labelB: null
-		});
+		const english = await decks.create(alice, { ...FR_EN_DECK, labelA: null, labelB: null });
 		const created = await decks.create(alice, capitals);
 
 		expect(english).toMatchObject({ name: 'Anglais', kind: 'language', ownerId: alice });
@@ -97,6 +92,29 @@ describe('decks service', () => {
 		await expect(decks.create(bob, capitals)).resolves.toMatchObject({ ownerId: bob });
 		await db.deck.update({ where: { id: created.id }, data: { deletedAt: new Date() } });
 		await expect(decks.create(alice, capitals)).resolves.toMatchObject({ name: 'Capitales' });
+	});
+
+	it('names a language deck after its learned language, one deck per learned language', async () => {
+		const finnish = { ...FR_EN_DECK, languageB: 'fi', labelA: null, labelB: null };
+
+		await expect(decks.create(alice, finnish)).resolves.toMatchObject({ name: 'Finnois' });
+		// Même langue apprise, depuis une autre langue : même nom, refusé.
+		await expect(decks.create(alice, { ...finnish, languageA: 'en-GB' })).rejects.toBeInstanceOf(
+			ConflictError
+		);
+		// Les variantes d'une langue sont la même langue apprise.
+		await decks.create(alice, { ...finnish, languageB: 'en-GB' });
+		await expect(decks.create(alice, { ...finnish, languageB: 'en-US' })).rejects.toBeInstanceOf(
+			ConflictError
+		);
+		// Un sujet ne prend pas le nom d'une langue déjà prise, et inversement.
+		await expect(decks.create(alice, { ...capitals, name: 'finnois' })).rejects.toBeInstanceOf(
+			ConflictError
+		);
+		await decks.create(alice, { ...capitals, name: 'Allemand' });
+		await expect(decks.create(alice, { ...finnish, languageB: 'de' })).rejects.toBeInstanceOf(
+			ConflictError
+		);
 	});
 
 	it('updates name, labels and directions, but not the kind nor the languages', async () => {
@@ -115,22 +133,31 @@ describe('decks service', () => {
 		await expect(
 			decks.update(bob, deck.id, { name: 'x', bothDirections: false })
 		).rejects.toBeInstanceOf(NotFoundError);
-		// Garder son propre nom n'est pas un conflit.
+		// Garder son propre nom n'est pas un conflit, ni ne pas le donner.
 		await expect(
 			decks.update(alice, deck.id, { name: 'Pays du monde', bothDirections: false })
 		).resolves.toMatchObject({ name: 'Pays du monde' });
+		await expect(decks.update(alice, deck.id, { bothDirections: true })).resolves.toMatchObject({
+			name: 'Pays du monde',
+			bothDirections: true
+		});
 	});
 
-	it('keeps a language deck without labels', async () => {
+	it('keeps a language deck without labels, named after its learned language', async () => {
+		// Un deck nommé autrement (créé avant la règle) prend le nom de sa langue apprise.
 		const deck = await createDeck(db, alice, FR_EN_DECK);
 
 		const updated = await decks.update(alice, deck.id, {
-			name: 'Anglais',
+			name: 'Autre nom',
 			labelA: 'Question',
 			labelB: 'Réponse',
 			bothDirections: true
 		});
 		expect(updated).toMatchObject({ name: 'Anglais', labelA: null, labelB: null });
+		await expect(decks.update(alice, deck.id, { bothDirections: false })).resolves.toMatchObject({
+			name: 'Anglais',
+			bothDirections: false
+		});
 	});
 
 	it('adds the missing b_to_a reviews, due now, when both directions are turned on', async () => {

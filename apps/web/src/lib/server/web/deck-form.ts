@@ -15,6 +15,9 @@ export type DeckEditForm = RemoteForm<z.input<typeof deckUpdateSchema>, never>;
 /** Message d'un nom de deck déjà pris (`ConflictError` du domaine). */
 export const NAME_TAKEN = 'Tu as déjà un deck de ce nom.';
 
+/** Message d'un deck de langue dont le nom, sa langue apprise, est déjà pris. */
+export const languageTaken = (name: string) => `Un deck ${name} existe déjà.`;
+
 /**
  * Valeurs du formulaire de modification, depuis le deck enregistré. Un sujet sans noms de
  * faces affiche « Question » / « Réponse », comme à la création.

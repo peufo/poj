@@ -66,6 +66,9 @@ export const baseLanguage = (tag: string) => new Intl.Locale(tag).language;
 /** Nom français d'une langue, sans la variante : `en-GB` → « anglais ». */
 export const languageName = (tag: string) => languageNames.of(baseLanguage(tag)) ?? tag;
 
+/** Nom d'un deck de langue : sa langue apprise, sans la variante (`fi` → « Finnois »). */
+export const languageDeckName = (languageB: string) => capitalize(languageName(languageB));
+
 const startsWithVowel = (name: string) => /^[aeiouyàâéèêîïôh]/i.test(name);
 
 /** Exemples de saisie par langue, en placeholder du formulaire. */
@@ -122,6 +125,7 @@ export function directionLabel(direction: Direction, deck: DeckFaces): string {
 
 /** Champs du formulaire de deck (création et modification), tels que saisis. */
 export interface DeckFormValues {
+	/** Nom saisi, pour un sujet : une langue prend le nom de sa langue apprise. */
 	name: string;
 	kind: 'language' | 'subject';
 	/** Langue connue (face A) et langue apprise (face B), pour une langue. */

@@ -1,5 +1,6 @@
 // Decks (doc/story/decks.md) : chaque carte appartient à un deck de son propriétaire. Il n'y
 // a pas de deck par défaut : un deck se crée toujours explicitement.
+import { languageDeckName } from '../../../format/decks';
 import type { Prisma } from '../../db/generated/prisma/client';
 import type { Db, Tx } from '../db';
 import { ConflictError, NotFoundError } from '../errors';
@@ -68,6 +69,18 @@ export function findDeckByName<T extends Pick<Deck, 'name'>>(
 	return decks.find((deck) => comparisonKey(deck.name) === key);
 }
 
+/**
+ * Nom enregistré d'un deck : sa langue apprise pour un deck de langue (« Finnois »), le nom
+ * saisi pour un sujet. Appliqué à la création comme à chaque modification : le nom d'une
+ * langue suit sa langue apprise, et deux decks de même langue apprise sont refusés comme
+ * deux noms identiques.
+ */
+export function deckName(deck: Pick<Deck, 'kind' | 'languageB'> & { name?: string }): string {
+	return deck.kind === 'language' && deck.languageB
+		? languageDeckName(deck.languageB)
+		: (deck.name ?? '').trim();
+}
+
 /** Deck demandé par son id (page web, `?deck=`) ou par son nom (Claude). */
 export type DeckRequest = { id: string } | { name: string };
 
@@ -128,9 +141,12 @@ export function createDecksService(db: Db) {
 			return findOwnedDeck(db, ownerId, id);
 		},
 
-		/** Crée un deck. Un nom déjà pris (casse et espaces ignorés) donne une `ConflictError`. */
+		/**
+		 * Crée un deck, nommé par `deckName`. Un nom déjà pris (casse et espaces ignorés), donc
+		 * aussi une langue apprise déjà prise, donne une `ConflictError`.
+		 */
 		create(ownerId: string, input: DeckInput): Promise<Deck> {
-			const data = { ...input, name: input.name.trim() };
+			const data = { ...input, name: deckName(input) };
 			return db.$transaction(async (tx) => {
 				await lockOwner(tx, ownerId);
 				await assertNameFree(tx, ownerId, data.name);
@@ -139,8 +155,9 @@ export function createDecksService(db: Db) {
 		},
 
 		/**
-		 * Modifie le nom, les libellés (laissés tels quels s'ils sont absents, ignorés pour une
-		 * langue) et l'option des deux sens ; le type et les langues ne changent pas. Activer
+		 * Modifie le nom et les libellés d'un sujet (laissés tels quels s'ils sont absents) et
+		 * l'option des deux sens ; le type et les langues ne changent pas, et une langue garde
+		 * le nom de sa langue apprise (`deckName`) sans libellés. Activer
 		 * les deux sens crée les révisions `b_to_a` manquantes, dues immédiatement ; le
 		 * désactiver ne supprime rien.
 		 */
@@ -151,8 +168,12 @@ export function createDecksService(db: Db) {
 				// Une langue nomme ses faces d'après ses langues : pas de libellés.
 				const { labelA, labelB, ...rest } = input;
 				const labels = existing.kind === 'subject' ? { labelA, labelB } : {};
-				const data = { ...rest, ...labels, name: input.name.trim() };
-				await assertNameFree(tx, ownerId, data.name, id);
+				const name = deckName({ ...existing, name: input.name ?? existing.name });
+				const data = { ...rest, ...labels, name };
+				// Un nom inchangé (casse et espaces ignorés) est déjà unique.
+				if (comparisonKey(name) !== comparisonKey(existing.name)) {
+					await assertNameFree(tx, ownerId, name, id);
+				}
 				if (data.bothDirections && !existing.bothDirections) {
 					const missing = await tx.card.findMany({
 						where: { deckId: id, reviews: { none: { direction: 'b_to_a' } } },

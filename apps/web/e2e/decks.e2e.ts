@@ -10,14 +10,32 @@ test('creates a deck, then refuses a name already taken', async ({ page }) => {
 	await createSubjectDeck(page, name);
 
 	await open(page, '/decks/new');
-	await page.getByLabel('Nom').fill(name);
 	await page.getByRole('radio', { name: /Sujet/ }).check();
+	await page.getByLabel('Nom').fill(name);
 	await page.getByRole('button', { name: 'Créer le deck' }).click();
 
 	await expect(page.getByText('Tu as déjà un deck de ce nom.')).toBeVisible();
 	await expectRemoteSubmission(page);
 	await expect(page.getByLabel('Nom')).toHaveValue(name);
 	await expect(page.getByRole('radio', { name: /Sujet/ })).toBeChecked();
+});
+
+test('names a language deck after its learned language, once per language', async ({ page }) => {
+	const createFinnish = async () => {
+		await open(page, '/decks/new');
+		await expect(page.getByLabel('Nom')).toBeHidden();
+		await page.getByLabel('Langue apprise').selectOption('fi');
+		await expect(page.getByText('Le deck s’appellera « Finnois ».')).toBeVisible();
+		await page.getByRole('button', { name: 'Créer le deck' }).click();
+	};
+
+	await createFinnish();
+	await expect(page).toHaveURL(/\/cards\?deck=/);
+	await expect(page.getByRole('link', { name: /^Finnois/ }).first()).toBeVisible();
+
+	await createFinnish();
+	await expect(page.getByText('Un deck Finnois existe déjà.')).toBeVisible();
+	await expectRemoteSubmission(page);
 });
 
 test('renames a deck', async ({ page }) => {

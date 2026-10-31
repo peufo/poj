@@ -6,11 +6,11 @@ import { deckUpdateSchema, newDeckSchema } from './decks';
 // champs masqués de l'autre type sont envoyés quand même.
 
 const language = {
-	name: ' Anglais ',
 	kind: 'language',
 	languageA: 'fr',
 	languageB: 'en-GB',
 	// Les champs du sujet, masqués, sont postés quand même : ignorés.
+	name: '',
 	labelA: 'Question',
 	labelB: 'Réponse',
 	bothDirections: true
@@ -48,15 +48,14 @@ describe('deck schemas', () => {
 	});
 
 	it('requires the languages of a language deck', () => {
-		const result = newDeckSchema.safeParse({ kind: 'language', name: 'Anglais', languageA: 'fr' });
+		const result = newDeckSchema.safeParse({ kind: 'language', languageA: 'fr' });
 		expect(result.error?.issues.map((issue) => [issue.path[0], issue.message])).toEqual([
 			['languageB', 'Choisis une langue dans la liste.']
 		]);
 	});
 
-	it('reads a language deck, without labels', () => {
-		expect(newDeckSchema.parse(language)).toEqual({
-			name: 'Anglais',
+	it('reads a language deck, without name (its learned language) nor labels', () => {
+		expect(newDeckSchema.parse({ ...language, name: 'Ignoré' })).toEqual({
 			kind: 'language',
 			languageA: 'fr',
 			languageB: 'en-GB',
@@ -82,9 +81,14 @@ describe('deck schemas', () => {
 		});
 	});
 
-	it('requires a name and two different languages from the list', () => {
-		expect(errorsOf({ ...language, name: '  ', languageB: 'en-US', languageA: 'en-GB' })).toEqual({
-			name: 'Le nom est obligatoire.',
+	it('requires the name of a subject only', () => {
+		expect(errorsOf({ ...subject, name: '  ' })).toEqual({ name: 'Le nom est obligatoire.' });
+		expect(errorsOf({ kind: 'subject' })).toEqual({ name: 'Le nom est obligatoire.' });
+		expect(errorsOf(language)).toEqual({});
+	});
+
+	it('requires two different languages from the list', () => {
+		expect(errorsOf({ ...language, languageB: 'en-US', languageA: 'en-GB' })).toEqual({
 			languageB: 'Choisis une autre langue que la langue connue.'
 		});
 		expect(errorsOf({ ...language, languageB: 'xx' })).toEqual({
@@ -105,6 +109,12 @@ describe('deck schemas', () => {
 			name: 'Capitales',
 			labelA: 'Pays',
 			labelB: 'Capitale',
+			bothDirections: true
+		});
+		// Une langue n'a pas de champ nom : il reste celui de sa langue apprise.
+		expect(deckUpdateSchema.parse({ bothDirections: true })).toEqual({
+			labelA: null,
+			labelB: null,
 			bothDirections: true
 		});
 	});
