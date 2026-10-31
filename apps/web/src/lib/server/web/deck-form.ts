@@ -1,7 +1,16 @@
+import type { RemoteForm } from '$app/server';
+import type * as z from 'zod';
 import { NEW_DECK_VALUES, type DeckFormValues } from '#lib/format/decks.js';
 import type { Deck } from '#lib/server/domain/index.js';
+import type { deckUpdateSchema, newDeckSchema } from './schemas/decks';
 
 // Formulaire de deck (création et modification). La validation est dans `schemas/decks.ts`.
+
+/** Remote form de la création d'un deck (`createDeck`) : il redirige toujours. */
+export type NewDeckForm = RemoteForm<z.input<typeof newDeckSchema>, never>;
+
+/** Remote form de la modification d'un deck (`saveDeck`). */
+export type DeckEditForm = RemoteForm<z.input<typeof deckUpdateSchema>, never>;
 
 /** Message d'un nom de deck déjà pris (`ConflictError` du domaine). */
 export const NAME_TAKEN = 'Tu as déjà un deck de ce nom.';

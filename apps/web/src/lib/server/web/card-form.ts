@@ -1,4 +1,6 @@
 import { invalid } from '@sveltejs/kit';
+import type { RemoteForm } from '$app/server';
+import type * as z from 'zod';
 import {
 	duplicateSide,
 	languagePair,
@@ -8,10 +10,35 @@ import {
 	type Suggestion,
 	type TranslationFailure
 } from '#lib/server/domain/index.js';
+import type { cardFormSchema, newCardFormSchema } from './schemas/cards';
 import { translation } from './services';
 
 // Formulaire de carte (création et modification) : suggestion DeepL et doublons. La
 // validation est dans `schemas/cards.ts`.
+
+/** Carte déjà présente avec la même face, signalée avant d'enregistrer (`findDuplicate`). */
+export type DuplicateView = {
+	id: string;
+	sideA: string;
+	sideB: string;
+	context: string | null;
+	/** Face vérifiée, à renvoyer telle quelle (`confirm`) pour enregistrer quand même. */
+	forValue: string;
+	deckId: string;
+};
+
+/**
+ * Résultat d'un envoi du formulaire de carte qui ne redirige pas : la suggestion DeepL, un
+ * doublon à confirmer, ou (en modification) l'avertissement de réinitialisation.
+ */
+export type CardFormResult =
+	{ suggestion: SuggestionView } | { duplicate: DuplicateView } | { resetWarning: true };
+
+/** Remote form de la création d'une carte (`createCard`), tel que `CardForm` le reçoit. */
+export type NewCardForm = RemoteForm<z.input<typeof newCardFormSchema>, CardFormResult>;
+
+/** Remote form de la modification d'une carte (`updateCard`). */
+export type CardEditForm = RemoteForm<z.input<typeof cardFormSchema>, CardFormResult>;
 
 /** Suggestion telle que la page l'affiche. */
 export type SuggestionView =
@@ -43,7 +70,7 @@ export async function findDuplicate(
 	deck: Deck,
 	input: CardInput & { confirm?: string },
 	{ excludeId, unchanged }: { excludeId?: string; unchanged?: string } = {}
-) {
+): Promise<DuplicateView | null> {
 	const key = input[duplicateSide(deck)];
 	if (key === unchanged || input.confirm === key) return null;
 	const [duplicate] = await cards.findDuplicates(ownerId, deck, input, { excludeId });

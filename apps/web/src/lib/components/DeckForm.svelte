@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="Mode extends 'create' | 'edit'">
 	import { languageName, type DeckFormValues } from '#lib/format/decks.js';
 	import { capitalize } from '#lib/format/labels.js';
 	import { languageOption, languageOptions } from '#lib/format/languages.js';
@@ -7,7 +7,7 @@
 	import TextField from '#lib/ui/TextField.svelte';
 	import FormIssues from './form/FormIssues.svelte';
 	import SubmitButton from './form/SubmitButton.svelte';
-	import type { AnyRemoteForm } from './form/remote-form.js';
+	import type { DeckEditForm, NewDeckForm } from '#lib/server/web/deck-form.js';
 
 	// Formulaire de deck (création et modification), sur le remote form de la page
 	// (`createDeck`, `saveDeck`).
@@ -17,10 +17,13 @@
 	// marche aussi sans JavaScript ; le serveur ignore ceux du type non choisi. En
 	// modification, le type et les langues sont figés.
 
+	/** Remote form de chaque mode : `mode` et `form` vont ensemble. */
+	type Forms = { create: NewDeckForm; edit: DeckEditForm };
+
 	type Props = {
-		/** Remote form du deck (schéma `newDeckSchema` ou `deckUpdateSchema`). */
-		form: AnyRemoteForm;
-		mode: 'create' | 'edit';
+		mode: Mode;
+		/** `createDeck` à la création, `saveDeck` en modification. */
+		form: Forms[Mode];
 		values: DeckFormValues;
 		/** Sans lien d'annulation (premier deck : il n'y a nulle part où revenir). */
 		cancelHref?: string;
@@ -28,6 +31,8 @@
 
 	let { form, mode, values, cancelHref }: Props = $props();
 	const fields = $derived(form.fields);
+	/** Champs propres à la création : le type et les langues (`mode` et `form` vont ensemble). */
+	const creation = $derived(mode === 'create' ? (form as NewDeckForm).fields : null);
 
 	// Les champs partent des valeurs reçues, puis vivent ici.
 	// svelte-ignore state_referenced_locally
@@ -93,7 +98,7 @@
 		placeholder={namePlaceholder}
 	/>
 
-	{#if mode === 'create'}
+	{#if creation}
 		<fieldset class="flex flex-col gap-1.5">
 			<legend class="flex min-h-8 items-center pb-2 text-sm font-medium text-ink">Type</legend>
 			<div class="grid gap-2 sm:grid-cols-2">
@@ -103,7 +108,7 @@
 					>
 						<input
 							type="radio"
-							name={fields.kind.as('radio', option.value).name}
+							name={creation.kind.as('radio', option.value).name}
 							value={option.value}
 							checked={kind === option.value}
 							onchange={() => chooseKind(option.value)}
@@ -121,14 +126,14 @@
 		<div class="language-only grid gap-6 sm:grid-cols-2">
 			<SelectField
 				label="Langue connue"
-				field={fields.languageA}
+				field={creation.languageA}
 				bind:value={languageA}
 				options={languageOptions}
 				placeholder="Choisis une langue"
 			/>
 			<SelectField
 				label="Langue apprise"
-				field={fields.languageB}
+				field={creation.languageB}
 				bind:value={languageB}
 				options={languageOptions}
 				placeholder="Choisis une langue"

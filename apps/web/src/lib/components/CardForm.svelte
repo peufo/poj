@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="Mode extends 'create' | 'edit'">
 	import type { Snippet } from 'svelte';
 	import { exampleFor, faces, type DeckView } from '#lib/format/decks.js';
 	import Button from '#lib/ui/Button.svelte';
@@ -6,7 +6,7 @@
 	import TextField from '#lib/ui/TextField.svelte';
 	import FormIssues from './form/FormIssues.svelte';
 	import SubmitButton from './form/SubmitButton.svelte';
-	import type { AnyRemoteForm } from './form/remote-form.js';
+	import type { CardEditForm, NewCardForm } from '#lib/server/web/card-form.js';
 
 	// Formulaire de carte (création et modification, WEB-2 et WEB-5), sur le remote form de la
 	// page (`createCard`, `updateCard`). Deux boutons d'envoi : « Traduire avec DeepL »
@@ -21,10 +21,18 @@
 		| { status: 'ready'; text: string }
 		| { status: 'error'; message: string };
 
+	/** Remote form de chaque mode : `mode` et `form` vont ensemble. */
+	type Forms = { create: NewCardForm; edit: CardEditForm };
+
+	/** Un envoi en cours, tel que `enhance` le donne, dans l'un ou l'autre mode. */
+	type Submission = {
+		[M in keyof Forms]: Parameters<Parameters<Forms[M]['enhance']>[0]>[0];
+	}[keyof Forms];
+
 	type Props = {
-		/** Remote form de la carte (schéma `newCardFormSchema` ou `cardFormSchema`). */
-		form: AnyRemoteForm;
-		mode: 'create' | 'edit';
+		mode: Mode;
+		/** `createCard` à la création, `updateCard` en modification. */
+		form: Forms[Mode];
 		/** Deck de la carte : nomme les faces ; DeepL seulement pour un deck de langue. */
 		deck: DeckView;
 		/** Deck choisi, à la création : changer de deck écarte la suggestion et le doublon. */
@@ -54,6 +62,9 @@
 
 	const IDLE: Suggestion = { status: 'idle' };
 
+	/** Le remote form de modification (`mode` et `form` vont ensemble, voir `Props`). */
+	const editForm = $derived(mode === 'edit' ? (form as CardEditForm) : null);
+
 	const face = $derived(faces(deck));
 	const translate = $derived(form.fields.intent.as('submit', 'translate'));
 	const save = $derived(form.fields.intent.as('submit', 'save'));
@@ -64,7 +75,7 @@
 
 	// La suggestion DeepL arrive sans recharger les données de la page ; la saisie reste.
 	const enhanced = $derived(
-		form.enhance(async ({ fields, submit }) => {
+		form.enhance(async ({ fields, submit }: Submission) => {
 			if (fields.intent.value() !== 'translate') {
 				await submit();
 				return;
@@ -72,7 +83,11 @@
 			const scope = deckId;
 			asked = { deckId: scope, suggestion: { status: 'loading' } };
 			await submit().updates();
-			asked = { deckId: scope, suggestion: form.result?.suggestion ?? IDLE };
+			const result = form.result;
+			asked = {
+				deckId: scope,
+				suggestion: result && 'suggestion' in result ? result.suggestion : IDLE
+			};
 		})
 	);
 
@@ -82,10 +97,11 @@
 	// L'avertissement vaut pour la face vérifiée et son deck : changer l'une ou l'autre
 	// relance la vérification.
 	const duplicate = $derived.by(() => {
-		const found = form.result?.duplicate;
+		const result = form.result;
+		const found = result && 'duplicate' in result ? result.duplicate : null;
 		if (!found || found.forValue !== duplicateKey) return null;
 		if (deckId !== undefined && found.deckId !== deckId) return null;
-		return found as { id: string; sideA: string; sideB: string; context: string | null };
+		return found;
 	});
 
 	const resets = $derived(
@@ -181,7 +197,7 @@
 	</TextField>
 
 	{#if resets}
-		<input {...form.fields.acknowledge_reset.as('hidden', '1')} />
+		<input {...editForm?.fields.acknowledge_reset.as('hidden', '1')} />
 		<Notice tone="warn" title="La progression repartira de zéro">
 			Tu modifies {face.a.the} ou {face.b.the} :
 			{deck.bothDirections

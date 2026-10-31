@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { form, getRequestEvent } from '$app/server';
-import { findDuplicate, translateCard } from '#lib/server/web/card-form.js';
+import { findDuplicate, translateCard, type CardFormResult } from '#lib/server/web/card-form.js';
 import { ownerOf } from '#lib/server/web/guards.js';
 import { newCardFormSchema } from '#lib/server/web/schemas/cards.js';
 import { cards, decks, orNotFound } from '#lib/server/web/services.js';
@@ -10,7 +10,7 @@ import { cards, decks, orNotFound } from '#lib/server/web/services.js';
  * DeepL, ou enregistrement après l'éventuel avertissement de doublon. Retour au deck si
  * l'on en vient (`?deck=`), sinon à toutes les cartes.
  */
-export const createCard = form(newCardFormSchema, async (input) => {
+export const createCard = form(newCardFormSchema, async (input): Promise<CardFormResult> => {
 	const event = getRequestEvent();
 	const ownerId = ownerOf(event);
 	const deck = await orNotFound(decks.get(ownerId, input.deckId), 'Deck');
