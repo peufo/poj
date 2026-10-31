@@ -22,7 +22,7 @@ Tout est construit pour le seul français → anglais (voir [vision.md](../visio
   - routes et composants web ;
   - seed.
 - **Le contrat OpenAPI n'expose pas les cartes**, il n'y a aucune occurrence. L'app iOS n'est donc pas concernée.
-- `ReviewLog.stateBefore` est un état FSRS sans langue ni sens, il n'y a rien à migrer.
+- L'état FSRS d'avant la réponse, stocké dans les colonnes typées de `review_logs` (mêmes noms que `reviews` : `due`, `stability`, `difficulty`, `scheduled_days`, `learning_steps`, `reps`, `lapses`, `state`, `last_review`), est sans langue ni sens, il n'y a rien à migrer.
 - **Ouvrir le modèle maintenant** est un chantier moyen : environ 36 fichiers, surtout des renommages, plus une migration simple (`ALTER TYPE RENAME VALUE`). Le gain est faible tant qu'aucune autre langue n'arrive : INSTRUCTIONS, DeepL et l'interface restent à généraliser au moment utile.
 - **Attendre :** migrer les données reste simple. C'est le nombre de fichiers à reprendre qui augmente.
 - **Point de non-retour :** exposer les cartes dans le contrat REST, car elles seraient figées dans des clients générés.

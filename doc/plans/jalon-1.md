@@ -78,17 +78,26 @@ model Review {
   @@map("reviews")
 }
 
+/// Les champs FSRS, de `due` à `lastReview`, sont l'état avant la réponse, pour corriger la note.
 model ReviewLog {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  reviewId    String    @map("review_id") @db.Uuid
-  rating      Rating
-  hintUsed    Boolean   @map("hint_used")
-  origin      Origin
-  reviewedAt  DateTime  @map("reviewed_at")
-  stateBefore Json      @map("state_before") // état FSRS avant la réponse, pour corriger la note
-  amendedAt   DateTime? @map("amended_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id            String      @id @default(uuid(7)) @db.Uuid
+  reviewId      String      @map("review_id") @db.Uuid
+  rating        Rating
+  hintUsed      Boolean     @map("hint_used")
+  origin        Origin
+  reviewedAt    DateTime    @map("reviewed_at")
+  due           DateTime
+  stability     Float
+  difficulty    Float
+  scheduledDays Int         @map("scheduled_days")
+  learningSteps Int         @map("learning_steps")
+  reps          Int
+  lapses        Int
+  state         ReviewState
+  lastReview    DateTime?   @map("last_review")
+  amendedAt     DateTime?   @map("amended_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   @@index([reviewId, reviewedAt])
   @@map("review_logs")
@@ -102,7 +111,7 @@ model ReviewLog {
 Règles portées par ces champs :
 - **Plafond *Hard* :** une note est plafonnée si `hintRequestedAt` est postérieur à `lastReview`, ou si la révision n'a encore jamais été notée.
 - **Jeton `version` du jalon 2 :** c'est `lastReview`, et non `updatedAt`. Demander un indice modifie `updatedAt`, ce qui invaliderait le jeton entre `next_review` et `submit_review`.
-- **Correction de la note :** seul le `ReviewLog` le plus récent d'une révision est corrigeable, dans l'heure qui suit, et seulement si `lastReview` correspond encore à son `reviewedAt`. Une réinitialisation survenue entre-temps interdit donc la correction. On recalcule l'état depuis `stateBefore`, avec la nouvelle note et le même `reviewedAt`, puis on renseigne `amendedAt`.
+- **Correction de la note :** seul le `ReviewLog` le plus récent d'une révision est corrigeable, dans l'heure qui suit, et seulement si `lastReview` correspond encore à son `reviewedAt`. Une réinitialisation survenue entre-temps interdit donc la correction. On recalcule l'état depuis l'état d'avant la réponse (champs FSRS du log), avec la nouvelle note et le même `reviewedAt`, puis on renseigne `amendedAt`.
 - **Réinitialisation lors d'une modification :** les deux `Review` reprennent l'état de `createEmptyCard()`, `hintRequestedAt` est vidé, et les logs sont conservés.
 
 ## Étapes
@@ -156,7 +165,7 @@ Tests :
   - Les cartes supprimées sont exclues.
   - Renvoie aussi `remaining`.
 - `requestHint(ownerId, reviewId, now)` : renseigne `hintRequestedAt` et renvoie le contexte.
-- `answer(ownerId, reviewId, { rating, version, origin }, now)` : applique la note via le scheduler et écrit le `ReviewLog` avec `stateBefore`. Si la version est périmée, renvoie la réponse déjà enregistrée sans rien appliquer.
+- `answer(ownerId, reviewId, { rating, version, origin }, now)` : applique la note via le scheduler et écrit le `ReviewLog` avec l'état d'avant la réponse. Si la version est périmée, renvoie la réponse déjà enregistrée sans rien appliquer.
 - `amend(ownerId, reviewId, rating, now)` : corrige la note selon les règles du modèle. Lève une `ConflictError` si la correction n'est plus possible.
 
 Tests :
@@ -165,7 +174,7 @@ Tests :
 - la révision en avance ;
 - l'indice, puis le plafond ;
 - une version périmée n'applique pas la note deux fois ;
-- la correction recalcule l'état depuis `stateBefore` ;
+- la correction recalcule l'état depuis l'état d'avant la réponse ;
 - la correction est refusée après une heure, sur un log qui n'est pas le dernier, ou après une réinitialisation ;
 - les cartes supprimées sont exclues.
 
