@@ -16,7 +16,7 @@ export const updateCard = form(cardFormSchema, async (input): Promise<CardFormRe
 	const id = idOf(event.params.id);
 	const existing = await orNotFound(cards.get(ownerId, id));
 	const { deck } = existing;
-	if (input.intent === 'translate') return translateCard(deck, input);
+	if (input.intent !== 'save') return translateCard(deck, input);
 
 	// L'avertissement de réinitialisation doit avoir été affiché avant d'enregistrer.
 	if (resetsProgress(existing, input) && input.acknowledge_reset !== '1') {

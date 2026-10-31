@@ -14,7 +14,7 @@ export const createCard = form(newCardFormSchema, async (input): Promise<CardFor
 	const event = getRequestEvent();
 	const ownerId = ownerOf(event);
 	const deck = await orNotFound(decks.get(ownerId, input.deckId), 'Deck');
-	if (input.intent === 'translate') return translateCard(deck, input);
+	if (input.intent !== 'save') return translateCard(deck, input);
 
 	const duplicate = await findDuplicate(cards, ownerId, deck, input);
 	if (duplicate) return { duplicate };

@@ -26,14 +26,19 @@ export const cardSchema = z.object({
 /** Création d'une carte, dans le deck choisi. */
 export const newCardSchema = z.object({ ...cardSchema.shape, deckId });
 
+const textToTranslate = 'Écris d’abord le texte à traduire.';
+
 /** Suggestion DeepL de la face A, avant d'enregistrer (modification : deck de la carte). */
 export const cardTranslationSchema = z.object({
-	sideA: side(CARD_LIMITS.sideA, 'Écris d’abord le texte à traduire.'),
+	sideA: side(CARD_LIMITS.sideA, textToTranslate),
 	context
 });
 
-/** Suggestion DeepL à la création, dans le deck choisi. */
-const newCardTranslationSchema = z.object({ ...cardTranslationSchema.shape, deckId });
+/** Suggestion DeepL de la face B, dans la langue de la face A, comme `cardTranslationSchema`. */
+export const cardBackTranslationSchema = z.object({
+	sideB: side(CARD_LIMITS.sideB, textToTranslate),
+	context
+});
 
 /**
  * Enregistrement (bouton `intent=save`). `confirm` : la face déjà présente dans une autre
@@ -41,13 +46,18 @@ const newCardTranslationSchema = z.object({ ...cardTranslationSchema.shape, deck
  */
 const save = { intent: z.literal('save'), confirm: z.string().optional() };
 
-/** Suggestion DeepL (bouton `intent=translate`) : la face B n'est pas encore exigée. */
+/**
+ * Suggestion DeepL de la face A vers B (bouton `intent=translate`) ou de B vers A
+ * (`intent=translate_back`) : seule la face à traduire est exigée.
+ */
 const translate = { intent: z.literal('translate') };
+const translateBack = { intent: z.literal('translate_back') };
 
-/** Formulaire de nouvelle carte : enregistrer, ou demander la suggestion DeepL. */
+/** Formulaire de nouvelle carte : enregistrer, ou demander une suggestion DeepL. */
 export const newCardFormSchema = z.discriminatedUnion('intent', [
 	z.object({ ...newCardSchema.shape, ...save }),
-	z.object({ ...newCardTranslationSchema.shape, ...translate })
+	z.object({ ...cardTranslationSchema.shape, deckId, ...translate }),
+	z.object({ ...cardBackTranslationSchema.shape, deckId, ...translateBack })
 ]);
 
 /**
@@ -56,7 +66,8 @@ export const newCardFormSchema = z.discriminatedUnion('intent', [
  */
 export const cardFormSchema = z.discriminatedUnion('intent', [
 	z.object({ ...cardSchema.shape, ...save, acknowledge_reset: z.string().optional() }),
-	z.object({ ...cardTranslationSchema.shape, ...translate })
+	z.object({ ...cardTranslationSchema.shape, ...translate }),
+	z.object({ ...cardBackTranslationSchema.shape, ...translateBack })
 ]);
 
 const goalMessage = `Entre ${MIN_DAILY_GOAL} et ${MAX_DAILY_GOAL} cartes par jour.`;

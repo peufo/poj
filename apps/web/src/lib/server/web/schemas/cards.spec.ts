@@ -84,6 +84,15 @@ describe('card form intents', () => {
 		});
 	});
 
+	it('asks DeepL for side A with side B only', () => {
+		expect(
+			newCardFormSchema.parse({ intent: 'translate_back', deckId: DECK, sideA: '', sideB: ' cat ' })
+		).toEqual({ intent: 'translate_back', deckId: DECK, sideB: 'cat' });
+		expect(errors(cardFormSchema, { intent: 'translate_back', sideA: 'chat', sideB: ' ' })).toEqual(
+			{ sideB: 'Écris d’abord le texte à traduire.' }
+		);
+	});
+
 	it('keeps the acknowledged progress reset of an edit', () => {
 		expect(
 			cardFormSchema.parse({ intent: 'save', sideA: 'a', sideB: 'b', acknowledge_reset: '1' })

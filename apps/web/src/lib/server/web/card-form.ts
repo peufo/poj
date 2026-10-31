@@ -79,16 +79,21 @@ export async function findDuplicate(
 	return { id, sideA, sideB, context, forValue: key, deckId: deck.id };
 }
 
+/** Demande de suggestion DeepL, telle que les schémas de formulaire la valident. */
+export type TranslationInput = Exclude<z.output<typeof cardFormSchema>, { intent: 'save' }>;
+
 /**
- * Suggestion DeepL de la face A dans la langue de la face B, avec le contexte s'il est
- * renseigné. Un sujet n'a pas de second avis DeepL : erreur sur la face A.
+ * Suggestion DeepL d'une face dans la langue de l'autre (`translate` : de A vers B,
+ * `translate_back` : de B vers A), avec le contexte s'il est renseigné. Un sujet n'a pas de
+ * second avis DeepL : erreur sur la face à traduire.
  */
-export async function translateCard(
-	deck: Deck,
-	{ sideA, context }: { sideA: string; context?: string }
-) {
+export async function translateCard(deck: Deck, input: TranslationInput) {
+	const [direction, side, text] =
+		input.intent === 'translate'
+			? (['a_to_b', 'sideA', input.sideA] as const)
+			: (['b_to_a', 'sideB', input.sideB] as const);
 	const pair = languagePair(deck);
-	if (!pair) invalid({ message: 'Pas de traduction DeepL pour ce deck.', path: ['sideA'] });
-	const suggestion = await translation.suggest(pair, sideA, context);
+	if (!pair) invalid({ message: 'Pas de traduction DeepL pour ce deck.', path: [side] });
+	const suggestion = await translation.suggest(pair, direction, text, input.context);
 	return { suggestion: suggestionView(suggestion) };
 }

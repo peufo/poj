@@ -1,4 +1,4 @@
-import type { CardInput } from '../cards/types';
+import type { CardInput, Direction } from '../cards/types';
 import type { LanguagePair } from '../decks/decks.service';
 import {
 	TranslatorError,
@@ -18,6 +18,17 @@ export interface CardCheck {
 	bToA: Suggestion;
 }
 
+/** Demande de traduction d'un texte dans un sens de la paire (`a_to_b` : de A vers B). */
+function requestFor(
+	{ languageA, languageB }: LanguagePair,
+	direction: Direction,
+	text: string,
+	context?: string | null
+): TranslateRequest {
+	const [from, to] = direction === 'a_to_b' ? [languageA, languageB] : [languageB, languageA];
+	return { text: text.trim(), from, to, context: context?.trim() };
+}
+
 /** `translator` vaut `null` quand aucune clé DeepL n'est configurée. */
 export function createTranslationService(translator: Translator | null) {
 	async function suggest(request: TranslateRequest): Promise<Suggestion> {
@@ -32,28 +43,23 @@ export function createTranslationService(translator: Translator | null) {
 	}
 
 	return {
-		/** Traduction de la face A vers la langue de la face B, en tenant compte du contexte. */
+		/**
+		 * Traduction d'une face vers la langue de l'autre, en tenant compte du contexte :
+		 * `a_to_b` traduit la face A, `b_to_a` la face B.
+		 */
 		suggest(
-			{ languageA, languageB }: LanguagePair,
-			sideA: string,
+			pair: LanguagePair,
+			direction: Direction,
+			text: string,
 			context?: string | null
 		): Promise<Suggestion> {
-			return suggest({
-				text: sideA.trim(),
-				from: languageA,
-				to: languageB,
-				context: context?.trim()
-			});
+			return suggest(requestFor(pair, direction, text, context));
 		},
 
-		async check(
-			{ languageA, languageB }: LanguagePair,
-			{ sideA, sideB, context }: CardInput
-		): Promise<CardCheck> {
-			const ctx = context?.trim();
+		async check(pair: LanguagePair, { sideA, sideB, context }: CardInput): Promise<CardCheck> {
 			const [aToB, bToA] = await Promise.all([
-				suggest({ text: sideA.trim(), from: languageA, to: languageB, context: ctx }),
-				suggest({ text: sideB.trim(), from: languageB, to: languageA, context: ctx })
+				suggest(requestFor(pair, 'a_to_b', sideA, context)),
+				suggest(requestFor(pair, 'b_to_a', sideB, context))
 			]);
 			return { aToB, bToA };
 		}

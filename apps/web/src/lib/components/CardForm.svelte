@@ -1,6 +1,6 @@
 <script lang="ts" generics="Mode extends 'create' | 'edit'">
 	import type { Snippet } from 'svelte';
-	import { exampleFor, faces, type DeckView } from '#lib/format/decks.js';
+	import { exampleFor, faces, type DeckView, type Face } from '#lib/format/decks.js';
 	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
@@ -9,14 +9,21 @@
 	import type { CardEditForm, NewCardForm, SuggestionView } from '#lib/server/web/card-form.js';
 
 	// Formulaire de carte (création et modification, WEB-2 et WEB-5), sur le remote form de la
-	// page (`createCard`, `updateCard`). Deux boutons d'envoi : « Traduire avec DeepL »
-	// (`intent=translate`), dont la suggestion arrive sans recharger la page, et
-	// l'enregistrement (`intent=save`). Le serveur peut d'abord renvoyer un doublon, à
+	// page (`createCard`, `updateCard`). Boutons d'envoi : « Traduire avec DeepL » sur chaque
+	// face d'un deck de langue, qui traduit l'autre face (`intent=translate` remplit la face B,
+	// `intent=translate_back` la face A) et dont la suggestion arrive sans recharger la page,
+	// et l'enregistrement (`intent=save`). Le serveur peut d'abord renvoyer un doublon, à
 	// confirmer (`confirm` : la face confirmée telle quelle), ou demander l'accord sur la
 	// réinitialisation (`acknowledge_reset`, envoyé dès que l'avertissement est affiché).
 
 	/** Suggestion affichée : celle du serveur, ou l'attente avant ou pendant la demande. */
 	type Suggestion = { status: 'idle' } | { status: 'loading' } | SuggestionView;
+
+	/** Face que la suggestion DeepL remplit. */
+	type Target = 'sideA' | 'sideB';
+
+	/** Bouton « Traduire avec DeepL » de chaque face : il traduit l'autre face. */
+	const INTENT = { sideA: 'translate_back', sideB: 'translate' } as const;
 
 	/** Remote form de chaque mode : `mode` et `form` vont ensemble. */
 	type Forms = { create: NewCardForm; edit: CardEditForm };
@@ -63,26 +70,37 @@
 	const editForm = $derived(mode === 'edit' ? (form as CardEditForm) : null);
 
 	const face = $derived(faces(deck));
-	const translate = $derived(form.fields.intent.as('submit', 'translate'));
+	const translate = $derived({
+		sideA: form.fields.intent.as('submit', INTENT.sideA),
+		sideB: form.fields.intent.as('submit', INTENT.sideB)
+	});
 	const save = $derived(form.fields.intent.as('submit', 'save'));
 
-	/** Suggestion demandée, et le deck pour lequel elle l'a été. */
-	let asked: { deckId?: string; suggestion: Suggestion } = $state({ suggestion: IDLE });
+	/** Suggestion demandée, la face qu'elle remplit, et le deck pour lequel elle l'a été. */
+	let asked: { deckId?: string; target: Target; suggestion: Suggestion } = $state({
+		target: 'sideB',
+		suggestion: IDLE
+	});
 	const suggestion = $derived(asked.deckId === deckId ? asked.suggestion : IDLE);
+	/** Suggestion affichée sous la face `target`. */
+	const suggestionOf = (target: Target) => (asked.target === target ? suggestion : IDLE);
 
 	// La suggestion DeepL arrive sans recharger les données de la page ; la saisie reste.
 	const enhanced = $derived(
 		form.enhance(async ({ fields, submit }: Submission) => {
-			if (fields.intent.value() !== 'translate') {
+			const intent = fields.intent.value();
+			if (intent !== INTENT.sideA && intent !== INTENT.sideB) {
 				await submit();
 				return;
 			}
 			const scope = deckId;
-			asked = { deckId: scope, suggestion: { status: 'loading' } };
+			const target = intent === INTENT.sideA ? 'sideA' : 'sideB';
+			asked = { deckId: scope, target, suggestion: { status: 'loading' } };
 			await submit().updates();
 			const result = form.result;
 			asked = {
 				deckId: scope,
+				target,
 				suggestion: result && 'suggestion' in result ? result.suggestion : IDLE
 			};
 		})
@@ -106,8 +124,70 @@
 			!!original &&
 			(sideA.trim() !== original.sideA || sideB.trim() !== original.sideB)
 	);
-	const taken = $derived(suggestion.status === 'ready' && sideB.trim() === suggestion.text);
+	const taken = $derived(
+		suggestion.status === 'ready' &&
+			(asked.target === 'sideA' ? sideA : sideB).trim() === suggestion.text
+	);
+
+	function take(text: string) {
+		if (asked.target === 'sideA') sideA = text;
+		else sideB = text;
+	}
 </script>
+
+<!-- « Traduire avec DeepL » sur la face `target` (`to`), depuis le texte `source` de l'autre
+face. Pas de second avis DeepL pour un sujet. -->
+{#snippet deepl(target: Target, to: Face, source: string)}
+	{#if deck.kind === 'language'}<Button
+			size="sm"
+			variant="ghost"
+			icon="translate"
+			class="-mr-2 text-accent-text! hover:bg-accent-soft!"
+			type="submit"
+			name={translate[target].name}
+			value={translate[target].value}
+			aria-label="Traduire avec DeepL vers {to.the}"
+			formnovalidate
+			disabled={!source.trim()}
+			loading={suggestionOf(target).status === 'loading'}
+		>
+			Traduire avec DeepL
+		</Button>{/if}
+{/snippet}
+
+<!-- Suggestion DeepL sous la face qu'elle remplit. -->
+{#snippet suggestionFor(target: Target, to: Face)}
+	{@const shown = suggestionOf(target)}
+	{#if shown.status === 'loading'}
+		<div
+			class="flex h-14 items-center gap-3 rounded-lg bg-surface px-3"
+			aria-label="Traduction en cours"
+		>
+			<span class="h-3 w-12 animate-pulse rounded-full bg-line-strong"></span>
+			<span class="h-3 w-32 animate-pulse rounded-full bg-line-strong"></span>
+		</div>
+	{:else if shown.status === 'ready'}
+		{@const text = shown.text}
+		<div class="flex min-h-14 items-center gap-3 rounded-lg bg-surface py-2 pr-2 pl-3">
+			<div class="min-w-0 flex-1">
+				<p class="text-xs text-ink-3">
+					Suggestion DeepL{context.trim() ? ', avec le contexte' : ''}
+				</p>
+				<p class="text-ink" lang={to.lang}>{text}</p>
+			</div>
+			<Button
+				size="sm"
+				icon={taken ? 'check' : undefined}
+				disabled={taken}
+				onclick={() => take(text)}
+			>
+				{taken ? 'Reprise' : 'Reprendre'}
+			</Button>
+		</div>
+	{:else if shown.status === 'error'}
+		<p class="flex items-start gap-1.5 text-sm text-warn">{shown.message}</p>
+	{/if}
+{/snippet}
 
 <form {...enhanced} class="flex flex-col gap-6">
 	{@render header?.()}
@@ -121,7 +201,10 @@
 		required
 		lang={face.a.lang ?? undefined}
 		placeholder={exampleFor(face.a)}
-	/>
+	>
+		{#snippet action()}{@render deepl('sideA', face.a, sideB)}{/snippet}
+		{#snippet below()}{@render suggestionFor('sideA', face.a)}{/snippet}
+	</TextField>
 
 	<TextField
 		label="Contexte d'origine"
@@ -144,53 +227,8 @@
 		lang={face.b.lang ?? undefined}
 		placeholder={exampleFor(face.b)}
 	>
-		{#snippet action()}
-			<!-- Pas de second avis DeepL pour un sujet. -->
-			{#if deck.kind === 'language'}<Button
-					size="sm"
-					variant="ghost"
-					icon="translate"
-					class="-mr-2 text-accent-text! hover:bg-accent-soft!"
-					type="submit"
-					name={translate.name}
-					value={translate.value}
-					formnovalidate
-					disabled={!sideA.trim()}
-					loading={suggestion.status === 'loading'}
-				>
-					Traduire avec DeepL
-				</Button>{/if}
-		{/snippet}
-		{#snippet below()}
-			{#if suggestion.status === 'loading'}
-				<div
-					class="flex h-14 items-center gap-3 rounded-lg bg-surface px-3"
-					aria-label="Traduction en cours"
-				>
-					<span class="h-3 w-12 animate-pulse rounded-full bg-line-strong"></span>
-					<span class="h-3 w-32 animate-pulse rounded-full bg-line-strong"></span>
-				</div>
-			{:else if suggestion.status === 'ready'}
-				<div class="flex min-h-14 items-center gap-3 rounded-lg bg-surface py-2 pr-2 pl-3">
-					<div class="min-w-0 flex-1">
-						<p class="text-xs text-ink-3">
-							Suggestion DeepL{context.trim() ? ', avec le contexte' : ''}
-						</p>
-						<p class="text-ink" lang={face.b.lang}>{suggestion.text}</p>
-					</div>
-					<Button
-						size="sm"
-						icon={taken ? 'check' : undefined}
-						disabled={taken}
-						onclick={() => (sideB = suggestion.status === 'ready' ? suggestion.text : sideB)}
-					>
-						{taken ? 'Reprise' : 'Reprendre'}
-					</Button>
-				</div>
-			{:else if suggestion.status === 'error'}
-				<p class="flex items-start gap-1.5 text-sm text-warn">{suggestion.message}</p>
-			{/if}
-		{/snippet}
+		{#snippet action()}{@render deepl('sideB', face.b, sideA)}{/snippet}
+		{#snippet below()}{@render suggestionFor('sideB', face.b)}{/snippet}
 	</TextField>
 
 	{#if resets}

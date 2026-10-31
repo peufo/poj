@@ -23,12 +23,25 @@ describe('translation service', () => {
 		const translator = fakeTranslator(() => 'to take for granted');
 		const service = createTranslationService(translator);
 
-		expect(await service.suggest(pair, ' tenir pour acquis ', ' réunion ')).toEqual({
+		expect(await service.suggest(pair, 'a_to_b', ' tenir pour acquis ', ' réunion ')).toEqual({
 			ok: true,
 			text: 'to take for granted'
 		});
 		expect(translator.calls).toEqual([
 			{ text: 'tenir pour acquis', from: 'fr', to: 'en-GB', context: 'réunion' }
+		]);
+	});
+
+	it('suggests a translation of side B into the language of side A, with the context', async () => {
+		const translator = fakeTranslator(() => 'tenir pour acquis');
+		const service = createTranslationService(translator);
+
+		expect(await service.suggest(pair, 'b_to_a', ' to take for granted ', ' réunion ')).toEqual({
+			ok: true,
+			text: 'tenir pour acquis'
+		});
+		expect(translator.calls).toEqual([
+			{ text: 'to take for granted', from: 'en-GB', to: 'fr', context: 'réunion' }
 		]);
 	});
 
@@ -51,7 +64,7 @@ describe('translation service', () => {
 	});
 
 	it('reports a missing configuration', async () => {
-		expect(await createTranslationService(null).suggest(pair, 'bonjour')).toEqual({
+		expect(await createTranslationService(null).suggest(pair, 'a_to_b', 'bonjour')).toEqual({
 			ok: false,
 			reason: 'not_configured'
 		});
@@ -69,7 +82,10 @@ describe('translation service', () => {
 			})
 		);
 
-		expect(await quota.suggest(pair, 'bonjour')).toEqual({ ok: false, reason: 'quota' });
-		expect(await crash.suggest(pair, 'bonjour')).toEqual({ ok: false, reason: 'unavailable' });
+		expect(await quota.suggest(pair, 'a_to_b', 'bonjour')).toEqual({ ok: false, reason: 'quota' });
+		expect(await crash.suggest(pair, 'a_to_b', 'bonjour')).toEqual({
+			ok: false,
+			reason: 'unavailable'
+		});
 	});
 });

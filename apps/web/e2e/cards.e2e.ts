@@ -36,10 +36,15 @@ test('warns about a duplicate, then saves it once confirmed', async ({ page }) =
 test('offers DeepL once there is a text to translate', async ({ page }) => {
 	// Le deck de langue de la seed (sans appeler DeepL).
 	await open(page, `/cards/new?deck=${await languageDeckId(page)}`);
-	const deepl = page.getByRole('button', { name: 'Traduire avec DeepL' });
-	await expect(deepl).toBeDisabled();
-	await page.getByRole('textbox').first().fill('le chat');
-	await expect(deepl).toBeEnabled();
+	const toEnglish = page.getByRole('button', { name: 'Traduire avec DeepL vers l’anglais' });
+	const toFrench = page.getByRole('button', { name: 'Traduire avec DeepL vers le français' });
+	await expect(toEnglish).toBeDisabled();
+	await expect(toFrench).toBeDisabled();
+	await page.getByLabel('Anglais', { exact: true }).fill('the cat');
+	await expect(toFrench).toBeEnabled();
+	await expect(toEnglish).toBeDisabled();
+	await page.getByLabel('Français', { exact: true }).fill('le chat');
+	await expect(toEnglish).toBeEnabled();
 });
 
 test('edits a card after the reset warning', async ({ page }) => {
