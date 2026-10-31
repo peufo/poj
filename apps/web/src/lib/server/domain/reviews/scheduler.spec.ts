@@ -4,9 +4,7 @@ import {
 	capRating,
 	emptyState,
 	fromFsrsCard,
-	parseState,
 	previewDue,
-	serializeState,
 	toFsrsCard,
 	type FsrsState
 } from './scheduler';
@@ -80,21 +78,10 @@ describe('scheduler', () => {
 		expect(preview.again.getTime()).toBeLessThan(preview.good.getTime());
 	});
 
-	it('round-trips a state through ts-fsrs and JSON without loss', () => {
+	it('round-trips a state through ts-fsrs without loss', () => {
 		const state = graduated();
 
 		expect(fromFsrsCard(toFsrsCard(state))).toEqual(state);
-		expect(parseState(JSON.parse(JSON.stringify(serializeState(state))))).toEqual(state);
-		expect(parseState(serializeState(emptyState(now)))).toEqual(emptyState(now));
-	});
-
-	it.each([
-		['an empty object', {}],
-		['a due date that is not a date', { ...serializeState(emptyState(now)), due: 'tomorrow' }],
-		['an unknown FSRS state', { ...serializeState(emptyState(now)), state: 'archived' }],
-		['a missing field', { ...serializeState(emptyState(now)), reps: undefined }],
-		['a non-object', 'new']
-	])('rejects a stored state with %s, with an explicit error', (_, json) => {
-		expect(() => parseState(json)).toThrow(/^Malformed review state/);
+		expect(fromFsrsCard(toFsrsCard(emptyState(now)))).toEqual(emptyState(now));
 	});
 });

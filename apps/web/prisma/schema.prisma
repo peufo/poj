@@ -241,20 +241,30 @@ model Review {
   @@map("reviews")
 }
 
-/// Historique des réponses. `stateBefore` (état FSRS avant la réponse) permet de
-/// corriger la dernière note.
+/// Historique des réponses. Les champs FSRS, de `due` à `lastReview`, sont l'état de la
+/// révision *avant* la réponse (comme le `ReviewLog` de ts-fsrs) : ils permettent de corriger
+/// la dernière note. Pour une première réponse, c'est l'état neuf (`lastReview` nul).
 model ReviewLog {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  reviewId    String    @map("review_id") @db.Uuid
-  review      Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  rating      Rating
-  hintUsed    Boolean   @map("hint_used")
-  origin      Origin
-  reviewedAt  DateTime  @map("reviewed_at")
-  stateBefore Json      @map("state_before")
-  amendedAt   DateTime? @map("amended_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id            String      @id @default(uuid(7)) @db.Uuid
+  reviewId      String      @map("review_id") @db.Uuid
+  review        Review      @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  rating        Rating
+  hintUsed      Boolean     @map("hint_used")
+  origin        Origin
+  reviewedAt    DateTime    @map("reviewed_at")
+  /// Échéance avant la réponse, pas celle qu'elle a fixée.
+  due           DateTime
+  stability     Float
+  difficulty    Float
+  scheduledDays Int         @map("scheduled_days")
+  learningSteps Int         @map("learning_steps")
+  reps          Int
+  lapses        Int
+  state         ReviewState
+  lastReview    DateTime?   @map("last_review")
+  amendedAt     DateTime?   @map("amended_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   @@index([reviewId, reviewedAt])
   @@map("review_logs")

@@ -5,6 +5,7 @@ import { createCardsService } from '../cards/cards.service';
 import { createDecksService } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 import { createReviewsService } from './reviews.service';
+import { applyRating, pickState } from './scheduler';
 import type { NextReview, NextResult } from './types';
 
 const db = useTestDatabase();
@@ -142,6 +143,7 @@ describe('reviews service', () => {
 	it('records the answer in the history with the state before it', async () => {
 		await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
+		const before = await db.review.findUniqueOrThrow({ where: { id: review.id } });
 
 		const result = await reviews.answer(
 			alice,
@@ -159,7 +161,7 @@ describe('reviews service', () => {
 			hintUsed: false,
 			reviewedAt: t0
 		});
-		expect(log.stateBefore).toMatchObject({ state: 'new', reps: 0, lastReview: null });
+		expect(pickState(log)).toEqual(pickState(before));
 	});
 
 	it('caps the rating at hard after a hint, until the next answer', async () => {
@@ -233,7 +235,7 @@ describe('reviews service', () => {
 		expect(logs[0]).toMatchObject({ rating: 'again', amendedAt: at(5) });
 	});
 
-	it('fails explicitly on a malformed stored state, without amending', async () => {
+	it('amends a later answer from the state left by the previous one', async () => {
 		await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
 		await reviews.answer(
@@ -242,17 +244,30 @@ describe('reviews service', () => {
 			{ rating: 'good', version: review.version, origin: 'web' },
 			t0
 		);
-		await db.reviewLog.updateMany({
-			where: { reviewId: review.id },
-			data: { stateBefore: { due: 'tomorrow' } }
-		});
-		const before = await db.review.findUniqueOrThrow({ where: { id: review.id } });
-
-		await expect(reviews.lastAnswer(alice, at(5))).rejects.toThrow(/^Malformed review state/);
-		await expect(reviews.amend(alice, review.id, 'again', at(5))).rejects.toThrow(
-			/^Malformed review state/
+		const afterFirst = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+		await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'good', version: afterFirst.lastReview!.toISOString(), origin: 'web' },
+			at(20)
 		);
-		expect(await db.review.findUniqueOrThrow({ where: { id: review.id } })).toEqual(before);
+
+		await reviews.amend(alice, review.id, 'again', at(25));
+
+		const stored = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+		expect(pickState(stored)).toEqual(
+			applyRating(afterFirst, 'again', at(20), { hintUsed: false }).state
+		);
+		expect(stored).toMatchObject({ reps: 2, lastReview: at(20) });
+		const logs = await db.reviewLog.findMany({
+			where: { reviewId: review.id },
+			orderBy: { reviewedAt: 'asc' }
+		});
+		expect(logs.map((log) => [log.rating, log.amendedAt])).toEqual([
+			['good', null],
+			['again', at(25)]
+		]);
+		expect(pickState(logs[1])).toEqual(pickState(afterFirst));
 	});
 
 	it('leaves everything untouched when the amended rating is the one already recorded', async () => {

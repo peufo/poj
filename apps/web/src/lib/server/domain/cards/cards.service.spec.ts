@@ -3,7 +3,7 @@ import { useTestDatabase } from '../../testing/db';
 import { createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
 import { createDecksService } from '../decks/decks.service';
 import { NotFoundError } from '../errors';
-import { applyRating } from '../reviews/scheduler';
+import { applyRating, pickState } from '../reviews/scheduler';
 import { createCardsService, resetsProgress } from './cards.service';
 
 const db = useTestDatabase();
@@ -37,7 +37,7 @@ async function answerBoth(cardId: string) {
 				hintUsed: false,
 				origin: 'web',
 				reviewedAt: now,
-				stateBefore: {}
+				...pickState(review)
 			}
 		});
 	}

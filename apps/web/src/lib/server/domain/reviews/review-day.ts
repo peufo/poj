@@ -5,7 +5,6 @@ import type { Db } from '../db';
 import type { Direction } from '../cards/types';
 import { startOfDay } from '../time';
 import { opposite, SIBLING_BURY_MS } from './availability';
-import { parseState } from './scheduler';
 import type { ReviewDay } from './types';
 
 /** Révisions dans la journée au-delà desquelles le jour est réussi, retard ou pas. */
@@ -139,7 +138,7 @@ export async function loadReviewTracks(
 			card: { select: { deletedAt: true, deck: { select: { bothDirections: true } } } },
 			logs: {
 				where: since && { reviewedAt: { gte: since } },
-				select: { reviewedAt: true, stateBefore: true },
+				select: { reviewedAt: true, due: true },
 				orderBy: { reviewedAt: 'asc' }
 			}
 		}
@@ -150,9 +149,6 @@ export async function loadReviewTracks(
 		reviewed: row.direction === 'a_to_b' || row.card.deck.bothDirections,
 		deletedAt: row.card.deletedAt,
 		due: row.due,
-		logs: row.logs.map((log) => ({
-			at: log.reviewedAt,
-			dueBefore: parseState(log.stateBefore).due
-		}))
+		logs: row.logs.map((log) => ({ at: log.reviewedAt, dueBefore: log.due }))
 	}));
 }

@@ -2,7 +2,7 @@ import type { Db } from '../db';
 import { reviewedDirections } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 import type { Card, Direction, Origin, Rating, Review, ReviewLog } from '../cards/types';
-import { applyRating, parseState, previewDue, serializeState } from './scheduler';
+import { applyRating, pickState, previewDue } from './scheduler';
 import { opposite, SIBLING_BURY_MS } from './availability';
 import type { AmendResult, AnswerResult, LastAnswer, NextResult } from './types';
 
@@ -192,7 +192,6 @@ export function createReviewsService(db: Db) {
 			if (!log || amendBlocker(log, log.review, now)) return null;
 
 			const { review } = log;
-			const before = parseState(log.stateBefore);
 			return {
 				reviewId: review.id,
 				cardId: review.cardId,
@@ -203,7 +202,7 @@ export function createReviewsService(db: Db) {
 				hintUsed: log.hintUsed,
 				reviewedAt: log.reviewedAt,
 				due: review.due,
-				preview: previewDue(before, log.reviewedAt)
+				preview: previewDue(log, log.reviewedAt)
 			};
 		},
 
@@ -266,7 +265,7 @@ export function createReviewsService(db: Db) {
 						hintUsed,
 						origin,
 						reviewedAt: now,
-						stateBefore: serializeState(review)
+						...pickState(review)
 					}
 				});
 				return true;
@@ -303,8 +302,7 @@ export function createReviewsService(db: Db) {
 			const blocker = amendBlocker(last, review, now);
 			if (blocker) throw new ConflictError(`Answer on review ${reviewId} ${blocker}`);
 
-			const before = parseState(last.stateBefore);
-			const next = applyRating(before, rating, last.reviewedAt, { hintUsed: last.hintUsed });
+			const next = applyRating(last, rating, last.reviewedAt, { hintUsed: last.hintUsed });
 
 			// Même note retenue (ex. Hard demandé après un indice, déjà Hard) : rien ne change.
 			if (next.rating === last.rating) {
