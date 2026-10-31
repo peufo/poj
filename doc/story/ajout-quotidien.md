@@ -1,6 +1,6 @@
 # Story : ajouter des cartes chaque jour
 
-Statut : validée le 2026-10-29. Tickets : T-0001, T-0002.
+Statut : validée le 2026-10-29. Tickets : t1, t2.
 
 ## Le problème
 
@@ -50,7 +50,7 @@ Les cartes que je propose moi-même sont les meilleures, parce qu'elles sont rat
 
 ## Suite (2026-10-29) : calendrier des révisions et leviers de motivation
 
-Le développeur veut aussi un calendrier d'accomplissement pour les révisions, et compte sur les leviers connus de la dopamine, puisqu'ils servent ici quelque chose d'utile. Ticket : T-0006.
+Le développeur veut aussi un calendrier d'accomplissement pour les révisions, et compte sur les leviers connus de la dopamine, puisqu'ils servent ici quelque chose d'utile. Ticket : t6.
 
 ### Décisions
 
@@ -67,3 +67,7 @@ Le développeur veut aussi un calendrier d'accomplissement pour les révisions, 
 
   On amende `DESIGN.md` en conséquence.
   - *Rejeté :* les badges et les trophées à collectionner, parce qu'ils récompensent l'accumulation plutôt que l'habitude.
+- **2026-10-30 : un seul calendrier, une seule journée Poj.** L'objectif du jour réunit l'ajout et la révision. Une case est pleine quand les deux sont atteints, claire quand un seul l'est, vide sinon. Il n'y a qu'une série (jours pleins, un jour manqué toléré), qu'un record et qu'une célébration.
+  - *Raison :* le calendrier se lit d'un coup d'œil, et une série unique motive plus que deux.
+  - *Écart :* c'est plus exigeant qu'avant, puisqu'un jour de révision sans ajout ne compte plus pour la série.
+  - *Rejeté :* deux calendriers côte à côte, et une case partagée en deux moitiés (difficile à lire).

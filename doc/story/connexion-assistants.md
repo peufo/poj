@@ -1,6 +1,6 @@
 # Story : connecter son assistant
 
-Statut : validée le 2026-10-29. Tickets : T-0007, T-0008 (qui absorbe T-0002), T-0009.
+Statut : validée le 2026-10-29. Tickets : t7, t8 (qui absorbe t2), t9.
 
 ## Le problème
 
@@ -51,3 +51,9 @@ Les deux doivent fonctionner aussi bien chez Anthropic que chez OpenAI.
   - *Rejeté :* le mot de passe provisoire, et l'envoi d'e-mails (magic link, réinitialisation).
 - **2026-10-29 : le comportement de Claude vit côté serveur.** Consignes du connecteur, descriptions d'outils et prompts MCP (« Réviser », « Ajouter une carte ») : il s'applique à tous les testeurs sans réglage de leur part. Un test court sur mon compte vérifie d'abord ce que Claude.ai fait des consignes du serveur.
   - *Rejeté :* un projet Claude ou des instructions personnalisées, à configurer par chaque utilisateur.
+- **2026-10-29 : on garde les outils MCP actuels, et `submit_review` renvoie directement la révision suivante.** Claude.ai proposait une refonte en six outils (`add_cards`, `correct_card`, `start_review`, `answer_card`, `end_review`, `get_progress`) pour réduire la latence en vocal. On n'en garde que l'idée d'`answer_card` : un seul appel par carte au lieu de deux.
+  - *Raison :* la refonte perdait des garanties du serveur. Il n'y avait plus de vérification DeepL ni de doublons avant confirmation (`check_card`), plus de plafond à _Hard_ appliqué par le serveur après un indice (`get_hint`), et plus de contestation d'une note (`amend_review`). Elle ajoutait aussi un état de session, contraire au principe « sans état » de `doc/specs/mcp.md`.
+  - *Rejeté :*
+    - **l'ajout groupé :** ce n'est pas un usage réel ;
+    - **corriger ou supprimer une carte à l'oral :** trop compliqué, on reste sur le web ;
+    - **`start_review`, `end_review`, `get_progress` :** Claude fait le bilan à partir de la conversation, et n'annonce pas l'objectif du jour.

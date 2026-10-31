@@ -1,6 +1,6 @@
 # Story : plusieurs decks
 
-Statut : validée le 2026-10-29. Tickets : T-0003, T-0004, T-0005.
+Statut : validée le 2026-10-29. Tickets : t3, t4, t5.
 
 ## Le problème
 
@@ -41,10 +41,10 @@ Tout est construit pour le seul français → anglais (voir [vision.md](../visio
 - **2026-10-29 : un deck, c'est une autre langue ou un autre sujet, pas un thème.**
 - **2026-10-29 : pas d'import de gros deck tout fait.**
   - *Raison :* ce serait décourageant et peu personnel. Les cartes naissent de situations réelles.
-- **2026-10-29 : le modèle est ouvert maintenant (T-0003).** L'entité Deck porte un type et une paire de langues. Les champs et les sens deviennent génériques, et la paire n'est plus écrite en dur (DeepL, consignes MCP). Il n'y a qu'un seul deck « Français → Anglais », et le comportement ne change pas.
+- **2026-10-29 : le modèle est ouvert maintenant (t3).** L'entité Deck porte un type et une paire de langues. Les champs et les sens deviennent génériques, et la paire n'est plus écrite en dur (DeepL, consignes MCP). Il n'y a qu'un seul deck « Français → Anglais », et le comportement ne change pas.
   - *Raison :* le développeur ne veut pas de choses écrites en dur.
   - *Rejeté :* attendre le premier vrai deuxième deck ou l'exposition des cartes dans le contrat REST, comme le recommandait l'enquête.
-  - *Hors T-0003 :* l'interface multi-decks (T-0004).
+  - *Hors t3 :* l'interface multi-decks (t4).
 - **2026-10-29 : la révision se lance de deux façons.** L'entrée « Réviser » globale mélange tous les decks, et chaque deck a son propre bouton « Réviser ». Le suivi (objectif, série) reste global.
   - *Raison :* au volant, « on révise » ne demande aucun choix.
 - **2026-10-29 : les decks se créent depuis le web, y compris pour des sujets qui ne sont pas des langues.**
@@ -52,4 +52,4 @@ Tout est construit pour le seul français → anglais (voir [vision.md](../visio
 - **2026-10-29 : sans DeepL, seule la relecture fiabilise un deck de sujet.** La relecture par Claude, suivie de ma confirmation, reste obligatoire, sans autre source.
 - **2026-10-29 : les deux sens deviennent une option par deck.** Elle est activée par défaut pour une langue, au choix pour un sujet.
 - **2026-10-29 : à la capture, Claude choisit le deck.** Il le déduit, ou me le demande s'il hésite. Un outil MCP lui permet de lister les decks.
-- **2026-10-29 : modèle, interface et MCP sont découpés.** T-0003 couvre le modèle, T-0004 l'interface web, T-0005 le choix du deck par Claude.
+- **2026-10-29 : modèle, interface et MCP sont découpés.** t3 couvre le modèle, t4 l'interface web, t5 le choix du deck par Claude.

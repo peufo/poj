@@ -8,6 +8,7 @@ views:
       property: status
       direction: ASC
     groupOrder:
+      - idea
       - ready
       - in-progress
       - in-review
