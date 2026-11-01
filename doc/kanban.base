@@ -9,6 +9,7 @@ views:
       direction: ASC
     groupOrder:
       - idea
+      - plan-review
       - ready
       - in-progress
       - in-review
