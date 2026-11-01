@@ -1,8 +1,13 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import type { ActionData, PageData } from './$types';
+	import FormIssues from '#lib/components/form/FormIssues.svelte';
+	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
+	import { consent } from './consent.remote';
+	import type { PageProps } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: PageProps = $props();
+
+	/** Bouton choisi, pour n'afficher le chargement que sur lui. */
+	let choice = $state<'true' | 'false'>();
 </script>
 
 <main class="mx-auto mt-16 max-w-sm px-4">
@@ -16,17 +21,29 @@
 	<p class="text-gray-600 mb-6 text-sm">
 		Vous serez ensuite redirigé vers <strong>{data.redirectHost}</strong>.
 	</p>
-	<form method="post" use:enhance class="flex flex-col gap-4">
-		<input type="hidden" name="oauth_query" value={data.query} />
-		<button
-			name="accept"
-			value="true"
-			class="bg-blue-600 text-white hover:bg-blue-700 w-full rounded-md px-4 py-2 transition"
-			>Autoriser</button
+	<form {...consent} class="flex flex-col gap-4">
+		<input {...consent.fields.oauth_query.as('hidden', data.query)} />
+		<FormIssues issues={consent.fields.allIssues()} />
+		<SubmitButton
+			remote={consent}
+			active={choice === 'true'}
+			{...consent.fields.accept.as('submit', 'true')}
+			variant="primary"
+			size="lg"
+			block
+			onclick={() => (choice = 'true')}
 		>
-		<button name="accept" value="false" class="border-gray-300 w-full rounded-md border px-4 py-2"
-			>Refuser</button
+			Autoriser
+		</SubmitButton>
+		<SubmitButton
+			remote={consent}
+			active={choice === 'false'}
+			{...consent.fields.accept.as('submit', 'false')}
+			size="lg"
+			block
+			onclick={() => (choice = 'false')}
 		>
+			Refuser
+		</SubmitButton>
 	</form>
-	<p class="text-red-600 mt-4">{form?.message ?? ''}</p>
 </main>

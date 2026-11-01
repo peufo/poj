@@ -51,6 +51,7 @@ bunx playwright test --workers=1                                    # e2e (build
 - **Tests e2e (`apps/web/e2e/*.e2e.ts`) :** chaque lancement de Playwright a sa base jetable `poj_e2e_<pid>` (pid du lanceur), sur le serveur de `DATABASE_URL_TEST`.
   - Playwright démarre le serveur de preview **avant** `globalSetup` : c'est sa commande qui prépare la base (`scripts/e2e.ts prepare` : création, migrations, seed du bac à sable), puis lance build et preview avec cette base en `DATABASE_URL`. `e2e/global-teardown.ts` la supprime à la fin ; celle d'un lancement interrompu part avec `worktree:prune`.
   - Les specs tournent avec JavaScript (le fonctionnement sans JavaScript n'est pas un objectif) : `open()` attend le démarrage de l'app, sinon l'envoi part en rechargeant la page.
+  - Le projet Playwright `first-launch` (`e2e/first-launch.e2e.ts`, inscription du premier compte) vide la base (`scripts/e2e.ts empty`) : il dépend du projet `app` et passe donc après tous les autres specs. Pour le lancer seul : `--project=first-launch --no-deps`.
 - **Projet `client` :** il a besoin du Chromium de Playwright (`bunx playwright install chromium`).
 
 ## Architecture web (`apps/web`)
@@ -63,16 +64,19 @@ bunx playwright test --workers=1                                    # e2e (build
 - les imports venant de Prisma sont des imports de **types** uniquement ;
 - les services sont des fabriques qui reçoivent le client Prisma (`createNotesService(db)`). Les tests leur passent leur propre `PrismaClient`.
 
-Les `load`, les remote functions, les form actions et les handlers Hono sont de fines couches : validation, puis appel au domaine, puis sérialisation. Les erreurs du domaine (`NotFoundError`, `ConflictError`) sont traduites en 404 et 409 par `api.onError`.
+Les `load`, les remote functions et les handlers Hono sont de fines couches : validation, puis appel au domaine, puis sérialisation. Les erreurs du domaine (`NotFoundError`, `ConflictError`) sont traduites en 404 et 409 par `api.onError`.
 
 ### Formulaires (remote functions)
 
-- **Où :** un `*.remote.ts` à côté de la page (`form(schéma, fn)`), avec un schéma Zod de `lib/server/web/schemas/`. La fonction lit l'utilisateur et les paramètres par `getRequestEvent()` (`ownerOf`, `idOf(event.params.id)`), appelle le service, puis redirige ou renvoie un résultat. Une `ConflictError` du domaine devient une erreur du formulaire par `orInvalid(promesse, issue.champ('…') | '…')` (`services.ts`) ; `fail()` y est interdit. L'auth et l'OAuth restent pour l'instant en form actions.
+Il n'y a aucune form action : tous les formulaires, auth et OAuth compris, sont des remote forms.
+
+- **Où :** un `*.remote.ts` à côté de la page (`form(schéma, fn)`), avec un schéma Zod de `lib/server/web/schemas/`. La fonction lit l'utilisateur et les paramètres par `getRequestEvent()` (`ownerOf`, `idOf(event.params.id)`), appelle le service, puis redirige ou renvoie un résultat. Une `ConflictError` du domaine devient une erreur du formulaire par `orInvalid(promesse, issue.champ('…') | '…')` (`services.ts`) ; `fail()` y est interdit. Un formulaire partagé par plusieurs pages vit dans `lib/remote/` (`logout.remote.ts`, utilisé par `AppShell` et `AccountMenu`).
 - **Retour standard (`lib/components/form/`) :** `SubmitButton` (envoi en cours), `TextField` / `SelectField` avec `field={form.fields.x}` (nom et erreur du champ), `FormIssues` (erreur globale), `FormSuccess` (succès sans redirection).
 - **Typage de bout en bout :** un composant partagé par plusieurs remote forms garde leurs types exacts (`NewCardForm` / `CardEditForm` dans `card-form.ts`, `NewDeckForm` / `DeckEditForm` dans `deck-form.ts`) par un générique Svelte sur le mode (`generics="Mode extends 'create' | 'edit'"`, `form: Forms[Mode]`). Pas d'`any` sur `fields` ni sur `result` : un résultat se lit en le discriminant (`'duplicate' in result`).
 - **JavaScript requis :** les étapes en deux temps (doublon, réinitialisation, suppression) s'appuient sur le résultat du remote form et l'état de la page, sans repli serveur.
 - **Envoi :** par défaut, un envoi réussi vide le formulaire et recharge les données de la page. Pour garder la saisie, passer par `form.enhance(async ({ submit }) => { await submit(); })` ; `submit().updates()` évite le rechargement.
 - **Plusieurs formulaires du même remote form dans la page :** `form.for(clé)`, une instance par clé (`revoke.for(invitation.id)`).
+- **Champs :** tout champ nommé d'un remote form vient de `form.fields.x.as(…)` (ou du `field` de `TextField`), sinon l'envoi échoue côté client (`form_field_unbound`). Un champ hors schéma (identifiant caché pour les gestionnaires de mots de passe) reste sans `name`. Une même instance ne s'attache qu'à un seul `<form>`.
 
 ### Validation (Zod 4)
 
@@ -82,7 +86,7 @@ Les `load`, les remote functions, les form actions et les handlers Hono sont de 
   - API : les schémas des `createRoute` ;
   - MCP : les `inputSchema` des outils (`mcp/server.ts`), décrits pour Claude.
 - **Qui valide quoi :** le schéma valide la forme à la frontière (types, champs obligatoires, longueurs, formats, listes). Le domaine ne la revalide pas : il ne garde que les règles qui dépendent de l'état de la base (existence, unicité, invitation encore valable, version, doublons). Les bornes métier restent des constantes du domaine (`PASSWORD_MIN_LENGTH`, `MAX_DAILY_GOAL`…), importées par les schémas.
-- **Schémas prêts pour les remote functions** (`form(schema, fn)`) : ils lisent l'objet que SvelteKit tire du formulaire. Un champ absent n'y figure pas, un nombre arrive en `number` (champ `n:`), et un booléen doit être optionnel (`z.boolean().default(false)`), car une case non cochée n'est pas envoyée. En attendant t17, les form actions convertissent le `FormData` à la main (`web/form-data.ts`, `readCardForm`, `readDeckEditForm`).
+- **Schémas prêts pour les remote functions** (`form(schema, fn)`) : ils lisent l'objet que SvelteKit tire du formulaire. Un champ absent n'y figure pas, un nombre arrive en `number` (champ `n:`), et un booléen doit être optionnel (`z.boolean().default(false)`), car une case non cochée n'est pas envoyée.
 - **Messages en français :** chaque règle visible par l'utilisateur porte son message explicite. `hooks.server.ts` règle `z.config(z.locales.fr())` pour les autres (types invalides, API, MCP).
 
 ### Requêtes et authentification
@@ -100,7 +104,7 @@ Les `load`, les remote functions, les form actions et les handlers Hono sont de 
 - **Serveur d'autorisation :** Better Auth, avec les plugins `jwt` et `mcp` (`@better-auth/mcp`), configurés dans `auth-config.ts` (options partagées par `auth.ts` et `testing/auth.ts`). DCR ouvert, connexion par `/login`, consentement par `/oauth/consent`, scope `cards`, ressource `${ORIGIN}/mcp`, émetteur `${ORIGIN}/api/auth`.
 - **Route `/mcp` :** `routes/mcp/+server.ts` (POST seulement, GET/DELETE → 405) appelle `createMcpEndpoint` (`mcp/endpoint.ts`) : `requireMcpAuth` vérifie le JWT via le JWKS, puis l'utilisateur `sub` doit exister. Sans jeton valide : 401 + `WWW-Authenticate` (`resource_metadata`).
 - **Découverte :** `svelteKitHandler` ne sert que `/api/auth/*`. Les routes `routes/.well-known/oauth-{protected-resource,authorization-server}/[...path]` passent donc la requête à `auth.handler`, dont les hooks `onRequest` des plugins servent ces chemins.
-- **Reprise du flux (`oauth-flow.ts`) :** le plugin redirige vers `/login` ou `/oauth/consent` avec une requête signée (`…&sig=`). Les actions la renvoient en `oauth_query` à `signInEmail` / `oauth2Consent`, avec `oauthApiContext(request)`, puis suivent `{ redirect, url }`.
+- **Reprise du flux (`oauth-flow.ts`) :** le plugin redirige vers `/login` ou `/oauth/consent` avec une requête signée (`…&sig=`). Les remote forms de ces pages la renvoient en `oauth_query` à `signInEmail` / `oauth2Consent`, avec `oauthApiContext(request)`, puis suivent `{ redirect, url }` (`redirect(303, url, { external: true })`). Le login la lit dans `getRequestEvent().url` : pour un remote form, c'est l'URL de la page (le client l'envoie dans `x-sveltekit-pathname` / `x-sveltekit-search`), pas celle de l'endpoint. Le consentement la reçoit dans un champ caché.
 
 ### Contrat OpenAPI
 

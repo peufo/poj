@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { logout } from '#lib/remote/logout.remote.js';
 	import Icon, { type IconName } from '#lib/ui/Icon.svelte';
 	import Wordmark from './Wordmark.svelte';
 
@@ -157,8 +158,7 @@
 		</nav>
 		{#if user}
 			<form
-				method="post"
-				action="/logout"
+				{...logout.for('sidebar')}
 				class="mt-auto flex flex-col gap-1 border-t border-line pt-3"
 			>
 				<span class="truncate px-2.5 text-xs text-ink-3">{user.email}</span>

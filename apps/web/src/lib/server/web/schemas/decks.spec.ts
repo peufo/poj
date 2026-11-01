@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseValues } from '../form-data';
+import { fieldErrors } from '../../testing/schemas';
 import { deckUpdateSchema, newDeckSchema } from './decks';
 
 // Ce que reçoivent les remote functions des decks : une case non cochée est absente, les
@@ -26,7 +26,7 @@ const subject = {
 };
 
 /** Premier message de chaque champ refusé. */
-const errorsOf = (values: Record<string, unknown>) => parseValues(values, newDeckSchema).errors;
+const errorsOf = (values: Record<string, unknown>) => fieldErrors(newDeckSchema, values);
 
 describe('deck schemas', () => {
 	it('reads an unchecked box as one direction only', () => {

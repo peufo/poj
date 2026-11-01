@@ -27,5 +27,11 @@ export default defineConfig({
 	testDir: './e2e',
 	testMatch: '**/*.e2e.{ts,js}',
 	reporter: 'list',
-	use: { baseURL: origin }
+	use: { baseURL: origin },
+	projects: [
+		{ name: 'app', testIgnore: '**/first-launch.e2e.ts' },
+		// Premier lancement : la base est vidée de son compte et de la seed, donc après tous
+		// les autres specs (`--project=first-launch --no-deps` pour le lancer seul).
+		{ name: 'first-launch', testMatch: '**/first-launch.e2e.ts', dependencies: ['app'] }
+	]
 });

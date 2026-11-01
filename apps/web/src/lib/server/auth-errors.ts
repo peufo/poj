@@ -1,7 +1,7 @@
 // Messages d'erreur de Better Auth, traduits pour les pages de connexion et d'inscription.
 // Les codes sont ceux de `BASE_ERROR_CODES` (`@better-auth/core`), plus ceux de Poj.
 
-import { PASSWORD_MIN_LENGTH } from '#lib/server/domain/index.js';
+import { PASSWORD_MIN_LENGTH, type InvitationStatus } from '#lib/server/domain/index.js';
 
 /** Code de l'erreur levée par `signUpHooks` quand un compte existe déjà. */
 export const SIGN_UP_CLOSED = 'SIGN_UP_CLOSED';
@@ -27,6 +27,14 @@ export const authErrorMessages = {
 	CROSS_SITE_NAVIGATION_LOGIN_BLOCKED: 'Requête refusée : recharge la page, puis réessaie.',
 	[SIGN_UP_CLOSED]: 'Les inscriptions sont fermées : demande un lien d’invitation.'
 } satisfies Record<string, string>;
+
+/** Lien d'invitation inutilisable (`/invite/[token]`), selon la raison. */
+export const invitationUnavailableMessages: Record<Exclude<InvitationStatus, 'valid'>, string> = {
+	used: 'Ce lien d’invitation a déjà servi. Connecte-toi avec ton compte.',
+	expired: 'Ce lien d’invitation a expiré. Demande un nouveau lien.',
+	revoked: 'Ce lien d’invitation a été annulé. Demande un nouveau lien.',
+	invalid: 'Ce lien d’invitation n’est pas valable. Vérifie qu’il est complet.'
+};
 
 /**
  * Message en français pour une erreur de Better Auth (`APIError`), d'après son code ;

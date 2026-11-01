@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import Button from '#lib/ui/Button.svelte';
-	import Notice from '#lib/ui/Notice.svelte';
+	import FormIssues from '#lib/components/form/FormIssues.svelte';
+	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
+	import { register } from './register.remote';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
-	let pending = $state(false);
+	let { data }: PageProps = $props();
 </script>
 
 <svelte:head><title>Créer le compte · Poj</title></svelte:head>
@@ -19,36 +18,31 @@
 	</p>
 </div>
 
-<form
-	method="post"
-	class="flex flex-col gap-5"
-	use:enhance={() => {
-		pending = true;
-		return async ({ update }) => {
-			await update();
-			pending = false;
-		};
-	}}
->
-	<TextField label="Nom" name="name" required autocomplete="name" value={form?.name ?? ''} />
+<form {...register} class="flex flex-col gap-5">
+	<TextField
+		label="Nom"
+		field={register.fields.name}
+		required
+		autocomplete="name"
+		value={register.fields.name.value() ?? ''}
+	/>
 	<TextField
 		label="Email"
-		name="email"
+		field={register.fields.email}
 		type="email"
 		required
 		autocomplete="email"
-		value={form?.email ?? ''}
+		value={register.fields.email.value() ?? ''}
 	/>
 	<TextField
 		label="Mot de passe"
-		name="password"
+		field={register.fields.password}
 		type="password"
 		required
 		minlength={data.minPasswordLength}
 		autocomplete="new-password"
 		hint="{data.minPasswordLength} caractères au moins."
 	/>
-	{#if form?.message}<Notice tone="danger">{form.message}</Notice>{/if}
-	<Button type="submit" variant="primary" size="lg" block loading={pending}>Créer mon compte</Button
-	>
+	<FormIssues issues={register.fields.issues()} />
+	<SubmitButton remote={register} variant="primary" size="lg" block>Créer mon compte</SubmitButton>
 </form>

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type * as z from 'zod';
-import { parseValues } from '../form-data';
+import { fieldErrors as errors } from '../../testing/schemas';
 import {
 	cardFormSchema,
 	cardSchema,
@@ -12,10 +11,6 @@ import {
 } from './cards';
 
 const DECK = '0199a0a0-0000-7000-8000-000000000000';
-
-/** Premier message de chaque champ refusé. */
-const errors = (schema: z.ZodType, values: Record<string, unknown>) =>
-	parseValues(values, schema).errors;
 
 describe('card form', () => {
 	it('trims the faces and the context', () => {

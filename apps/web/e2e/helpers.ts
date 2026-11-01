@@ -12,6 +12,11 @@ import { SANDBOX_ACCOUNT } from '../src/lib/server/testing/sandbox-account';
  */
 export async function open(page: Page, path: string) {
 	await page.goto(path);
+	await waitForApp(page);
+}
+
+/** Attend que l'app ait démarré sur la page affichée (après une redirection, par exemple). */
+export async function waitForApp(page: Page) {
 	await page.waitForFunction(() => history.state !== null);
 	await page.waitForLoadState('networkidle');
 }
@@ -24,10 +29,15 @@ export async function expectRemoteSubmission(page: Page) {
 /** Connexion au compte de la seed (formulaire `/login`). */
 export async function signIn(page: Page) {
 	await open(page, '/login');
-	await page.getByLabel('Email').fill(SANDBOX_ACCOUNT.email);
-	await page.getByLabel('Mot de passe').fill(SANDBOX_ACCOUNT.password);
-	await page.getByRole('button', { name: 'Se connecter' }).click();
+	await submitSignIn(page);
 	await expect(page).toHaveURL(/\/cards/);
+}
+
+/** Envoie le formulaire de connexion affiché avec le compte de la seed. */
+export async function submitSignIn(page: Page, password: string = SANDBOX_ACCOUNT.password) {
+	await page.getByLabel('Email').fill(SANDBOX_ACCOUNT.email);
+	await page.getByLabel('Mot de passe').fill(password);
+	await page.getByRole('button', { name: 'Se connecter' }).click();
 }
 
 /** Id du deck « Anglais » de la seed (deck de langue, avec DeepL). */

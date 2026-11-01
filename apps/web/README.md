@@ -32,14 +32,14 @@ scripts/export-openapi.ts  export du contrat vers packages/api-contract/openapi.
 scripts/sandbox.ts         bac à sable : reset, seed, serveur de dev sur la base poj_sandbox
 src/routes/
   api/[...path]/         délègue toutes les méthodes HTTP à l'app Hono
-  (auth)/                /login, /register
+  (auth)/                /login, /register, /invite/[token]
   oauth/consent/         consentement OAuth (connecteur Claude)
   mcp/                   serveur MCP, Streamable HTTP sans état (POST, jeton OAuth)
   .well-known/           métadonnées OAuth (ressource protégée, serveur d'autorisation)
-  (app)/                 pages authentifiées (/cards, /logout)
+  (app)/                 pages authentifiées (/cards, /decks, /review, /admin…)
 ```
 
-**Règle** : les `load` / form actions et les routes API sont de fines couches (validation → appel `domain/` → sérialisation). Toute logique métier vit dans `domain/`. Les services reçoivent le client Prisma en paramètre (`createCardsService(db)`), ce qui les rend testables.
+**Règle** : les `load` / remote functions et les routes API sont de fines couches (validation → appel `domain/` → sérialisation). Toute logique métier vit dans `domain/`. Les services reçoivent le client Prisma en paramètre (`createCardsService(db)`), ce qui les rend testables.
 
 ### Conventions du schéma (pensées pour une future synchro hors ligne)
 

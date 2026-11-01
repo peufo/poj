@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import FormIssues from '#lib/components/form/FormIssues.svelte';
+	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
+	import { acceptInvitation } from './invite.remote';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
-	let pending = $state(false);
+	let { data }: PageProps = $props();
 </script>
 
 <svelte:head>
@@ -28,32 +29,29 @@
 	<Notice tone="danger">{data.unavailable}</Notice>
 	<Button href="/login" size="lg" block>Aller à la connexion</Button>
 {:else}
-	<form
-		method="post"
-		class="flex flex-col gap-5"
-		use:enhance={() => {
-			pending = true;
-			return async ({ update }) => {
-				await update();
-				pending = false;
-			};
-		}}
-	>
-		<!-- Pour les gestionnaires de mots de passe : l'identifiant du compte. -->
-		<input type="hidden" name="username" autocomplete="username" value={data.email} />
-		<TextField label="Nom" name="name" required autocomplete="name" value={form?.name ?? ''} />
+	<form {...acceptInvitation} class="flex flex-col gap-5">
+		<!-- Pour les gestionnaires de mots de passe : l'identifiant du compte. Sans `name` : un
+		     remote form refuse tout champ qui ne vient pas de `fields`. -->
+		<input type="hidden" autocomplete="username" value={data.email} />
+		<TextField
+			label="Nom"
+			field={acceptInvitation.fields.name}
+			required
+			autocomplete="name"
+			value={acceptInvitation.fields.name.value() ?? ''}
+		/>
 		<TextField
 			label="Mot de passe"
-			name="password"
+			field={acceptInvitation.fields.password}
 			type="password"
 			required
 			minlength={data.minPasswordLength}
 			autocomplete="new-password"
 			hint="{data.minPasswordLength} caractères au moins."
 		/>
-		{#if form?.message}<Notice tone="danger">{form.message}</Notice>{/if}
-		<Button type="submit" variant="primary" size="lg" block loading={pending}>
+		<FormIssues issues={acceptInvitation.fields.issues()} />
+		<SubmitButton remote={acceptInvitation} variant="primary" size="lg" block>
 			Créer mon compte
-		</Button>
+		</SubmitButton>
 	</form>
 {/if}

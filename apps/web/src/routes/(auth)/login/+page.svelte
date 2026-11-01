@@ -1,12 +1,8 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import Button from '#lib/ui/Button.svelte';
-	import Notice from '#lib/ui/Notice.svelte';
+	import FormIssues from '#lib/components/form/FormIssues.svelte';
+	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import TextField from '#lib/ui/TextField.svelte';
-	import type { ActionData } from './$types';
-
-	let { form }: { form: ActionData } = $props();
-	let pending = $state(false);
+	import { login } from './login.remote';
 </script>
 
 <svelte:head><title>Connexion · Poj</title></svelte:head>
@@ -16,32 +12,22 @@
 	<p class="text-ink-2">Tes cartes t’attendent.</p>
 </div>
 
-<form
-	method="post"
-	class="flex flex-col gap-5"
-	use:enhance={() => {
-		pending = true;
-		return async ({ update }) => {
-			await update();
-			pending = false;
-		};
-	}}
->
+<form {...login} class="flex flex-col gap-5">
 	<TextField
 		label="Email"
-		name="email"
+		field={login.fields.email}
 		type="email"
 		required
 		autocomplete="email"
-		value={form?.email ?? ''}
+		value={login.fields.email.value() ?? ''}
 	/>
 	<TextField
 		label="Mot de passe"
-		name="password"
+		field={login.fields.password}
 		type="password"
 		required
 		autocomplete="current-password"
 	/>
-	{#if form?.message}<Notice tone="danger">{form.message}</Notice>{/if}
-	<Button type="submit" variant="primary" size="lg" block loading={pending}>Se connecter</Button>
+	<FormIssues issues={login.fields.issues()} />
+	<SubmitButton remote={login} variant="primary" size="lg" block>Se connecter</SubmitButton>
 </form>

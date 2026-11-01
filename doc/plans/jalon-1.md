@@ -4,7 +4,7 @@ Périmètre : [story/web.md](../story/web.md) (WEB-1 à WEB-8), selon les règle
 
 ## Choix structurants
 
-- **Pas d'API REST pour les cartes au jalon 1.** Les pages appellent le domaine via `load` et les form actions, et le serveur MCP du jalon 2 l'appellera directement. L'API `/api/v1` ne servait qu'à l'app iOS, qui est gelée.
+- **Pas d'API REST pour les cartes au jalon 1.** Les pages appellent le domaine via `load` et les remote functions, et le serveur MCP du jalon 2 l'appellera directement. L'API `/api/v1` ne servait qu'à l'app iOS, qui est gelée.
 - **Le module d'exemple `notes` est supprimé** : domaine, routes API, page, modèle Prisma.
 - **DeepL est hors du domaine.** Le domaine reste du TS pur ; il reçoit un `Translator` (interface), et l'implémentation DeepL vit dans `src/lib/server/deepl/`. Les tests utilisent un faux traducteur.
 - **La logique FSRS est isolée dans un module pur** (`scheduler.ts`), testable sans base : conversion entre une ligne `Review` et une `Card` de ts-fsrs, application d'une note, plafond *Hard*.
