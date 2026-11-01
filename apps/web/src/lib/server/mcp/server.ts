@@ -23,12 +23,33 @@ import {
 	type CardsService,
 	type Deck,
 	type DeckWithCount,
+	type NextReview,
 	type Rating,
 	type ReviewsService,
 	type Suggestion,
 	type TranslationFailure,
 	type TranslationService
 } from '#lib/server/domain/index.js';
+import {
+	CORRECTION_RULE,
+	DECK_CHOICE_RULE,
+	END_RULE,
+	FACT_CHECK,
+	FACT_RULE,
+	FACT_SOURCE,
+	INSPIRATION_RULE,
+	isLanguage,
+	OFFER_RULE,
+	quote,
+	RATING_RULE,
+	REAL_SITUATION,
+	RETRY_LINE,
+	REVIEW_RULE,
+	ruleList,
+	SESSION_OVER_LINE,
+	VOICE_RULE
+} from './guidance';
+import { registerPrompts } from './prompts';
 
 /**
  * Dépendances du serveur MCP : un propriétaire déjà authentifié, ses decks et les services
@@ -51,16 +72,16 @@ export interface PojMcpDeps {
 const noDeckMessage = (newDeckUrl: string) =>
 	`L'utilisateur n'a encore aucun deck : aucune carte ne peut être créée. Invite-le à créer un deck sur ${newDeckUrl}, puis recommence.`;
 
-const quote = (text: string) => `« ${text} »`;
-
-const isLanguage = (deck: Pick<DeckFaces, 'kind'>) => deck.kind === 'language';
-
-const REVIEW_RULE =
-	"Révision : next_review, puis dis le prompt sans jamais lire la réponse attendue avant sa réponse. S'il demande un indice, appelle get_hint. Donne ensuite la réponse attendue, annonce la note retenue, appelle submit_review, puis enchaîne avec la carte suivante. S'il conteste la note, appelle amend_review sur la carte précédente.";
-const RATING_RULE =
-	'Notes : propose again, hard ou good en tolérant synonymes et approximations. Ne propose jamais easy : ne l’utilise que si l’utilisateur le demande explicitement (« trop facile »).';
-const VOICE_RULE =
-	"L'utilisateur révise souvent en voiture, à la voix : réponses brèves, pas de listes longues.";
+/** Règles communes à toutes les consignes, après celles de la capture. */
+const SHARED_RULES = [
+	INSPIRATION_RULE,
+	OFFER_RULE,
+	REVIEW_RULE,
+	CORRECTION_RULE,
+	RATING_RULE,
+	END_RULE,
+	VOICE_RULE
+];
 
 /** « le français (side_a), l’anglais (side_b) » : les faces d'un deck et leurs clés. */
 function sidesOf(deck: DeckFaces): string {
@@ -83,11 +104,12 @@ function singleDeckInstructions(deck: DeckFaces): string {
 	return `Poj aide l'utilisateur à retenir ${subject} par répétition espacée. Chaque carte associe ${sidesOf(deck)} et un contexte d'origine facultatif ; ${directions}.
 
 Règles :
-- Parle français avec l'utilisateur${language ? `, sauf pour les expressions en ${b.name} elles-mêmes` : ''}.
-- ${capture}
-- ${REVIEW_RULE}
-- ${RATING_RULE}
-- ${VOICE_RULE}`;
+${ruleList([
+	`Parle français avec l'utilisateur${language ? `, sauf pour les expressions en ${b.name} elles-mêmes` : ''}.`,
+	capture,
+	!language && FACT_RULE,
+	...SHARED_RULES
+])}`;
 }
 
 /** « « Capitales » (sujet) : « Pays » (side_a), « Capitale » (side_b), de « Pays » vers « Capitale » seulement » */
@@ -114,13 +136,14 @@ function multiDeckInstructions(decks: readonly Deck[]): string {
 ${decks.map((deck) => `- ${deckLine(deck)}.`).join('\n')}
 
 Règles :
-- Parle français avec l'utilisateur${languages ? ', sauf pour les expressions étrangères elles-mêmes' : ''}.
-- Choix du deck : déduis le deck de chaque carte (langue de l'expression, sujet) et passe son nom en deck à check_card et create_card. En cas de doute, demande-le-lui en une question courte. Garde ensuite ce deck pour les cartes suivantes, sauf indice contraire. list_decks liste les decks.
-- Capture : appelle toujours check_card avant create_card. ${checks.join(' ')} Relis-lui toujours la carte finale, avec son deck, et attends sa confirmation explicite avant create_card.
-- Révision : « on révise » mélange tous les decks, appelle next_review sans deck. Ne passe deck que s'il nomme un deck, et repasse le même à submit_review et amend_review.
-- ${REVIEW_RULE}
-- ${RATING_RULE}
-- ${VOICE_RULE}`;
+${ruleList([
+	`Parle français avec l'utilisateur${languages ? ', sauf pour les expressions étrangères elles-mêmes' : ''}.`,
+	DECK_CHOICE_RULE,
+	`Capture : appelle toujours check_card avant create_card. ${checks.join(' ')} Relis-lui toujours la carte finale, avec son deck, et attends sa confirmation explicite avant create_card.`,
+	subjects && FACT_RULE,
+	"Révision : « on révise » mélange tous les decks, appelle next_review sans deck. Ne passe deck que s'il nomme un deck, et repasse le même à submit_review et amend_review.",
+	...SHARED_RULES
+])}`;
 }
 
 /** Descriptions de check_card et create_card pour un seul deck (ou aucun), avec ses faces. */
@@ -130,18 +153,16 @@ function singleDeckToolTexts(deck: DeckFaces): { check: string; create: string }
 	const sameFace = `avec ${(duplicateSide(deck) === 'sideA' ? a : b).same}`;
 	return {
 		check: pair
-			? `À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) et les cartes existantes ${sameFace}. Si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher. Si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Ne modifie rien.`
-			: `À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les cartes existantes ${sameFace}. Ce deck n'a pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls) : vérifie toi-même la carte et relis-la avec l'utilisateur. Ne modifie rien.`,
-		create: `Crée une carte et ${directionsOf(deck).length > 1 ? 'ses deux révisions, dues' : 'sa révision, due'} immédiatement. Avant de l'appeler : appelle toujours check_card ; ${pair ? 'si DeepL diverge, expose les options et laisse-le trancher' : 'vérifie toi-même la carte, ce deck n’a pas de second avis DeepL'} ; relis-lui la carte finale (${a.name}, ${b.name}, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`
+			? `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) et les cartes existantes ${sameFace}. Si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher. Si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Ne modifie rien.`
+			: `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les cartes existantes ${sameFace}. Ce deck n'a pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls) : vérifie toi-même la carte et relis-la avec l'utilisateur. Dans ce deck de sujet, ${FACT_CHECK} Ne modifie rien.`,
+		create: `Crée une carte et ${directionsOf(deck).length > 1 ? 'ses deux révisions, dues' : 'sa révision, due'} immédiatement. Avant de l'appeler : appelle toujours check_card ; ${pair ? 'si DeepL diverge, expose les options et laisse-le trancher' : `vérifie toi-même la carte, ce deck n’a pas de second avis DeepL ; ${FACT_SOURCE}`} ; relis-lui la carte finale (${a.name}, ${b.name}, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`
 	};
 }
 
 /** Descriptions de check_card et create_card quand l'utilisateur a plusieurs decks. */
 const MULTI_DECK_TOOL_TEXTS = {
-	check:
-		"À appeler avant chaque create_card, avec la carte que tu proposes et son deck (déduis-le de la carte, ou demande-le en cas de doute). Deck de langue : renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) ; si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher ; si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Deck de sujet : pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls), vérifie toi-même la carte. Renvoie aussi les cartes existantes du deck avec la même face (B pour une langue, A pour un sujet). Ne modifie rien.",
-	create:
-		"Crée une carte dans le deck indiqué, et ses révisions, dues immédiatement (une seule, de A vers B, dans un deck à sens unique). Avant de l'appeler : appelle toujours check_card avec le même deck ; pour un deck de langue, si DeepL diverge, expose les options et laisse-le trancher ; pour un sujet, vérifie toi-même la carte ; relis-lui la carte finale (deck, faces, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon."
+	check: `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes et son deck (déduis-le de la carte, ou demande-le en cas de doute). Deck de langue : renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) ; si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher ; si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Deck de sujet : pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls), vérifie toi-même la carte ; ${FACT_CHECK} Renvoie aussi les cartes existantes du deck avec la même face (B pour une langue, A pour un sujet). Ne modifie rien.`,
+	create: `Crée une carte dans le deck indiqué, et ses révisions, dues immédiatement (une seule, de A vers B, dans un deck à sens unique). Avant de l'appeler : appelle toujours check_card avec le même deck ; pour un deck de langue, si DeepL diverge, expose les options et laisse-le trancher ; pour un sujet, vérifie toi-même la carte : ${FACT_SOURCE} ; relis-lui la carte finale (deck, faces, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`
 };
 
 /** Nom d'un deck, tel que Claude le passe aux outils. */
@@ -227,6 +248,18 @@ const cardOutput = (card: {
 
 const reviewIdSchema = z.uuid().describe('review_id renvoyé par next_review.');
 
+/** Révision à présenter : sortie de next_review, et next de submit_review. */
+const reviewOutput = z.object({
+	review_id: z.string(),
+	deck: z.string(),
+	direction: z.enum(['a_to_b', 'b_to_a']),
+	prompt: z.string(),
+	expected: z.string(),
+	has_hint: z.boolean(),
+	version: z.string(),
+	remaining: z.number()
+});
+
 const failureLabels: Record<TranslationFailure, string> = {
 	not_configured: "DeepL n'est pas configuré",
 	auth: 'la clé DeepL est refusée',
@@ -291,6 +324,7 @@ export function createPojMcpServer({
 				: multiDeckInstructions(decks)
 		}
 	);
+	registerPrompts(server, { decks, noDeck });
 	const cardInput = cardInputSchema(shape, decks);
 	const toolTexts = shape ? singleDeckToolTexts(shape) : MULTI_DECK_TOOL_TEXTS;
 
@@ -298,6 +332,33 @@ export function createPojMcpServer({
 	const inDeck = (deck: Pick<Deck, 'name'>) => (several ? ` dans ${quote(deck.name)}` : '');
 	/** Ligne d'en-tête « Deck « Anglais ». » quand l'utilisateur a plusieurs decks. */
 	const deckHeader = (deck: Pick<Deck, 'name'>) => (several ? [`Deck ${quote(deck.name)}.`] : []);
+
+	/** Texte d'une révision à présenter : le prompt, et la réponse attendue à ne pas lire. */
+	function reviewLines(review: NextReview, remaining: number): string[] {
+		const { from, to } = directionFaces(review.direction, review.deck);
+		return [
+			...deckHeader(review.deck),
+			to.lang
+				? `À demander en ${to.name} : ${quote(review.prompt)}.`
+				: `À demander (${from.label} → ${to.label}) : ${quote(review.prompt)}.`,
+			`Réponse attendue, à ne pas lire avant sa réponse : ${quote(review.expected)}.`,
+			review.hasHint ? 'Indice disponible.' : 'Pas d’indice.',
+			`Encore ${plural(remaining, 'due')}.`,
+			`review_id : ${review.id} ; version : ${review.version}`
+		];
+	}
+
+	/** Contenu structuré d'une révision à présenter (next_review, et next de submit_review). */
+	const reviewData = (review: NextReview, remaining: number) => ({
+		review_id: review.id,
+		deck: review.deck.name,
+		direction: review.direction,
+		prompt: review.prompt,
+		expected: review.expected,
+		has_hint: review.hasHint,
+		version: review.version,
+		remaining
+	});
 
 	const unknownDeck = (name: string) =>
 		toolError(`Deck ${quote(name)} introuvable. Decks de l'utilisateur : ${names}.`);
@@ -332,12 +393,6 @@ export function createPojMcpServer({
 	const sessionDeckField = deckNameSchema.describe(
 		"Le deck passé à next_review, s'il y en avait un : remaining est alors compté dans ce deck (tous les decks si le nom est inconnu)."
 	);
-
-	/** Révisions encore dues (du deck de la session), mise de côté du sens inverse comprise. */
-	async function remainingDue(at: Date, deckId?: string): Promise<number> {
-		const next = await reviews.next(ownerId, at, { deckId });
-		return next.review ? next.remaining : 0;
-	}
 
 	server.registerTool(
 		'list_decks',
@@ -489,7 +544,7 @@ export function createPojMcpServer({
 		{
 			title: 'Prochaine révision',
 			description:
-				"Renvoie la prochaine révision due : dis le prompt à l'utilisateur, mais ne lis jamais expected avant sa réponse. Le contexte n'est pas fourni ici : s'il demande un indice, appelle get_hint. Garde review_id et version pour submit_review. Si rien n'est dû (nothing_due), annonce la prochaine échéance et propose de réviser en avance en rappelant l'outil avec ahead à true. Sans deck, la session mélange tous les decks : ne passe deck que si l'utilisateur en nomme un, et repasse-le à submit_review.",
+				"Renvoie la prochaine révision due : dis le prompt à l'utilisateur, mais ne lis jamais expected avant sa réponse. Juge ensuite sa réponse avec indulgence, jamais à la lettre : la transcription vocale déforme souvent les mots étrangers. Le contexte n'est pas fourni ici : s'il demande un indice, appelle get_hint. Garde review_id et version pour submit_review. Si rien n'est dû (nothing_due), annonce la prochaine échéance et propose de réviser en avance en rappelant l'outil avec ahead à true ; en fin de session, propose aussi une fois d'ajouter une carte tirée de sa journée. Sans deck, la session mélange tous les decks : ne passe deck que si l'utilisateur en nomme un, et repasse-le à submit_review.",
 			inputSchema: z.object({
 				ahead: z
 					.boolean()
@@ -497,16 +552,8 @@ export function createPojMcpServer({
 					.describe('true pour réviser en avance les prochaines révisions quand rien n’est dû.'),
 				deck: reviewDeckField
 			}),
-			outputSchema: z.object({
+			outputSchema: reviewOutput.partial().extend({
 				nothing_due: z.boolean(),
-				review_id: z.string().optional(),
-				deck: z.string().optional(),
-				direction: z.enum(['a_to_b', 'b_to_a']).optional(),
-				prompt: z.string().optional(),
-				expected: z.string().optional(),
-				has_hint: z.boolean().optional(),
-				version: z.string().optional(),
-				remaining: z.number().optional(),
 				next_due: z.string().nullable().optional(),
 				next_due_in: z.string().nullable().optional()
 			}),
@@ -534,27 +581,9 @@ export function createPojMcpServer({
 			}
 
 			const { review, remaining } = next;
-			const { from, to } = directionFaces(review.direction, review.deck);
-			const lines = [
-				...deckHeader(review.deck),
-				to.lang
-					? `À demander en ${to.name} : ${quote(review.prompt)}.`
-					: `À demander (${from.label} → ${to.label}) : ${quote(review.prompt)}.`,
-				`Réponse attendue, à ne pas lire avant sa réponse : ${quote(review.expected)}.`,
-				review.hasHint ? 'Indice disponible.' : 'Pas d’indice.',
-				`Encore ${remaining} due${remaining > 1 ? 's' : ''}.`,
-				`review_id : ${review.id} ; version : ${review.version}`
-			];
-			return result(lines.join('\n'), {
+			return result(reviewLines(review, remaining).join('\n'), {
 				nothing_due: false,
-				review_id: review.id,
-				deck: review.deck.name,
-				direction: review.direction,
-				prompt: review.prompt,
-				expected: review.expected,
-				has_hint: review.hasHint,
-				version: review.version,
-				remaining
+				...reviewData(review, remaining)
 			});
 		}
 	);
@@ -591,19 +620,28 @@ export function createPojMcpServer({
 		remaining: z.number()
 	});
 
+	/** Deck de la session, par son nom : `remaining` y est compté (tous les decks s'il est inconnu). */
+	const sessionDeckId = (name: string | undefined) =>
+		name === undefined ? undefined : findDeckByName(decks, name)?.id;
+
 	server.registerTool(
 		'submit_review',
 		{
 			title: 'Enregistrer la note',
-			description:
-				"Enregistre la note de la révision en cours, avec review_id et version tels que renvoyés par next_review. Propose again, hard ou good d'après la réponse de l'utilisateur, en tolérant synonymes et approximations. N'utilise easy que si l'utilisateur le demande explicitement. Après un indice, le serveur plafonne la note à hard. Annonce la note retenue et la prochaine échéance, évoque le contexte en renforcement si c'est utile, puis enchaîne avec next_review.",
+			description: `Enregistre la note de la révision en cours, avec review_id et version tels que renvoyés par next_review. Propose again, hard ou good d'après la réponse de l'utilisateur, avec indulgence, en tolérant synonymes, approximations et transcription vocale déformée. N'utilise easy que si l'utilisateur le demande explicitement. Après un indice, le serveur plafonne la note à hard. Après good ou easy, renvoie la carte suivante (next) : donne la réponse attendue, la note retenue et le prompt suivant dans le même message, sans lire son expected. ${CORRECTION_RULE} Évoque le contexte en renforcement si c'est utile. Quand plus rien n'est dû, propose une fois d'ajouter une carte tirée de sa journée.`,
 			inputSchema: z.object({
 				review_id: reviewIdSchema,
 				version: z.string().describe('version renvoyée par next_review.'),
 				rating: ratingSchema,
-				deck: sessionDeckField
+				deck: sessionDeckField,
+				ahead: z
+					.boolean()
+					.optional()
+					.describe(
+						'true si la session révise en avance (next_review appelé avec ahead) : next est alors cherchée parmi les révisions à venir.'
+					)
 			}),
-			outputSchema: answerOutput.extend({ replayed: z.boolean() }),
+			outputSchema: answerOutput.extend({ replayed: z.boolean(), next: reviewOutput.optional() }),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -611,7 +649,7 @@ export function createPojMcpServer({
 				openWorldHint: false
 			}
 		},
-		({ review_id, version, rating, deck }) =>
+		({ review_id, version, rating, deck, ahead = false }) =>
 			guard(async () => {
 				const at = now();
 				const answer = await reviews.answer(
@@ -620,7 +658,23 @@ export function createPojMcpServer({
 					{ rating, version, origin: 'claude' },
 					at
 				);
-				return answerResult(answer, rating, at, deck, { replayed: answer.replayed });
+				const { replayed } = answer;
+				const deckId = sessionDeckId(deck);
+				// Après again ou hard, la carte suivante attend la correction et la répétition.
+				if (answer.rating !== 'good' && answer.rating !== 'easy') {
+					const remaining = await reviews.countDue(ownerId, at, { deckId });
+					return answerResult(answer, rating, at, remaining, { replayed, follow: [RETRY_LINE] });
+				}
+				const next = await reviews.next(ownerId, at, { deckId, ahead });
+				if (!next.review) {
+					return answerResult(answer, rating, at, 0, { replayed, follow: [SESSION_OVER_LINE] });
+				}
+				const { review, remaining } = next;
+				return answerResult(answer, rating, at, remaining, {
+					replayed,
+					follow: ['Carte suivante :', ...reviewLines(review, remaining)],
+					next: reviewData(review, remaining)
+				});
 			}, 'Cette révision a été modifiée entre-temps : rien n’a été enregistré. Appelle next_review pour continuer.')
 	);
 
@@ -647,20 +701,31 @@ export function createPojMcpServer({
 			guard(async () => {
 				const at = now();
 				const answer = await reviews.amend(ownerId, review_id, rating, at);
-				return answerResult(answer, rating, at, deck, { changed: answer.changed });
+				const remaining = await reviews.countDue(ownerId, at, { deckId: sessionDeckId(deck) });
+				return answerResult(answer, rating, at, remaining, { changed: answer.changed });
 			}, "Impossible de corriger cette note : seule la dernière réponse d'une révision se corrige, dans l'heure qui suit.")
 	);
 
-	async function answerResult(
+	function answerResult(
 		answer: { reviewId: string; rating: Rating; due: Date; context: string | null },
 		requested: Rating,
 		at: Date,
-		/** Deck de la session : `remaining` y est compté, ou dans tous les decks s'il est inconnu. */
-		deckName: string | undefined,
-		{ replayed, changed }: { replayed?: boolean; changed?: boolean } = {}
-	): Promise<CallToolResult> {
-		const scope = deckName === undefined ? undefined : findDeckByName(decks, deckName);
-		const remaining = await remainingDue(at, scope?.id);
+		/** Révisions encore dues dans le deck de la session. */
+		remaining: number,
+		{
+			replayed,
+			changed,
+			follow = [],
+			next
+		}: {
+			replayed?: boolean;
+			changed?: boolean;
+			/** Lignes ajoutées en fin de texte : la suite à donner à la session. */
+			follow?: string[];
+			/** Carte suivante, enchaînée par submit_review. */
+			next?: z.infer<typeof reviewOutput>;
+		} = {}
+	): CallToolResult {
 		const capped = !replayed && answer.rating !== requested;
 		const nextDueIn = formatRelative(answer.due, at);
 
@@ -674,7 +739,8 @@ export function createPojMcpServer({
 						: `Note retenue : ${answer.rating}.`,
 			`Prochaine révision ${nextDueIn}.`,
 			...(answer.context ? [`Contexte : ${quote(answer.context)}.`] : []),
-			remaining === 0 ? 'Plus rien de dû.' : `Encore ${remaining} due${remaining > 1 ? 's' : ''}.`
+			remaining === 0 ? 'Plus rien de dû.' : `Encore ${plural(remaining, 'due')}.`,
+			...follow
 		];
 		return result(lines.join('\n'), {
 			review_id: answer.reviewId,
@@ -685,7 +751,8 @@ export function createPojMcpServer({
 			context: answer.context,
 			remaining,
 			...(replayed !== undefined && { replayed }),
-			...(changed !== undefined && { changed })
+			...(changed !== undefined && { changed }),
+			...(next && { next })
 		});
 	}
 

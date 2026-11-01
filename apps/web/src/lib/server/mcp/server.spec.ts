@@ -495,13 +495,15 @@ describe('MCP server', () => {
 			const hint = await call(client, 'get_hint', { review_id: next.review_id });
 			expect(data(hint)).toEqual({ context: 'réunion budget' });
 
-			const answer = data(
-				await call(client, 'submit_review', {
-					review_id: next.review_id,
-					version: next.version,
-					rating: 'good'
-				})
-			);
+			const submitted = await call(client, 'submit_review', {
+				review_id: next.review_id,
+				version: next.version,
+				rating: 'good'
+			});
+			const answer = data(submitted);
+			// Plafonnée à hard : pas de carte suivante avant la correction et la répétition.
+			expect(answer).not.toHaveProperty('next');
+			expect(text(submitted)).toContain('invite-le à la répéter une fois');
 			expect(answer).toMatchObject({
 				review_id: next.review_id,
 				rating: 'hard',
@@ -514,6 +516,65 @@ describe('MCP server', () => {
 			expect(answer.next_due_in).toMatch(/^dans \d+ minutes?$/);
 			const [log] = await db.reviewLog.findMany();
 			expect(log).toMatchObject({ rating: 'hard', origin: 'claude', hintUsed: true });
+		});
+
+		it('chains the next card after good, and waits for a repetition after again or hard', async () => {
+			await cards.create(alice, aliceDeck, card, 'web', t0);
+			await cards.create(alice, aliceDeck, { sideA: 'chat', sideB: 'cat' }, 'web', at(1));
+			await cards.create(alice, aliceDeck, { sideA: 'chien', sideB: 'dog' }, 'web', at(2));
+			clock = at(3);
+			const client = await connect(alice);
+
+			const first = data(await call(client, 'next_review'));
+			const good = await call(client, 'submit_review', {
+				review_id: first.review_id,
+				version: first.version,
+				rating: 'good'
+			});
+			const second = data(good).next as Record<string, unknown>;
+			expect(second).toMatchObject({ deck: 'Anglais', has_hint: false, remaining: 2 });
+			expect(second.review_id).not.toBe(first.review_id);
+			expect(text(good)).toContain('Carte suivante :\nÀ demander en ');
+			expect(text(good)).toContain('Réponse attendue, à ne pas lire avant sa réponse');
+
+			for (const rating of ['again', 'hard'] as const) {
+				const current = data(await call(client, 'next_review'));
+				const missed = await call(client, 'submit_review', {
+					review_id: current.review_id,
+					version: current.version,
+					rating
+				});
+				expect(data(missed)).toMatchObject({ rating, remaining: rating === 'again' ? 1 : 0 });
+				expect(data(missed)).not.toHaveProperty('next');
+				expect(text(missed)).toContain(
+					'Pas de carte suivante : donne la bonne réponse, invite-le à la répéter une fois à voix haute et attends sa réponse avant next_review.'
+				);
+			}
+		});
+
+		it('closes the session when nothing is due, and chains ahead when asked', async () => {
+			for (const [i, sides] of [card, { sideA: 'chat', sideB: 'cat' }].entries()) {
+				const { id } = await cards.create(alice, aliceDeck, sides, 'web', at(i));
+				await db.review.updateMany({ where: { cardId: id }, data: { due: at(3 * DAY + i) } });
+			}
+			const client = await connect(alice);
+			const submit = (review: Record<string, unknown>, ahead?: boolean) =>
+				call(client, 'submit_review', {
+					review_id: review.review_id,
+					version: review.version,
+					rating: 'good',
+					ahead
+				});
+
+			const closed = await submit(data(await call(client, 'next_review', { ahead: true })));
+			expect(data(closed)).not.toHaveProperty('next');
+			expect(text(closed)).toContain(
+				"Session terminée : propose de réviser en avance (next_review avec ahead) et, une fois, d'ajouter une carte tirée de sa journée."
+			);
+
+			const chained = await submit(data(await call(client, 'next_review', { ahead: true })), true);
+			expect(data(chained).next).toMatchObject({ remaining: 0 });
+			expect(text(chained)).toContain('Carte suivante :');
 		});
 
 		it('asks for the face to produce, in its language or by its label', async () => {
@@ -632,6 +693,169 @@ describe('MCP server', () => {
 		it('rejects a malformed review id as a tool error', async () => {
 			const result = await call(await connect(alice), 'get_hint', { review_id: 'abc' });
 			expect(result.isError).toBe(true);
+		});
+	});
+
+	describe('guidance', () => {
+		/** Description d'un outil, telle que Claude la reçoit. */
+		async function descriptions(client: Client) {
+			const { tools } = await client.listTools();
+			return Object.fromEntries(tools.map((t) => [t.name, t.description ?? '']));
+		}
+
+		it('tells Claude to correct, inspire from real situations and offer cards sparingly', async () => {
+			const subjects = await createUser(db, 'Carol');
+			await createDeck(db, subjects, capitals);
+			const several = await createUser(db, 'Dave');
+			await createDeck(db, several);
+			await createDeck(db, several, capitals);
+
+			for (const owner of [alice, subjects, several]) {
+				const instructions = (await connect(owner)).getInstructions()!;
+				expect(instructions).toContain('- Correction : après again ou hard');
+				expect(instructions).toContain('« Répète-la une fois ? »');
+				expect(instructions).toContain('jamais la carte suivante dans le même message');
+				expect(instructions).toContain(
+					'la transcription vocale déforme souvent les mots étrangers'
+				);
+				expect(instructions).toContain("- Manque d'idées : ");
+				expect(instructions).toContain(
+					'Ne propose jamais de cartes génériques sans situation réelle'
+				);
+				expect(instructions).toContain(
+					'check_card, second avis DeepL pour une langue, relecture et confirmation'
+				);
+				expect(instructions).toContain("- Proposer d'ajouter des cartes : en fin de révision");
+				expect(instructions).toContain("Jamais entre deux cartes d'une révision");
+				expect(instructions).toContain("N'annonce jamais l'état de son objectif quotidien");
+				expect(instructions).toContain('la répartition des notes');
+			}
+			expect((await connect(alice)).getInstructions()).not.toContain(
+				'Vérification (deck de sujet)'
+			);
+		});
+
+		it('repeats the essential rules in the tool descriptions', async () => {
+			const tools = await descriptions(await connect(alice));
+
+			expect(tools.check_card).toContain("Une carte part d'une situation réelle de l'utilisateur");
+			expect(tools.check_card).not.toContain('recherche web');
+			expect(tools.next_review).toContain('avec indulgence, jamais à la lettre');
+			expect(tools.submit_review).toContain('Après good ou easy, renvoie la carte suivante (next)');
+			expect(tools.submit_review).toContain('Correction : après again ou hard');
+			expect(tools.submit_review).toContain('« Répète-la une fois ? »');
+			expect(tools.submit_review).toContain("propose une fois d'ajouter une carte");
+		});
+
+		it('has every verifiable fact of a subject card checked against a recent source', async () => {
+			const carol = await createUser(db, 'Carol');
+			await createDeck(db, carol, capitals);
+			const single = await connect(carol);
+			await createDeck(db, alice, capitals);
+			const several = await connect(alice);
+
+			for (const client of [single, several]) {
+				expect(client.getInstructions()).toContain(
+					"- Vérification (deck de sujet) : toute information vérifiable que porte la carte (par exemple un fait, un chiffre, une date, une définition, une attribution ou une procédure) se vérifie auprès d'une source récente et fiable, par une recherche web, avant d'être proposée, jamais de mémoire. Mets la source et sa date dans le contexte de la carte. Si tu ne peux pas vérifier, dis-le au lieu d'inventer."
+				);
+				const tools = await descriptions(client);
+				expect(tools.check_card).toContain('source récente et fiable, par une recherche web');
+				expect(tools.check_card).toContain(
+					"Si tu ne peux pas vérifier, dis-le au lieu d'inventer."
+				);
+				expect(tools.create_card).toContain(
+					'toute information vérifiable se vérifie auprès d’une source récente et fiable (recherche web), jamais de mémoire, avec la source et sa date dans le contexte'
+				);
+			}
+		});
+	});
+
+	describe('prompts', () => {
+		/** Texte du message que le prompt met dans la bouche de l'utilisateur. */
+		async function prompt(client: Client, name: string, args: Record<string, string> = {}) {
+			const { messages } = await client.getPrompt({ name, arguments: args });
+			expect(messages).toHaveLength(1);
+			expect(messages[0].role).toBe('user');
+			const { content } = messages[0];
+			return content.type === 'text' ? content.text : '';
+		}
+
+		it('offers « Réviser » and « Ajouter une carte », with optional arguments', async () => {
+			const { prompts } = await (await connect(alice)).listPrompts();
+
+			expect(prompts.map(({ name, title }) => ({ name, title }))).toEqual([
+				{ name: 'review', title: 'Réviser' },
+				{ name: 'add_card', title: 'Ajouter une carte' }
+			]);
+			for (const { arguments: params } of prompts) {
+				expect(params).toHaveLength(1);
+				expect(params![0].required).toBeFalsy();
+			}
+		});
+
+		it('starts a review session, on all decks or on a named one', async () => {
+			await createDeck(db, alice, capitals);
+			const client = await connect(alice);
+
+			const mixed = await prompt(client, 'review');
+			expect(mixed).toMatch(/^On révise\. Lance une session de révision Poj/);
+			expect(mixed).toContain('Appelle next_review sans deck');
+			expect(mixed).toContain('submit_review renvoie la carte suivante (next)');
+			expect(mixed).toContain('- Correction : après again ou hard');
+			expect(mixed).toContain('Rien à réviser (nothing_due)');
+			expect(mixed).toContain('« on arrête »');
+			expect(mixed).toContain("propose une fois, en une phrase, d'ajouter une carte");
+
+			expect(await prompt(client, 'review', { deck: ' ' })).toContain('next_review sans deck');
+			const scoped = await prompt(client, 'review', { deck: 'capitales' });
+			expect(scoped).toMatch(/^On révise le deck « Capitales »\./);
+			expect(scoped).toContain('Appelle next_review avec le deck « Capitales »');
+		});
+
+		it('captures a card met in a real situation', async () => {
+			const text = await prompt(await connect(alice), 'add_card', {
+				expression: "j'ai entendu « it's not rocket science » dans un podcast"
+			});
+
+			expect(text).toMatch(/^Je veux ajouter une carte : j'ai entendu « it's not rocket science »/);
+			expect(text).toContain('pose-moi une question avant de proposer une carte');
+			expect(text).toContain("qu'elle est idiomatique");
+			expect(text).toContain('appelle toujours check_card avant create_card');
+			expect(text).toContain('si DeepL diverge de ta proposition');
+			expect(text).toContain('Relis-moi la carte finale (faces, contexte)');
+			expect(text).not.toContain("Manque d'idées");
+			expect(text).not.toContain('Vérification (deck de sujet)');
+		});
+
+		it('helps find a real situation when inspiration is lacking', async () => {
+			const client = await connect(alice);
+			const text = await prompt(client, 'add_card');
+
+			expect(text).toMatch(/^Je veux ajouter une carte, mais je manque d'idées/);
+			expect(text).toContain("- Manque d'idées : ");
+			expect(text).toContain('Ne propose jamais de cartes génériques sans situation réelle');
+			expect(text).toContain('appelle toujours check_card avant create_card');
+			expect(text).toContain('attends ma confirmation explicite avant create_card');
+			expect(await prompt(client, 'add_card', { expression: '  ' })).toBe(text);
+		});
+
+		it('adapts the capture to subject decks, several decks or none', async () => {
+			const carol = await createUser(db, 'Carol');
+			const subject = await prompt(await connect(carol), 'add_card');
+			expect(subject).toContain('https://poj.test/decks/new');
+
+			await createDeck(db, carol, capitals);
+			const verified = await prompt(await connect(carol), 'add_card', {
+				expression: 'la population du Portugal, lue dans un article'
+			});
+			expect(verified).toContain('Vérification (deck de sujet)');
+			expect(verified).not.toContain('DeepL');
+
+			await createDeck(db, alice, capitals);
+			const several = await prompt(await connect(alice), 'add_card');
+			expect(several).toContain('- Choix du deck : ');
+			expect(several).toContain('Relis-moi la carte finale (faces, contexte, deck)');
+			expect(several).toContain('Vérification (deck de sujet)');
 		});
 	});
 

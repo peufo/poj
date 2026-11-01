@@ -36,7 +36,7 @@ Je veux réviser mes cartes dues en parlant avec Claude, pour valoriser un traje
 - « On révise » lance la session. Claude présente les révisions dues une à une, selon l'ordre et la mise de côté de la spec.
 - `fr_to_en` : Claude dit le français, je réponds en anglais. `en_to_fr` : Claude dit l'anglais, je réponds en français.
 - Après ma réponse, Claude donne la réponse attendue et propose une note (*Again*, *Hard* ou *Good*) en tolérant synonymes et approximations.
-- Claude enregistre la note (origine : Claude) et enchaîne avec la carte suivante, sans attendre mon accord.
+- Claude enregistre la note (origine : Claude) et enchaîne avec la carte suivante, sans attendre mon accord. Après *Again* ou *Hard*, il m'invite d'abord à répéter la bonne réponse à voix haute, et attend ma réponse avant la carte suivante.
 - Je peux contester la note de la carte précédente (« compte-la fausse », « non, c'était juste ») : Claude la corrige, puis reprend. *Easy* n'est appliqué que si je le dis.
 - « On arrête » met fin à la session à tout moment. Claude résume : nombre de cartes révisées et répartition des notes.
 
