@@ -1,6 +1,6 @@
 # Story : ajouter beaucoup de cartes d'un coup
 
-Statut : en idéation depuis le 2026-11-01. Ticket : t29.
+Statut : validée le 2026-11-01. Tickets : t29, t31, t30 (plus tard).
 
 ## Le problème
 
@@ -24,6 +24,15 @@ Remarque d'origine (2026-10-31) : « si les premières révisions des cartes son
   - (a) limite de nouvelles cartes par jour, appliquée à la révision : 1 migration (réglage), ~8-12 fichiers, touche le cœur de `next` (partagé web et MCP) ;
   - (b) échéances étalées à l'insertion : pas de migration, ~3-5 fichiers, mais figé à l'insertion ;
   - (c) import web CSV / presse-papiers avec mise en correspondance : le plus gros, ~8-15 fichiers, sans migration.
+
+## Décisions remises en cause
+
+- `decks.md`, 2026-10-29 : « pas d'import de gros deck tout fait » (décourageant, peu personnel ; les cartes naissent de situations réelles).
+- `connexion-assistants.md`, 2026-10-29 : ajout groupé MCP rejeté (« pas un usage réel »).
+
+## Questions ouvertes
+
+- Atomicité d'un lot rejoué après une erreur partielle : tranchée au plan de t31.
 
 ## Décisions remises en cause
 
@@ -56,6 +65,13 @@ Contre-lecture à froid (ork:critic, 2026-11-01), à trancher :
 - **2026-11-01 : le lot MCP passe par un outil `create_cards`**, plafonné (~50 cartes par appel), avec une seule confirmation de l'utilisateur pour tout le lot.
   - *Raison :* 200 appels `create_card` à la suite sont longs et coûteux en contexte.
   - *Rejeté :* la consigne seule, avec `create_card` en boucle.
+
+- **2026-11-01 : une carte neuve au-delà du quota est un stock, pas une dette** (contre-lecture ork:critic). Une seule règle de présentation, partagée par `countDue`, `next` (et `ahead`), `nextDue`, stats / horizon et la journée de révision.
+  - *Raison :* sinon les cartes retenues restent « dues » sans être présentées, et un lot casse la journée et la série.
+- **2026-11-01 : la limite compte des cartes** (première réponse, quel que soit le sens), par jour civil Europe/Zurich ; le second sens d'un deck à deux sens est hors quota.
+  - *Raison :* sinon le second sens, qui revient neuf le lendemain, mange le quota (≈ 5 cartes par jour).
+- **2026-11-01 : le lot vérifie en lot.** La vérification (doublons, divergences DeepL pour une langue) porte sur tout le lot et ne renvoie que les problèmes ; la confirmation porte sur un résumé (nombre, deck, doublons, divergences, quelques exemples), compatible avec la voix. La règle « pas de carte générique » de t8 est révisée dans t31 pour admettre un lot tiré d'une source (ex. 200 pays).
+  - *Raison :* sinon 50 cartes de langue = 50 appels d'outil et 100 appels DeepL, et la règle de t8 interdirait le cas d'usage.
 
 ## Hors périmètre
 
