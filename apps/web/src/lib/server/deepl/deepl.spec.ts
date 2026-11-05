@@ -115,7 +115,6 @@ describe('DeepL translator', () => {
 	it.each([
 		[403, 'auth'],
 		[456, 'quota'],
-		[429, 'unavailable'],
 		[500, 'unavailable']
 	])('maps HTTP %i to the %s failure', async (status, reason) => {
 		const translator = createDeeplTranslator('key', fakeFetch(json({ message: 'x' }, status)).fn);
@@ -124,6 +123,85 @@ describe('DeepL translator', () => {
 			translator.translate({ texts: ['a'], from: 'fr', to: 'en' })
 		).rejects.toMatchObject({
 			reason
+		});
+	});
+
+	describe('on HTTP 429', () => {
+		const tooMany = (retryAfter?: string) =>
+			new Response('{}', { status: 429, headers: retryAfter ? { 'retry-after': retryAfter } : {} });
+		const ok = () => json({ translations: [{ text: 'a' }] });
+
+		function sequence(...responses: Response[]) {
+			const waits: number[] = [];
+			let calls = 0;
+			const fn = (async () => responses[calls++]) as unknown as typeof fetch;
+			const translator = createDeeplTranslator('key', fn, async (ms) => {
+				waits.push(ms);
+			});
+			return { translator, waits, calls: () => calls };
+		}
+		const request = { texts: ['a'], from: 'fr' as const, to: 'en' as const };
+
+		it('retries once after the Retry-After delay', async () => {
+			const s = sequence(tooMany('2'), ok());
+
+			expect(await s.translator.translate(request)).toEqual(['a']);
+			expect(s.waits).toEqual([2000]);
+			expect(s.calls()).toBe(2);
+		});
+
+		it('retries after a short default delay when Retry-After is missing', async () => {
+			const s = sequence(tooMany(), ok());
+
+			expect(await s.translator.translate(request)).toEqual(['a']);
+			expect(s.waits).toEqual([1000]);
+		});
+
+		it('maps a second 429 to unavailable', async () => {
+			const s = sequence(tooMany('0'), tooMany('0'));
+
+			await expect(s.translator.translate(request)).rejects.toMatchObject({
+				reason: 'unavailable'
+			});
+			expect(s.calls()).toBe(2);
+		});
+
+		it('gives up without retrying when Retry-After is above the bound', async () => {
+			const s = sequence(tooMany('30'), ok());
+
+			await expect(s.translator.translate(request)).rejects.toMatchObject({
+				reason: 'unavailable'
+			});
+			expect(s.calls()).toBe(1);
+			expect(s.waits).toEqual([]);
+		});
+
+		it('keeps its place in the queue while waiting, without leaking it', async () => {
+			let inFlight = 0;
+			let peak = 0;
+			const seen = new Set<string>();
+			const fn = (async (_url: string, init: RequestInit) => {
+				const { text } = JSON.parse(init.body as string) as { text: string[] };
+				peak = Math.max(peak, ++inFlight);
+				await new Promise((resolve) => setTimeout(resolve, 1));
+				inFlight -= 1;
+				// Chaque texte reçoit un 429 à sa première requête.
+				if (!seen.has(text[0])) {
+					seen.add(text[0]);
+					return tooMany('0');
+				}
+				return json({ translations: text.map((t) => ({ text: t.toUpperCase() })) });
+			}) as unknown as typeof fetch;
+			const translator = createDeeplTranslator('key', fn, async () => {});
+
+			const translated = await Promise.all(
+				Array.from({ length: 12 }, (_, i) =>
+					translator.translate({ texts: [`t${i}`], from: 'fr', to: 'en', context: `c${i}` })
+				)
+			);
+
+			expect(translated.flat()).toEqual(Array.from({ length: 12 }, (_, i) => `T${i}`));
+			expect(peak).toBeLessThanOrEqual(4);
 		});
 	});
 

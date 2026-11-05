@@ -16,6 +16,22 @@ export const deeplTarget = (language: Language) => language.toUpperCase();
 
 const TIMEOUT_MS = 5_000;
 
+/** Attente avant la nouvelle tentative après un 429 sans `Retry-After` lisible. */
+const DEFAULT_RETRY_DELAY_MS = 1_000;
+
+/** Au-delà de cette attente demandée par `Retry-After`, on renonce au lieu de réessayer. */
+const MAX_RETRY_DELAY_MS = 5_000;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Délai demandé par l'en-tête `Retry-After` (en secondes), ou le délai par défaut. */
+function retryDelay(response: Response): number {
+	const seconds = Number(response.headers.get('retry-after'));
+	return response.headers.has('retry-after') && Number.isFinite(seconds) && seconds >= 0
+		? seconds * 1000
+		: DEFAULT_RETRY_DELAY_MS;
+}
+
 /** Nombre maximal de textes par requête `/v2/translate`. */
 const DEEPL_MAX_TEXTS = 50;
 
@@ -54,7 +70,11 @@ export function deeplBaseUrl(apiKey: string): string {
 	return apiKey.endsWith(':fx') ? 'https://api-free.deepl.com' : 'https://api.deepl.com';
 }
 
-export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fetch): Translator {
+export function createDeeplTranslator(
+	apiKey: string,
+	fetchFn: typeof fetch = fetch,
+	sleep: (ms: number) => Promise<void> = wait
+): Translator {
 	const url = `${deeplBaseUrl(apiKey)}/v2/translate`;
 	const limit = limiter(MAX_PARALLEL_REQUESTS);
 
@@ -63,9 +83,8 @@ export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fe
 		texts: string[],
 		{ from, to, context }: Omit<TranslateRequest, 'texts'>
 	): Promise<string[]> {
-		let response: Response;
-		try {
-			response = await fetchFn(url, {
+		const send = () =>
+			fetchFn(url, {
 				method: 'POST',
 				headers: {
 					Authorization: `DeepL-Auth-Key ${apiKey}`,
@@ -79,6 +98,18 @@ export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fe
 				}),
 				signal: AbortSignal.timeout(TIMEOUT_MS)
 			});
+
+		let response: Response;
+		try {
+			response = await send();
+			// Un seul nouvel essai : la place dans la file reste tenue pendant l'attente.
+			if (response.status === 429) {
+				const delay = retryDelay(response);
+				if (delay <= MAX_RETRY_DELAY_MS) {
+					await sleep(delay);
+					response = await send();
+				}
+			}
 		} catch (error) {
 			throw new TranslatorError('unavailable', `DeepL unreachable: ${String(error)}`);
 		}
