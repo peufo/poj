@@ -1,4 +1,4 @@
-import type { Db } from '../db';
+import type { Db, Tx } from '../db';
 import { directionsOf, findOwnedDeck, lockOwner, reviewedDirections } from '../decks/decks.service';
 import type { Deck } from '../decks/types';
 import { NotFoundError } from '../errors';
@@ -8,6 +8,8 @@ import { findNewCards, presentableCard } from '../reviews/new-cards';
 import { emptyState } from '../reviews/scheduler';
 import { calendarDaysBetween, startOfDay, startOfNextDay } from '../time';
 import type {
+	BatchEntry,
+	BatchResult,
 	Card,
 	CardDetail,
 	CardInput,
@@ -19,7 +21,10 @@ import type {
 
 export type CardsService = ReturnType<typeof createCardsService>;
 
-/** Fenêtre pendant laquelle `createOnce` renvoie une carte identique au lieu d'en créer une. */
+/**
+ * Fenêtre pendant laquelle `createOnce` renvoie une carte identique au lieu d'en créer une,
+ * et `createBatch` la reconnaît comme déjà créée.
+ */
 const REPLAY_WINDOW_MS = 10 * 60 * 1000;
 
 function clean({ sideA, sideB, context }: CardInput) {
@@ -47,6 +52,48 @@ export function duplicateSide(deck: Pick<Deck, 'kind'>): 'sideA' | 'sideB' {
 const newReviews = (deck: Deck, now: Date) => ({
 	create: directionsOf(deck).map((direction) => ({ direction, ...emptyState(now) }))
 });
+
+/** Cartes non supprimées d'un deck, des plus récentes aux plus anciennes. */
+function deckCards(db: Db | Tx, ownerId: string, deckId: string): Promise<Card[]> {
+	return db.card.findMany({
+		where: { ownerId, deckId, deletedAt: null },
+		orderBy: { createdAt: 'desc' }
+	});
+}
+
+/**
+ * Classe chaque carte d'un lot, dans l'ordre : doublon d'une carte précédente du lot, carte
+ * déjà créée (lot rejoué), doublon d'une carte du deck (`existing`), ou nouvelle.
+ */
+function classifyBatch(
+	deck: Pick<Deck, 'kind'>,
+	existing: readonly Card[],
+	inputs: readonly CardInput[],
+	now: Date
+): BatchEntry[] {
+	const side = duplicateSide(deck);
+	const since = now.getTime() - REPLAY_WINDOW_MS;
+	const byKey = Map.groupBy(existing, (card) => comparisonKey(card[side]));
+	const seen = new Map<string, number>();
+	return inputs.map((input, i): BatchEntry => {
+		const data = clean(input);
+		const key = comparisonKey(data[side]);
+		const first = seen.get(key);
+		if (first !== undefined) return { status: 'duplicate_in_batch', of: first };
+		seen.set(key, i);
+
+		const duplicates = byKey.get(key) ?? [];
+		const replayed = duplicates.find(
+			(card) =>
+				card.sideA === data.sideA &&
+				card.sideB === data.sideB &&
+				card.context === data.context &&
+				card.createdAt.getTime() >= since
+		);
+		if (replayed) return { status: 'existing', card: replayed };
+		return duplicates.length > 0 ? { status: 'duplicate', duplicates } : { status: 'new' };
+	});
+}
 
 export function createCardsService(db: Db) {
 	async function findOwned(ownerId: string, id: string): Promise<Card> {
@@ -148,6 +195,64 @@ export function createCardsService(db: Db) {
 		},
 
 		/**
+		 * Classe chaque carte d'un lot destiné au deck, sans rien créer : doublons dans le lot
+		 * ou dans le deck, cartes déjà créées (voir `createBatch`).
+		 */
+		async checkBatch(
+			ownerId: string,
+			deck: Pick<Deck, 'id' | 'kind'>,
+			inputs: readonly CardInput[],
+			now = new Date()
+		): Promise<BatchEntry[]> {
+			return classifyBatch(deck, await deckCards(db, ownerId, deck.id), inputs, now);
+		},
+
+		/**
+		 * Crée un lot de cartes dans le deck `deckId` du propriétaire (`NotFoundError` sinon),
+		 * comme `create`, sauf les doublons (dans le lot ou dans le deck) et les cartes déjà
+		 * créées par le même lot dans les 10 dernières minutes : rejouer le lot ne crée rien de
+		 * plus. Tout ou rien : une erreur n'en crée aucune. Les cartes sont horodatées dans
+		 * l'ordre du lot (une milliseconde d'écart), qui devient leur ordre de présentation.
+		 */
+		createBatch(
+			ownerId: string,
+			deckId: string,
+			inputs: readonly CardInput[],
+			origin: Origin,
+			now = new Date()
+		): Promise<BatchResult[]> {
+			return db.$transaction(async (tx) => {
+				await lockOwner(tx, ownerId);
+				const deck = await findOwnedDeck(tx, ownerId, deckId);
+				const entries = classifyBatch(deck, await deckCards(tx, ownerId, deck.id), inputs, now);
+				const fresh = entries.flatMap((entry, i) => (entry.status === 'new' ? [i] : []));
+				// Deux requêtes pour tout le lot, sous le verrou du propriétaire.
+				const created = await tx.card.createManyAndReturn({
+					data: fresh.map((i, k) => ({
+						...clean(inputs[i]),
+						origin,
+						ownerId,
+						deckId: deck.id,
+						createdAt: new Date(now.getTime() + k)
+					}))
+				});
+				await tx.review.createMany({
+					data: created.flatMap((card) =>
+						newReviews(deck, now).create.map((review) => ({ ...review, cardId: card.id }))
+					)
+				});
+				// Les horodatages, tous distincts, rendent à chaque carte sa place dans le lot.
+				const byTime = new Map(created.map((card) => [card.createdAt.getTime(), card]));
+				let k = 0;
+				return entries.map((entry): BatchResult =>
+					entry.status === 'new'
+						? { status: 'created', card: byTime.get(now.getTime() + k++)! }
+						: entry
+				);
+			});
+		},
+
+		/**
 		 * Cartes non supprimées du même deck dont la face qui identifie une carte
 		 * (`duplicateSide`) est la même que celle de `input` (casse et espaces ignorés).
 		 */
@@ -159,16 +264,10 @@ export function createCardsService(db: Db) {
 		): Promise<Card[]> {
 			const side = duplicateSide(deck);
 			const key = comparisonKey(input[side]);
-			const candidates = await db.card.findMany({
-				where: {
-					ownerId,
-					deckId: deck.id,
-					deletedAt: null,
-					...(excludeId && { id: { not: excludeId } })
-				},
-				orderBy: { createdAt: 'desc' }
-			});
-			return candidates.filter((card) => comparisonKey(card[side]) === key);
+			const candidates = await deckCards(db, ownerId, deck.id);
+			return candidates.filter(
+				(card) => card.id !== excludeId && comparisonKey(card[side]) === key
+			);
 		},
 
 		/**

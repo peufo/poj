@@ -16,9 +16,12 @@ import {
 	duplicateSide,
 	findDeckByName,
 	formatRelative,
+	diverges,
 	languagePair,
+	MAX_BATCH_CARDS,
 	NotFoundError,
 	resolveDeck,
+	type BatchResult,
 	type CardInput,
 	type CardsService,
 	type Deck,
@@ -31,6 +34,10 @@ import {
 	type TranslationService
 } from '#lib/server/domain/index.js';
 import {
+	BATCH_CONFIRMATION,
+	BATCH_FACT_CHECK,
+	BATCH_SUMMARY,
+	batchRule,
 	CORRECTION_RULE,
 	DECK_CHOICE_RULE,
 	END_RULE,
@@ -108,6 +115,7 @@ ${ruleList([
 	`Parle français avec l'utilisateur${language ? `, sauf pour les expressions en ${b.name} elles-mêmes` : ''}.`,
 	capture,
 	!language && FACT_RULE,
+	batchRule(!language),
 	...SHARED_RULES
 ])}`;
 }
@@ -141,6 +149,7 @@ ${ruleList([
 	DECK_CHOICE_RULE,
 	`Capture : appelle toujours check_card avant create_card. ${checks.join(' ')} Relis-lui toujours la carte finale, avec son deck, et attends sa confirmation explicite avant create_card.`,
 	subjects && FACT_RULE,
+	batchRule(subjects),
 	"Révision : « on révise » mélange tous les decks, appelle next_review sans deck. Ne passe deck que s'il nomme un deck, et repasse le même à submit_review et amend_review.",
 	...SHARED_RULES
 ])}`;
@@ -165,6 +174,17 @@ const MULTI_DECK_TOOL_TEXTS = {
 	create: `Crée une carte dans le deck indiqué, et ses révisions, dues immédiatement (une seule, de A vers B, dans un deck à sens unique). Avant de l'appeler : appelle toujours check_card avec le même deck ; pour un deck de langue, si DeepL diverge, expose les options et laisse-le trancher ; pour un sujet, vérifie toi-même la carte : ${FACT_SOURCE} ; relis-lui la carte finale (deck, faces, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`
 };
 
+/**
+ * Descriptions de check_cards et create_cards, selon que l'ajout peut viser un deck de
+ * langue (`languages`) ou de sujet (`subjects`).
+ */
+function batchToolTexts(languages: boolean, subjects: boolean): { check: string; create: string } {
+	return {
+		check: `${REAL_SITUATION} Vérifie un lot de cartes d'un même deck (${MAX_BATCH_CARDS} au plus par appel) avant create_cards, au lieu d'appeler check_card pour chaque carte. Ne renvoie que les problèmes, repérés par leur position dans le lot (à partir de 1) : doublons (dans le lot, ou déjà dans le deck) et cartes déjà créées il y a moins de 10 minutes${languages ? ". Deck de langue : divergences DeepL, quand ni la traduction de la face A ni celle de la face B ne correspondent à la carte ; si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non" : ''}.${subjects ? ` Deck de sujet : pas de second avis DeepL ; ${BATCH_FACT_CHECK}` : ''} Ensuite, ${BATCH_SUMMARY}. Ne modifie rien.`,
+		create: `Crée un lot de cartes dans un même deck (${MAX_BATCH_CARDS} au plus par appel), et leurs révisions : les nouvelles cartes sont présentées au fil des jours, dans la limite quotidienne du deck, dans l'ordre du lot. ${BATCH_CONFIRMATION} Les doublons (dans le lot, ou déjà dans le deck) ne sont pas créés : skipped les liste ; pour en garder un quand même, passe par create_card. Tout ou rien : après une erreur, aucune carte n'est créée. Rejouer le même lot (après une erreur ou une coupure) ne recrée pas les cartes déjà créées.`
+	};
+}
+
 /** Nom d'un deck, tel que Claude le passe aux outils. */
 const deckNameSchema = z.string().trim().min(1).optional();
 
@@ -181,24 +201,28 @@ const tooLong = (max: number) => `${max} caractères au plus : raccourcis le tex
 const fieldOf = (face: Face) =>
 	face.lang ? `Texte en ${face.name} de la carte` : `Face ${face.the} de la carte`;
 
-/** Champ `deck` des outils de capture : le nom du deck, avec la correspondance des faces. */
-function captureDeckField(decks: readonly Deck[]) {
+/**
+ * Champ `deck` des outils de capture : le nom du deck, avec la correspondance des faces.
+ * `of` désigne ce qui va dans le deck : la carte, ou les cartes d'un lot.
+ */
+function captureDeckField(decks: readonly Deck[], of: 'card' | 'batch' = 'card') {
+	const [what, from] = of === 'card' ? ['de la carte', 'de la carte'] : ['du lot', 'des cartes'];
 	const description =
 		decks.length > 1
-			? `Nom du deck de la carte, obligatoire : l'utilisateur a plusieurs decks. Déduis-le de la carte (langue de l'expression, sujet), ou demande-le en cas de doute. Decks : ${decks.map((deck) => `${quote(deck.name)} : ${sidesOf(deck)}`).join(' ; ')}.`
+			? `Nom du deck ${what}, obligatoire : l'utilisateur a plusieurs decks. Déduis-le ${from} (langue de l'expression, sujet), ou demande-le en cas de doute. Decks : ${decks.map((deck) => `${quote(deck.name)} : ${sidesOf(deck)}`).join(' ; ')}.`
 			: decks.length === 1
-				? `Nom du deck de la carte, facultatif : l'utilisateur n'a qu'un deck, ${quote(decks[0].name)}.`
-				: 'Nom du deck de la carte.';
+				? `Nom du deck ${what}, facultatif : l'utilisateur n'a qu'un deck, ${quote(decks[0].name)}.`
+				: `Nom du deck ${what}.`;
 	return deckNameSchema.describe(description);
 }
 
 /**
- * Entrée des outils de capture. Avec un seul deck (ou aucun), `shape`, les faces sont
- * nommées d'après lui ; avec plusieurs (`null`), le champ `deck` donne la correspondance.
+ * Champs d'une carte capturée. Avec un seul deck (ou aucun), `shape`, les faces sont nommées
+ * d'après lui ; avec plusieurs (`null`), le champ `deck` donne la correspondance.
  */
-function cardInputSchema(shape: DeckFaces | null, decks: readonly Deck[]) {
+function cardFields(shape: DeckFaces | null) {
 	const sides = shape && faces(shape);
-	return z.object({
+	return {
 		side_a: z
 			.string()
 			.trim()
@@ -223,10 +247,29 @@ function cardInputSchema(shape: DeckFaces | null, decks: readonly Deck[]) {
 			.string()
 			.max(CARD_LIMITS.context, tooLong(CARD_LIMITS.context))
 			.nullish()
-			.describe("Contexte d'origine facultatif (où, quand, avec qui l'expression a été entendue)."),
-		deck: captureDeckField(decks)
-	});
+			.describe("Contexte d'origine facultatif (où, quand, avec qui l'expression a été entendue).")
+	};
 }
+
+/** Entrée de check_card et create_card. */
+const cardInputSchema = (shape: DeckFaces | null, decks: readonly Deck[]) =>
+	z.object({ ...cardFields(shape), deck: captureDeckField(decks) });
+
+/** Entrée de check_cards et create_cards : un lot plafonné, pour un seul deck. */
+const batchInputSchema = (shape: DeckFaces | null, decks: readonly Deck[]) =>
+	z.object({
+		cards: z
+			.array(z.object(cardFields(shape)))
+			.min(1)
+			.max(
+				MAX_BATCH_CARDS,
+				`${MAX_BATCH_CARDS} cartes au plus par appel : découpe le lot en plusieurs appels.`
+			)
+			.describe(
+				`Cartes du lot, dans l'ordre où les présenter, ${MAX_BATCH_CARDS} au plus par appel.`
+			),
+		deck: captureDeckField(decks, 'batch')
+	});
 
 const toCardInput = (input: {
 	side_a: string;
@@ -245,6 +288,31 @@ const cardOutput = (card: {
 	side_b: card.sideB,
 	context: card.context
 });
+
+/** Carte existante, dans les sorties des outils de capture. */
+const cardOutputSchema = z.object({
+	card_id: z.string(),
+	side_a: z.string(),
+	side_b: z.string(),
+	context: z.string().nullable()
+});
+
+/** Carte d'un lot, repérée par sa position (à partir de 1). */
+const batchCardOutput = { position: z.number(), side_a: z.string(), side_b: z.string() };
+
+/** Carte d'un lot, telle que les sorties la repèrent. */
+const batchCard = (input: CardInput, index: number) => ({
+	position: index + 1,
+	side_a: input.sideA,
+	side_b: input.sideB
+});
+
+/** « n°3 « Suisse » = « Berne » » : une carte d'un lot, pour le texte des résultats. */
+const batchLine = (input: CardInput, index: number) =>
+	`n°${index + 1} ${describeCard({ ...input, context: null })}`;
+
+const BATCH_FAILED =
+	"Le lot n'a pas pu être créé : aucune carte n'a été ajoutée. Rejoue le même appel ; s'il échoue encore, dis-le à l'utilisateur.";
 
 const reviewIdSchema = z.uuid().describe('review_id renvoyé par next_review.');
 
@@ -266,6 +334,12 @@ const failureLabels: Record<TranslationFailure, string> = {
 	quota: 'le quota DeepL est épuisé',
 	unavailable: 'DeepL est indisponible'
 };
+
+/** Raison du premier échec DeepL parmi des suggestions, telle que dite à l'utilisateur. */
+function deeplErrorOf(suggestions: readonly Suggestion[]): string | undefined {
+	const failure = suggestions.find((s) => !s.ok);
+	return failure && !failure.ok ? failureLabels[failure.reason] : undefined;
+}
 
 function describeCard(card: { sideA: string; sideB: string; context: string | null }) {
 	const base = `${quote(card.sideA)} = ${quote(card.sideB)}`;
@@ -327,6 +401,10 @@ export function createPojMcpServer({
 	registerPrompts(server, { decks, noDeck });
 	const cardInput = cardInputSchema(shape, decks);
 	const toolTexts = shape ? singleDeckToolTexts(shape) : MULTI_DECK_TOOL_TEXTS;
+	const batchInput = batchInputSchema(shape, decks);
+	const batchTexts = shape
+		? batchToolTexts(isLanguage(shape), !isLanguage(shape))
+		: batchToolTexts(decks.some(isLanguage), !decks.every(isLanguage));
 
 	/** « dans « Anglais » » quand l'utilisateur a plusieurs decks, sinon rien. */
 	const inDeck = (deck: Pick<Deck, 'name'>) => (several ? ` dans ${quote(deck.name)}` : '');
@@ -452,14 +530,7 @@ export function createPojMcpServer({
 				deepl_a_to_b: z.string().nullable(),
 				deepl_b_to_a: z.string().nullable(),
 				deepl_error: z.string().optional(),
-				duplicates: z.array(
-					z.object({
-						card_id: z.string(),
-						side_a: z.string(),
-						side_b: z.string(),
-						context: z.string().nullable()
-					})
-				)
+				duplicates: z.array(cardOutputSchema)
 			}),
 			annotations: { readOnlyHint: true, openWorldHint: decks.some(isLanguage) }
 		},
@@ -474,8 +545,7 @@ export function createPojMcpServer({
 				cards.findDuplicates(ownerId, deck, proposed)
 			]);
 			const text = (s: Suggestion | undefined) => (s?.ok ? s.text : null);
-			const failure = check && [check.aToB, check.bToA].find((s) => !s.ok);
-			const deeplError = failure && !failure.ok ? failureLabels[failure.reason] : undefined;
+			const deeplError = check ? deeplErrorOf([check.aToB, check.bToA]) : undefined;
 
 			const lines: string[] = [];
 			lines.push(...deckHeader(deck));
@@ -540,6 +610,185 @@ export function createPojMcpServer({
 	);
 
 	server.registerTool(
+		'check_cards',
+		{
+			title: 'Vérifier un lot de cartes',
+			description: batchTexts.check,
+			inputSchema: batchInput,
+			outputSchema: z.object({
+				deck: z.string(),
+				count: z.number(),
+				already_created: z.array(z.object({ ...batchCardOutput, card_id: z.string() })),
+				duplicates: z.array(
+					z.object({
+						...batchCardOutput,
+						same_as: z.number().nullable(),
+						existing: z.array(cardOutputSchema)
+					})
+				),
+				divergences: z.array(
+					z.object({
+						...batchCardOutput,
+						deepl_a_to_b: z.string(),
+						deepl_b_to_a: z.string()
+					})
+				),
+				deepl_error: z.string().optional()
+			}),
+			annotations: { readOnlyHint: true, openWorldHint: decks.some(isLanguage) }
+		},
+		async (input) => {
+			const deck = captureDeck(input.deck);
+			if (isToolResult(deck)) return deck;
+			const batch = input.cards.map(toCardInput);
+			const entries = await cards.checkBatch(ownerId, deck, batch, now());
+			// DeepL ne vérifie que les cartes qui seraient créées.
+			const fresh = entries.flatMap((entry, i) => (entry.status === 'new' ? [i] : []));
+			const pair = languagePair(deck);
+			const checks = pair
+				? await translation.checkAll(
+						pair,
+						fresh.map((i) => batch[i])
+					)
+				: [];
+			const deeplError = deeplErrorOf(checks.flatMap(({ aToB, bToA }) => [aToB, bToA]));
+			const divergent = checks.flatMap((check, k) =>
+				diverges(batch[fresh[k]], check) ? [{ i: fresh[k], check }] : []
+			);
+
+			const alreadyCreated = entries.flatMap((entry, i) =>
+				entry.status === 'existing' ? [{ ...batchCard(batch[i], i), card_id: entry.card.id }] : []
+			);
+			const duplicates = entries.flatMap((entry, i) =>
+				entry.status === 'duplicate' || entry.status === 'duplicate_in_batch'
+					? [
+							{
+								...batchCard(batch[i], i),
+								same_as: entry.status === 'duplicate_in_batch' ? entry.of + 1 : null,
+								existing: entry.status === 'duplicate' ? entry.duplicates.map(cardOutput) : []
+							}
+						]
+					: []
+			);
+			const lines = entries.flatMap((entry, i) => {
+				const line = batchLine(batch[i], i);
+				switch (entry.status) {
+					case 'existing':
+						return [`${line} : déjà créée il y a moins de 10 minutes.`];
+					case 'duplicate':
+						return [
+							`${line} : doublon de ${entry.duplicates.map(describeCard).join(' ; ')}, déjà dans le deck.`
+						];
+					case 'duplicate_in_batch':
+						return [`${line} : doublon de la n°${entry.of + 1} du lot.`];
+					case 'new':
+						return [];
+				}
+			});
+			const { a, b } = faces(deck);
+			for (const { i, check } of divergent) {
+				lines.push(
+					`${batchLine(batch[i], i)} : DeepL propose ${quote(check.aToB.text)} (${a.name} vers ${b.name}) et ${quote(check.bToA.text)} (${b.name} vers ${a.name}).`
+				);
+			}
+			if (!pair) lines.push('Pas de second avis DeepL pour ce deck.');
+			if (deeplError) lines.push(`DeepL : ${deeplError}.`);
+
+			const problems = [
+				duplicates.length > 0 && plural(duplicates.length, 'doublon'),
+				alreadyCreated.length > 0 &&
+					plural(alreadyCreated.length, 'carte déjà créée', 'cartes déjà créées'),
+				divergent.length > 0 && plural(divergent.length, 'divergence DeepL', 'divergences DeepL')
+			].filter(Boolean);
+			const summary = `Lot de ${plural(batch.length, 'carte')} pour ${quote(deck.name)} : ${problems.length > 0 ? problems.join(', ') : 'aucun problème'}.`;
+
+			return result([summary, ...lines].join('\n'), {
+				deck: deck.name,
+				count: batch.length,
+				already_created: alreadyCreated,
+				duplicates,
+				divergences: divergent.map(({ i, check }) => ({
+					...batchCard(batch[i], i),
+					deepl_a_to_b: check.aToB.text,
+					deepl_b_to_a: check.bToA.text
+				})),
+				...(deeplError && { deepl_error: deeplError })
+			});
+		}
+	);
+
+	server.registerTool(
+		'create_cards',
+		{
+			title: 'Créer un lot de cartes',
+			description: batchTexts.create,
+			inputSchema: batchInput,
+			outputSchema: z.object({
+				deck: z.string(),
+				created: z.number(),
+				already_created: z.number(),
+				skipped: z.array(
+					z.object({
+						...batchCardOutput,
+						reason: z.enum(['duplicate', 'duplicate_in_batch'])
+					})
+				),
+				cards: z.array(
+					z.object({ position: z.number(), card_id: z.string(), created: z.boolean() })
+				)
+			}),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false
+			}
+		},
+		async (input) => {
+			const deck = captureDeck(input.deck);
+			if (isToolResult(deck)) return deck;
+			const batch = input.cards.map(toCardInput);
+			let results: BatchResult[];
+			try {
+				results = await cards.createBatch(ownerId, deck.id, batch, 'claude', now());
+			} catch (error) {
+				console.error(error);
+				return toolError(BATCH_FAILED);
+			}
+
+			const saved = results.flatMap((entry, i) =>
+				entry.status === 'created' || entry.status === 'existing'
+					? [{ position: i + 1, card_id: entry.card.id, created: entry.status === 'created' }]
+					: []
+			);
+			const skippedAt = results.flatMap((entry, i) =>
+				entry.status === 'duplicate' || entry.status === 'duplicate_in_batch'
+					? [{ i, reason: entry.status }]
+					: []
+			);
+			const created = saved.filter((card) => card.created).length;
+			const alreadyCreated = saved.length - created;
+
+			const lines = [
+				`${plural(created, 'carte créée', 'cartes créées')}${inDeck(deck)}.`,
+				alreadyCreated > 0 &&
+					`${plural(alreadyCreated, 'carte déjà créée', 'cartes déjà créées')} il y a moins de 10 minutes, rien d'ajouté pour elles.`,
+				skippedAt.length > 0 &&
+					`Doublons non créés : ${skippedAt.map(({ i }) => batchLine(batch[i], i)).join(' ; ')}.`,
+				created > 0 &&
+					'Les nouvelles cartes viendront en révision au fil des jours, dans la limite du deck.'
+			];
+			return result(lines.filter(Boolean).join('\n'), {
+				deck: deck.name,
+				created,
+				already_created: alreadyCreated,
+				skipped: skippedAt.map(({ i, reason }) => ({ ...batchCard(batch[i], i), reason })),
+				cards: saved
+			});
+		}
+	);
+
+	server.registerTool(
 		'next_review',
 		{
 			title: 'Prochaine révision',
@@ -593,7 +842,7 @@ export function createPojMcpServer({
 		{
 			title: 'Indice',
 			description:
-				"Renvoie le contexte d'origine de la carte en cours, à appeler seulement si l'utilisateur demande un indice. Le serveur mémorise la demande : la note de cette révision sera plafonnée à hard.",
+				"Renvoie l'indice de la carte en cours, son contexte d'origine sans la source, à appeler seulement si l'utilisateur demande un indice. Le serveur mémorise la demande : la note de cette révision sera plafonnée à hard.",
 			inputSchema: z.object({ review_id: reviewIdSchema }),
 			outputSchema: z.object({ context: z.string().nullable() }),
 			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
@@ -601,12 +850,9 @@ export function createPojMcpServer({
 		({ review_id }) =>
 			guard(async () => {
 				const { context } = await reviews.requestHint(ownerId, review_id, now());
-				return result(
-					context ? `Indice : ${quote(context)}.` : 'Pas de contexte pour cette carte.',
-					{
-						context
-					}
-				);
+				return result(context ? `Indice : ${quote(context)}.` : 'Pas d’indice pour cette carte.', {
+					context
+				});
 			}, REVIEW_NOT_FOUND)
 	);
 

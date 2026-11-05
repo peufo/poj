@@ -1,6 +1,7 @@
 import type { Db } from '../db';
 import { reviewedDirections } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
+import { hintOf } from '../cards/hint';
 import type { Card, Direction, Origin, Rating, Review, ReviewLog } from '../cards/types';
 import { applyRating, pickState, previewDue } from './scheduler';
 import { startOfNextDay } from '../time';
@@ -184,7 +185,7 @@ export function createReviewsService(db: Db) {
 					direction: review.direction,
 					prompt: promptOf(review.direction, card),
 					expected: promptOf(opposite[review.direction], card),
-					hasHint: card.context !== null,
+					hasHint: hintOf(card.context) !== null,
 					context: card.context,
 					hintUsed: hintUsedOn(review),
 					isNew: review.state === 'new',
@@ -240,16 +241,20 @@ export function createReviewsService(db: Db) {
 			};
 		},
 
-		/** Renvoie le contexte de la carte et mémorise qu'un indice a été demandé. */
+		/**
+		 * Renvoie l'indice de la carte (son contexte sans les mentions de source, `hintOf`) et
+		 * mémorise qu'un indice a été demandé. Sans indice, rien n'est mémorisé.
+		 */
 		async requestHint(
 			ownerId: string,
 			reviewId: string,
 			now = new Date()
 		): Promise<{ context: string | null }> {
 			const review = await findOwned(ownerId, reviewId);
-			if (review.card.context === null) return { context: null };
+			const hint = hintOf(review.card.context);
+			if (hint === null) return { context: null };
 			await db.review.update({ where: { id: reviewId }, data: { hintRequestedAt: now } });
-			return { context: review.card.context };
+			return { context: hint };
 		},
 
 		/**

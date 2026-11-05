@@ -29,7 +29,7 @@
 
 - **Avec Claude :** Claude propose *Again*, *Hard* ou *Good* d'après la conversation, en tolérant synonymes, variantes et approximations. Il ne propose **jamais** *Easy*, qui ne s'applique que si je le demande (« trop facile »). Je peux contester la note avant de passer à la carte suivante. Seule la note finale est enregistrée.
 - **Sur le web :** la réponse est affichée, puis je choisis l'une des quatre notes.
-- **Indice :** demander le contexte d'origine pendant une révision entraîne au mieux la note *Hard*.
+- **Indice :** demander le contexte d'origine pendant une révision entraîne au mieux la note *Hard*. Une mention de source dans le contexte (« Source : … », ajoutée par la vérification des faits de Claude) ne compte pas comme indice : Claude ne la reçoit pas avec l'indice, et un contexte réduit à une source ne donne pas d'indice, donc pas de plafond.
 
 ## Corriger la dernière note
 

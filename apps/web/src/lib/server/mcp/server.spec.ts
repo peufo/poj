@@ -5,6 +5,7 @@ import { useTestDatabase } from '../testing/db';
 import { createDeck, createUser } from '../testing/factories';
 import {
 	CARD_LIMITS,
+	MAX_BATCH_CARDS,
 	createCardsService,
 	createDecksService,
 	createReviewsService,
@@ -27,10 +28,21 @@ const DAY = 24 * HOUR;
 
 /** Faux DeepL : renvoie une traduction fixe par langue cible. */
 const echo: Translator = {
-	async translate({ to }) {
-		return to === 'en-GB' ? 'to take for granted' : 'tenir pour acquis';
+	async translate({ texts, to }) {
+		return texts.map(() => (to === 'en-GB' ? 'to take for granted' : 'tenir pour acquis'));
 	}
 };
+
+/** Faux DeepL d'après un dictionnaire, qui compte ses requêtes. */
+function dictionary(entries: Record<string, string>): Translator & { requests: number } {
+	return {
+		requests: 0,
+		async translate({ texts }) {
+			this.requests += 1;
+			return texts.map((text) => entries[text] ?? text);
+		}
+	};
+}
 
 const card = { sideA: 'tenir pour acquis', sideB: 'to take for granted' };
 /** La même carte, telle que Claude la passe aux outils. */
@@ -99,21 +111,23 @@ const text = (result: CallToolResult) =>
 	result.content.map((c) => (c.type === 'text' ? c.text : '')).join('\n');
 
 describe('MCP server', () => {
-	it('exposes the seven tools, with read-only hints and instructions', async () => {
+	it('exposes the nine tools, with read-only hints and instructions', async () => {
 		const client = await connect(alice);
 		const { tools } = await client.listTools();
 
 		expect(tools.map((t) => t.name).sort()).toEqual([
 			'amend_review',
 			'check_card',
+			'check_cards',
 			'create_card',
+			'create_cards',
 			'get_hint',
 			'list_decks',
 			'next_review',
 			'submit_review'
 		]);
 		const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
-		expect(readOnly.sort()).toEqual(['check_card', 'list_decks', 'next_review']);
+		expect(readOnly.sort()).toEqual(['check_card', 'check_cards', 'list_decks', 'next_review']);
 		expect(client.getInstructions()).toContain('easy');
 	});
 
@@ -276,6 +290,205 @@ describe('MCP server', () => {
 			const result = await call(client, 'create_card', args);
 			expect(text(result)).toContain('http://poj.test/decks/new');
 			await client.close();
+		});
+	});
+
+	describe('batch', () => {
+		const translations = {
+			chat: 'cat',
+			cat: 'chat',
+			chien: 'dog',
+			dog: 'chien',
+			maison: 'house',
+			home: 'domicile'
+		};
+		/** Un lot : un doublon du deck, un doublon dans le lot et une divergence DeepL. */
+		const batch = [
+			{ side_a: 'chat', side_b: 'cat' },
+			{ side_a: 'considérer comme acquis', side_b: ' To take for GRANTED ' },
+			{ side_a: 'chien', side_b: 'dog' },
+			{ side_a: 'chaton', side_b: 'Cat' },
+			{ side_a: 'maison', side_b: 'home' }
+		];
+
+		it('checks a batch in one call, reporting only its problems', async () => {
+			const existing = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'podcast' },
+				'web',
+				t0
+			);
+			const translator = dictionary(translations);
+			const client = await connect(alice, translator);
+
+			const result = await call(client, 'check_cards', { cards: batch });
+			expect(data(result)).toEqual({
+				deck: 'Anglais',
+				count: 5,
+				already_created: [],
+				duplicates: [
+					{
+						position: 2,
+						side_a: 'considérer comme acquis',
+						side_b: 'To take for GRANTED',
+						same_as: null,
+						existing: [{ card_id: existing.id, ...args, context: 'podcast' }]
+					},
+					{ position: 4, side_a: 'chaton', side_b: 'Cat', same_as: 1, existing: [] }
+				],
+				divergences: [
+					{
+						position: 5,
+						side_a: 'maison',
+						side_b: 'home',
+						deepl_a_to_b: 'house',
+						deepl_b_to_a: 'domicile'
+					}
+				]
+			});
+			expect(text(result)).toContain(
+				'Lot de 5 cartes pour « Anglais » : 2 doublons, 1 divergence DeepL.'
+			);
+			expect(text(result)).toContain('n°4 « chaton » = « Cat » : doublon de la n°1 du lot.');
+			// Une requête DeepL par sens pour tout le lot, doublons exclus.
+			expect(translator.requests).toBe(2);
+			expect(await db.card.count()).toBe(1);
+		});
+
+		it('reports a DeepL failure once for the whole batch', async () => {
+			const quota: Translator = {
+				async translate() {
+					throw new TranslatorError('quota', 'Quota exceeded');
+				}
+			};
+
+			const result = await call(await connect(alice, quota), 'check_cards', { cards: batch });
+			expect(data(result)).toMatchObject({
+				divergences: [],
+				deepl_error: 'le quota DeepL est épuisé'
+			});
+			expect(text(result).match(/quota/g)).toHaveLength(1);
+		});
+
+		it('creates a batch in one call, skipping duplicates, in the order of the batch', async () => {
+			await cards.create(alice, aliceDeck, card, 'web', t0);
+			const client = await connect(alice);
+
+			const result = await call(client, 'create_cards', { cards: batch });
+			const created = data(result);
+			expect(created).toMatchObject({
+				deck: 'Anglais',
+				created: 3,
+				already_created: 0,
+				skipped: [
+					{ position: 2, reason: 'duplicate' },
+					{ position: 4, reason: 'duplicate_in_batch' }
+				]
+			});
+			expect(text(result)).toContain('3 cartes créées.');
+			expect(text(result)).toContain('Doublons non créés : n°2');
+
+			const saved = await db.card.findMany({
+				where: { origin: 'claude' },
+				orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+				include: { reviews: true }
+			});
+			expect(saved.map((c) => c.id)).toEqual(
+				(created.cards as { card_id: string }[]).map((c) => c.card_id)
+			);
+			expect(saved.map((c) => c.sideA)).toEqual(['chat', 'chien', 'maison']);
+			expect(saved.every((c) => c.reviews.length === 2)).toBe(true);
+		});
+
+		it('creates nothing more when a batch is replayed', async () => {
+			const client = await connect(alice);
+			const first = data(await call(client, 'create_cards', { cards: batch }));
+
+			clock = at(2);
+			const replay = await call(client, 'create_cards', { cards: batch });
+			expect(data(replay)).toMatchObject({
+				created: 0,
+				already_created: 4,
+				cards: (first.cards as { card_id: string }[]).map((c) => ({ ...c, created: false }))
+			});
+			expect(text(replay)).toContain('4 cartes déjà créées il y a moins de 10 minutes');
+			expect(await db.card.count()).toBe(4);
+
+			// Plus tard, les mêmes cartes sont des doublons : toujours rien de créé.
+			clock = at(HOUR);
+			const later = data(await call(client, 'create_cards', { cards: batch }));
+			expect(later).toMatchObject({ created: 0, already_created: 0 });
+			expect(later.skipped).toHaveLength(5);
+			expect(await db.card.count()).toBe(4);
+		});
+
+		it('creates nothing when the batch fails partway, then the replay creates it all', async () => {
+			const client = await connect(alice);
+			// Postgres refuse le caractère nul : la troisième carte échoue en base.
+			const broken = batch.map((c, i) => (i === 2 ? { ...c, context: 'a\u0000b' } : c));
+
+			const failed = await call(client, 'create_cards', { cards: broken });
+			expect(failed.isError).toBe(true);
+			expect(text(failed)).toContain("aucune carte n'a été ajoutée. Rejoue le même appel");
+			expect(await db.card.count()).toBe(0);
+
+			expect(data(await call(client, 'create_cards', { cards: batch }))).toMatchObject({
+				created: 4
+			});
+		});
+
+		it('refuses more cards than the cap in one call, with a clear message', async () => {
+			const client = await connect(alice);
+			const many = (count: number) =>
+				Array.from({ length: count }, (_, i) => ({ side_a: `mot ${i}`, side_b: `word ${i}` }));
+
+			for (const tool of ['check_cards', 'create_cards']) {
+				const result = await call(client, tool, { cards: many(MAX_BATCH_CARDS + 1) });
+				expect(result.isError).toBe(true);
+				expect(text(result)).toContain(
+					`${MAX_BATCH_CARDS} cartes au plus par appel : découpe le lot en plusieurs appels.`
+				);
+			}
+			expect(await db.card.count()).toBe(0);
+
+			const full = data(await call(client, 'create_cards', { cards: many(MAX_BATCH_CARDS) }));
+			expect(full.created).toBe(MAX_BATCH_CARDS);
+		});
+
+		it('checks a subject batch without DeepL, duplicates on side A, in the named deck', async () => {
+			const deck = await createDeck(db, alice, capitals);
+			await cards.create(alice, deck.id, { sideA: 'Suisse', sideB: 'Berne' }, 'web', t0);
+			const translator: Translator = {
+				async translate() {
+					throw new Error('DeepL must not be called for a subject deck');
+				}
+			};
+			const client = await connect(alice, translator);
+			const countries = [
+				{ side_a: 'suisse', side_b: 'Zurich' },
+				{ side_a: 'Australie', side_b: 'Canberra', context: 'Source : Wikipédia, 2026-11-01' }
+			];
+
+			const check = await call(client, 'check_cards', { cards: countries, deck: 'capitales' });
+			expect(data(check)).toMatchObject({
+				deck: 'Capitales',
+				duplicates: [{ position: 1, existing: [{ side_a: 'Suisse' }] }],
+				divergences: []
+			});
+			expect(text(check)).toContain('Pas de second avis DeepL');
+
+			const created = data(
+				await call(client, 'create_cards', { cards: countries, deck: 'Capitales' })
+			);
+			expect(created).toMatchObject({ deck: 'Capitales', created: 1 });
+			expect(
+				await db.card.findFirst({ where: { sideA: 'Australie' }, include: { reviews: true } })
+			).toMatchObject({ deckId: deck.id, reviews: [{ direction: 'a_to_b' }] });
+
+			const refused = await call(client, 'create_cards', { cards: countries });
+			expect(refused.isError).toBe(true);
+			expect(text(refused)).toContain('plusieurs decks');
 		});
 	});
 
@@ -543,6 +756,53 @@ describe('MCP server', () => {
 			expect(log).toMatchObject({ rating: 'hard', origin: 'claude', hintUsed: true });
 		});
 
+		it('never gives the source of a card as a hint, nor caps the rating for it', async () => {
+			const carol = await createUser(db, 'Carol');
+			const deck = await createDeck(db, carol, capitals);
+			const source = 'Source : fr.wikipedia.org/wiki/Canberra, consulté le 2026-11-01';
+			await cards.create(
+				carol,
+				deck.id,
+				{ sideA: 'Australie', sideB: 'Canberra', context: source },
+				'claude',
+				t0
+			);
+			await cards.create(
+				carol,
+				deck.id,
+				{
+					sideA: 'Canada',
+					sideB: 'Ottawa',
+					context: `Quiz du jeudi — ${source.replace('Canberra', 'Ottawa')}`
+				},
+				'claude',
+				at(1)
+			);
+			clock = at(2);
+			const client = await connect(carol);
+
+			const sourceOnly = data(await call(client, 'next_review'));
+			expect(sourceOnly).toMatchObject({ prompt: 'Australie', has_hint: false });
+			expect(text(await call(client, 'next_review'))).toContain('Pas d’indice.');
+			const none = await call(client, 'get_hint', { review_id: sourceOnly.review_id });
+			expect(data(none)).toEqual({ context: null });
+			expect(text(none)).not.toContain('Canberra');
+			const passed = data(
+				await call(client, 'submit_review', {
+					review_id: sourceOnly.review_id,
+					version: sourceOnly.version,
+					rating: 'good'
+				})
+			);
+			expect(passed).toMatchObject({ rating: 'good', capped: false });
+
+			const mixed = passed.next as Record<string, unknown>;
+			expect(mixed).toMatchObject({ prompt: 'Canada', has_hint: true });
+			const hint = await call(client, 'get_hint', { review_id: mixed.review_id });
+			expect(data(hint)).toEqual({ context: 'Quiz du jeudi' });
+			expect(text(hint)).not.toContain('Ottawa');
+		});
+
 		it('chains the next card after good, and waits for a repetition after again or hard', async () => {
 			await cards.create(alice, aliceDeck, card, 'web', t0);
 			await cards.create(alice, aliceDeck, { sideA: 'chat', sideB: 'cat' }, 'web', at(1));
@@ -760,6 +1020,40 @@ describe('MCP server', () => {
 			);
 		});
 
+		it('lets a batch drawn from a source go through one check and one confirmation', async () => {
+			const several = await createUser(db, 'Dave');
+			await createDeck(db, several);
+			await createDeck(db, several, capitals);
+
+			for (const owner of [alice, several]) {
+				const client = await connect(owner);
+				const instructions = client.getInstructions()!;
+				expect(instructions).toContain(
+					`- Ajout en lot : pour beaucoup de cartes tirées d'une source`
+				);
+				expect(instructions).toContain(
+					`vérifie-les avec check_cards (${MAX_BATCH_CARDS} au plus par appel), sans check_card carte par carte`
+				);
+				expect(instructions).toContain(
+					'attends une seule confirmation explicite pour tout le lot, même découpé en plusieurs appels'
+				);
+				// La règle « pas de carte générique » admet un lot tiré d'une source.
+				expect(instructions).toContain(
+					"Un lot tiré d'une source qu'il apporte ou demande (son cours, un article, les pays du monde) n'en est pas un"
+				);
+				const tools = await descriptions(client);
+				expect(tools.check_cards).toContain("ou d'une source qu'il apporte ou demande");
+				expect(tools.check_cards).toContain('Ne renvoie que les problèmes');
+				expect(tools.check_cards).toContain('divergences DeepL');
+				expect(tools.create_cards).toContain('vérifie le lot avec check_cards');
+				expect(tools.create_cards).toContain('une seule confirmation explicite pour tout le lot');
+				expect(tools.create_cards).toContain('Tout ou rien');
+			}
+			expect((await connect(alice)).getInstructions()).not.toContain(
+				'la vérification des faits vaut pour chaque carte du lot'
+			);
+		});
+
 		it('repeats the essential rules in the tool descriptions', async () => {
 			const tools = await descriptions(await connect(alice));
 
@@ -781,7 +1075,10 @@ describe('MCP server', () => {
 
 			for (const client of [single, several]) {
 				expect(client.getInstructions()).toContain(
-					"- Vérification (deck de sujet) : toute information vérifiable que porte la carte (par exemple un fait, un chiffre, une date, une définition, une attribution ou une procédure) se vérifie auprès d'une source récente et fiable, par une recherche web, avant d'être proposée, jamais de mémoire. Mets la source et sa date dans le contexte de la carte. Si tu ne peux pas vérifier, dis-le au lieu d'inventer."
+					"- Vérification (deck de sujet) : toute information vérifiable que porte la carte (par exemple un fait, un chiffre, une date, une définition, une attribution ou une procédure) se vérifie auprès d'une source récente et fiable, par une recherche web, avant d'être proposée, jamais de mémoire. Mets la source et sa date dans le contexte de la carte, sur une ligne à part qui commence par « Source : » (get_hint ne la donne jamais comme indice). Si tu ne peux pas vérifier, dis-le au lieu d'inventer."
+				);
+				expect(client.getInstructions()).toContain(
+					"Deck de sujet : la vérification des faits vaut pour chaque carte du lot : vérifie le lot auprès d'une source récente et fiable"
 				);
 				const tools = await descriptions(client);
 				expect(tools.check_card).toContain('source récente et fiable, par une recherche web');
@@ -789,7 +1086,10 @@ describe('MCP server', () => {
 					"Si tu ne peux pas vérifier, dis-le au lieu d'inventer."
 				);
 				expect(tools.create_card).toContain(
-					'toute information vérifiable se vérifie auprès d’une source récente et fiable (recherche web), jamais de mémoire, avec la source et sa date dans le contexte'
+					'toute information vérifiable se vérifie auprès d’une source récente et fiable (recherche web), jamais de mémoire, avec la source et sa date sur une ligne « Source : » du contexte'
+				);
+				expect(tools.check_cards).toContain(
+					'la vérification des faits vaut pour chaque carte du lot'
 				);
 			}
 		});

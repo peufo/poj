@@ -10,6 +10,7 @@ export interface NextReview {
 	/** Face de question : A pour `a_to_b`, B pour `b_to_a`. */
 	prompt: string;
 	expected: string;
+	/** Vrai si le contexte donne un indice (`hintOf`), hors mentions de source. */
 	hasHint: boolean;
 	/** Contexte d'origine, révélé avec la réponse (l'indice passe par `requestHint`). */
 	context: string | null;

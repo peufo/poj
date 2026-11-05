@@ -5,7 +5,7 @@ Le serveur MCP permet à Claude de capturer et de réviser des cartes : [story/c
 ## Principes
 
 - **Une couche fine, comme le reste.** Les outils valident leurs entrées, appellent les services du domaine (`cards`, `reviews`, `deepl`), puis sérialisent. Aucune règle métier ne vit dans le serveur MCP. Le web et Claude ont ainsi exactement le même comportement.
-- **Le serveur garantit ce qu'il peut garantir.** Les règles qui dépendent du comportement de Claude (relire la carte avant de la créer, ne jamais proposer _Easy_) figurent dans les descriptions des outils. Toutes celles que le serveur peut appliquer lui-même, il les applique : plafond à _Hard_ après un indice, mise de côté du sens inverse, rejeu sans effet, pas de carte suivante avant la correction d'une erreur.
+- **Le serveur garantit ce qu'il peut garantir.** Les règles qui dépendent du comportement de Claude (relire la carte avant de la créer, ne jamais proposer _Easy_) figurent dans les descriptions des outils. Toutes celles que le serveur peut appliquer lui-même, il les applique : plafond à _Hard_ après un indice, mise de côté du sens inverse, rejeu sans effet, lot créé en tout ou rien et sans doublon, source jamais donnée comme indice, pas de carte suivante avant la correction d'une erreur.
 - **Pensé pour la voix.** Les résultats sont courts et directement exploitables, avec des dates relatives (« dans 3 jours »). Il n'y a pas de liste longue à lire au volant.
 - **Sans état de session.** Chaque appel se suffit à lui-même. L'état est en base, pas dans la connexion MCP.
 
@@ -36,7 +36,7 @@ Les clés des outils sont génériques : `side_a` et `side_b` pour les deux face
 Claude choisit le deck d'une carte capturée ([story/decks.md](../story/decks.md)) : il le **déduit** (langue de l'expression, sujet) ou il **demande** en cas de doute.
 
 - **Désignation :** un deck se désigne par son **nom**, dans le paramètre facultatif `deck`, et pas par son identifiant, car Claude génère mal les UUID. La comparaison ignore la casse et les espaces, comme l'unicité des noms. Un nom inconnu, ou celui d'un deck supprimé, renvoie une erreur d'outil qui liste les decks de l'utilisateur.
-- **Capture sans `deck` :** avec un seul deck, la carte y va. Avec plusieurs, l'outil renvoie une erreur qui liste les decks : il n'y a pas de deck par défaut, et Claude doit déduire le deck ou le demander. Sans aucun deck, l'erreur invite à créer un deck sur `/decks/new`.
+- **Capture sans `deck`** (`check_card`, `create_card`, `check_cards`, `create_cards`) **:** avec un seul deck, la carte y va. Avec plusieurs, l'outil renvoie une erreur qui liste les decks : il n'y a pas de deck par défaut, et Claude doit déduire le deck ou le demander. Sans aucun deck, l'erreur invite à créer un deck sur `/decks/new`.
 - **Révision :** sans `deck`, la session mélange tous les decks (« on révise » ne demande aucun choix). Un deck nommé limite la session à ce deck. Claude le repasse à `submit_review` et `amend_review`, pour que `remaining` soit compté dans ce deck. Pour ces deux outils, un nom inconnu ne bloque pas la note : `remaining` est alors compté dans tous les decks.
 - **Rendu selon les decks :** à chaque requête, le serveur lit les decks non supprimés de l'utilisateur.
   - **Un seul deck (ou aucun) :** les instructions, les descriptions des outils et de leurs paramètres nomment les faces d'après ce deck : le nom des langues pour un deck de langue (`side_a` : « Texte en français de la carte »), ses libellés ou « Question » / « Réponse » pour un sujet.
@@ -73,6 +73,33 @@ Appelé **avant chaque création**, avec la proposition de Claude.
   - pour un deck de langue, si DeepL diverge, exposer les options et me laisser trancher ; pour un sujet, vérifier lui-même la carte, et toute information vérifiable auprès d'une source récente et fiable (recherche web), avec la source et sa date dans le contexte ;
   - me relire la carte finale (avec son deck quand j'en ai plusieurs) et attendre ma confirmation explicite avant d'appeler cet outil.
 
+### `check_cards` — vérifier un lot avant création
+
+Appelé **avant `create_cards`**, à la place de `check_card` carte par carte, pour un lot tiré d'une source (photo d'une page de cours, article, fichier ou texte collé, liste comme les pays du monde) : [story/ajout-en-masse.md](../story/ajout-en-masse.md).
+
+- **Entrée :** `cards`, de 1 à 50 cartes (`side_a`, `side_b`, `context` facultatif, mêmes limites de longueur que `check_card`), et `deck` (facultatif, voir [Choix du deck](#choix-du-deck)) : un lot va dans un seul deck. Au-delà de 50 cartes, l'outil refuse (« 50 cartes au plus par appel : découpe le lot en plusieurs appels »).
+- **Sortie :** seulement les problèmes, chaque carte repérée par sa `position` dans le lot (à partir de 1), avec ses deux faces :
+  - `deck` et `count` (nombre de cartes du lot) ;
+  - `duplicates` : doublons d'une carte du deck (`existing`, même face que pour `check_card` : B pour une langue, A pour un sujet) ou d'une carte précédente du lot (`same_as`, sa position) ;
+  - `already_created` : cartes identiques (mêmes trois champs) créées il y a moins de 10 minutes, c'est-à-dire un lot déjà envoyé, avec leur `card_id` ;
+  - `divergences` (deck de langue) : cartes pour lesquelles ni la traduction DeepL de la face A ne correspond à la face B, ni celle de la face B à la face A (casse, espaces et ponctuation finale ignorés), avec `deepl_a_to_b` et `deepl_b_to_a`. Un seul sens qui correspond suffit : synonymes et tournures idiomatiques ne sont pas signalés ;
+  - `deepl_error` : une seule fois pour le lot si DeepL est indisponible ou que le quota est épuisé.
+  - Le texte commence par un bilan d'une ligne (« Lot de 12 cartes pour « Anglais » : 1 doublon, 2 divergences DeepL. »), puis une ligne par problème.
+- **DeepL :** seules les cartes qui seraient créées sont traduites, en une requête par sens et par contexte (les cartes d'une même source partagent souvent le leur), soit deux requêtes pour un lot sans contexte. Rien pour un deck de sujet.
+- **Lecture seule.**
+
+### `create_cards` — créer un lot de cartes
+
+- **Entrée :** la même que `check_cards`, 50 cartes au plus par appel. Un lot plus grand (200 pays) se découpe en plusieurs appels.
+- **Effet :** crée les cartes (origine : Claude) dans le deck, comme `create_card`, sauf :
+  - les doublons d'une carte du deck ou d'une carte précédente du lot, qui ne sont pas créés (`skipped`, avec `reason` : `duplicate` ou `duplicate_in_batch`). Pour garder un doublon quand même (homonyme), Claude passe par `create_card` ;
+  - les cartes identiques créées il y a moins de 10 minutes (lot rejoué), qui ne sont pas recréées.
+  - Les cartes sont horodatées dans l'ordre du lot (une milliseconde d'écart) : c'est leur ordre de présentation dans la limite de nouvelles cartes du deck ([specs/repetition.md](repetition.md)).
+- **Tout ou rien :** le lot est créé dans une seule transaction. Si une carte échoue en base, aucune n'est créée, et l'outil renvoie une erreur qui invite à rejouer le même appel.
+- **Rejeu :** rejouer le lot (après une erreur ou une coupure, quand Claude ignore si l'appel a abouti) ne crée aucun doublon : les cartes déjà créées sont reconnues (`already_created` dans les 10 minutes, doublons ensuite).
+- **Sortie :** `deck`, `created` et `already_created` (nombres), `skipped`, et `cards` (`position`, `card_id`, `created`) pour les cartes créées ou déjà créées. Le texte tient en quelques lignes : nombre de cartes créées, doublons écartés.
+- **Description de l'outil (consignes à Claude) :** vérifier le lot avec `check_cards`, puis me soumettre un résumé bref (nombre de cartes, deck, doublons, divergences DeepL, deux ou trois exemples), sans lire tout le lot, et attendre **une seule confirmation explicite** pour tout le lot, même découpé en plusieurs appels. Pour un deck de sujet, la vérification des faits vaut pour chaque carte du lot (voir [Consignes générales](#consignes-générales)).
+
 ### `next_review` — obtenir la prochaine révision
 
 - **Entrée :**
@@ -80,7 +107,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
   - `deck` (facultatif) : limite la session à ce deck. Sans deck, tous les decks sont mélangés.
 - **Sortie :**
   - `review_id`, `deck` (le nom du deck de la carte), `direction` (`a_to_b` ou `b_to_a`), `prompt` (le texte à me dire), `expected` (la réponse attendue, que Claude ne lit pas avant ma réponse) ;
-  - `has_hint` : vrai si la carte a un contexte ;
+  - `has_hint` : vrai si la carte a un indice, c'est-à-dire un contexte qui ne se réduit pas à une mention de source (voir `get_hint`) ;
   - `version` : jeton opaque à renvoyer avec la note ;
   - `remaining` : nombre de révisions qui seront encore présentées dans la session, au plus une par carte (voir [Sessions](repetition.md#sessions)) ;
   - si rien n'est dû et que `ahead` vaut `false` : `nothing_due` et la date de la prochaine échéance (dans le deck demandé, s'il y en a un). Des cartes neuves en attente (limite du jour atteinte) la ramènent au plus tard à minuit.
@@ -92,6 +119,7 @@ Appelé **avant chaque création**, avec la proposition de Claude.
 
 - **Entrée :** `review_id`.
 - **Effet :** renvoie le contexte d'origine et **mémorise sur la révision** qu'un indice a été demandé.
+- **Sans la source :** la vérification des faits met la source et sa date dans le contexte (« Source : fr.wikipedia.org/wiki/Canberra, 2026-11-01 »), et elle peut nommer la réponse. L'indice est donc le contexte sans ses mentions de source : de « Source : » (ou « Sources : ») jusqu'à la fin de la ligne. Un contexte réduit à une source ne donne pas d'indice : `has_hint` est faux, `get_hint` renvoie l'absence de contexte et ne mémorise rien, et la note n'est pas plafonnée.
 - **Sortie :** `context`, ou l'absence de contexte.
 
 ### `submit_review` — enregistrer la note
@@ -148,15 +176,16 @@ Les instructions du serveur MCP (transmises à l'initialisation, si le client le
 
 Elles ajoutent le comportement de Claude hors révision :
 
-- **Manque d'idées :** quand je veux ajouter une carte sans savoir laquelle, Claude m'aide à retrouver une situation réelle, une question courte à la fois (ma journée, ce que j'aurais voulu dire sans trouver les mots, ce que j'ai entendu ou lu), ou s'appuie sur ce qu'il sait de moi. Il en tire une carte dont le contexte d'origine est cette situation. Il ne propose jamais de cartes génériques sans situation réelle (« selon ton niveau », listes de vocabulaire) : voir [story/ajout-quotidien.md](../story/ajout-quotidien.md). La carte suit ensuite la capture habituelle : `check_card`, second avis DeepL pour une langue, relecture et confirmation.
+- **Manque d'idées :** quand je veux ajouter une carte sans savoir laquelle, Claude m'aide à retrouver une situation réelle, une question courte à la fois (ma journée, ce que j'aurais voulu dire sans trouver les mots, ce que j'ai entendu ou lu), ou s'appuie sur ce qu'il sait de moi. Il en tire une carte dont le contexte d'origine est cette situation. Il ne propose jamais de cartes génériques sans situation réelle (« selon ton niveau », listes de vocabulaire) : voir [story/ajout-quotidien.md](../story/ajout-quotidien.md). Un lot tiré d'une source que j'apporte ou que je demande (mon cours, un article, les pays du monde) n'est pas générique : il suit l'ajout en lot. La carte suit ensuite la capture habituelle : `check_card`, second avis DeepL pour une langue, relecture et confirmation.
 - **Proposer d'ajouter des cartes, au bon moment :**
   - en fin de révision (plus rien de dû, ou après le bilan quand j'arrête) : une proposition, en une phrase, d'ajouter une carte tirée de ma journée ;
   - hors révision, quand une expression utile surgit dans la conversation (je cherche un mot, je demande une traduction, je cite une expression entendue ou lue) : une proposition d'en faire une carte ;
   - jamais entre deux cartes d'une révision, et pas de relance si je décline.
 - **Objectif quotidien :** Claude n'en annonce jamais l'état. C'est une gratification visuelle propre au web.
-- **Vérification (deck de sujet) :** toute information vérifiable que porte une carte (fait, chiffre, date, définition, attribution, procédure…) est vérifiée par Claude auprès d'une source récente et fiable, par une recherche web, avant d'être proposée, jamais de mémoire. La source et sa date figurent dans le contexte de la carte. Si Claude ne peut pas vérifier, il le dit au lieu d'inventer. Une carte demande un gros effort pour être retenue : elle doit être juste. La règle est reprise dans les descriptions de `check_card` et `create_card` et dans le prompt `add_card`, comme le second avis DeepL pour une langue.
+- **Vérification (deck de sujet) :** toute information vérifiable que porte une carte (fait, chiffre, date, définition, attribution, procédure…) est vérifiée par Claude auprès d'une source récente et fiable, par une recherche web, avant d'être proposée, jamais de mémoire. La source et sa date figurent dans le contexte de la carte, sur une ligne à part qui commence par « Source : », pour que `get_hint` ne la donne jamais comme indice. Si Claude ne peut pas vérifier, il le dit au lieu d'inventer. Une carte demande un gros effort pour être retenue : elle doit être juste. La règle est reprise dans les descriptions de `check_card` et `create_card` et dans le prompt `add_card`, comme le second avis DeepL pour une langue.
+- **Ajout en lot :** pour beaucoup de cartes tirées d'une source (photo d'une page de cours, article, fichier ou texte collé, liste), Claude prépare les cartes et les vérifie avec `check_cards` (50 au plus par appel), sans `check_card` carte par carte. Il me donne ensuite un résumé bref (nombre de cartes, deck, doublons, divergences DeepL pour une langue, deux ou trois exemples), sans lire tout le lot, et attend une seule confirmation explicite pour tout le lot, même découpé en plusieurs appels, avant `create_cards`. Pour un deck de sujet, la vérification des faits vaut pour chaque carte du lot : Claude vérifie le lot auprès d'une source récente et fiable (celle que j'apporte si elle l'est, sinon une recherche web), jamais de mémoire, et met la source et sa date sur une ligne « Source : » du contexte de chaque carte.
 
-Les règles essentielles figurent **aussi** dans les descriptions des outils (indulgence pour `next_review` ; enchaînement, correction et proposition en fin de session pour `submit_review` ; situation réelle et vérification pour `check_card` et `create_card`), et dans les textes de résultat : Claude.ai ne garantit pas la lecture des instructions.
+Les règles essentielles figurent **aussi** dans les descriptions des outils (indulgence pour `next_review` ; enchaînement, correction et proposition en fin de session pour `submit_review` ; situation réelle et vérification pour `check_card` et `create_card` ; source, résumé, confirmation unique et vérification du lot pour `check_cards` et `create_cards`), et dans les textes de résultat : Claude.ai ne garantit pas la lecture des instructions.
 
 Avec plusieurs decks, elles listent les decks et ajoutent :
 

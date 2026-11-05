@@ -6,8 +6,9 @@ import { DomainError } from '../errors';
  */
 export type Language = string;
 
+/** Textes traduits ensemble, dans le même sens et avec le même contexte. */
 export interface TranslateRequest {
-	text: string;
+	texts: string[];
 	from: Language;
 	to: Language;
 	/** Situation d'origine : oriente la traduction sans être traduite. */
@@ -16,7 +17,8 @@ export interface TranslateRequest {
 
 /** Service de traduction externe (DeepL), fourni par l'appelant. */
 export interface Translator {
-	translate(request: TranslateRequest): Promise<string>;
+	/** Une traduction par texte, dans l'ordre des textes. */
+	translate(request: TranslateRequest): Promise<string[]>;
 }
 
 export type TranslationFailure = 'not_configured' | 'auth' | 'quota' | 'unavailable';

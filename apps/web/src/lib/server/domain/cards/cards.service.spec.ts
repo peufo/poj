@@ -158,6 +158,88 @@ describe('cards service', () => {
 		expect(new Set(results.map((r) => r.card.id)).size).toBe(1);
 	});
 
+	describe('batch', () => {
+		const minutesLater = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+		const batch = [
+			{ sideA: 'chat', sideB: 'cat' },
+			{ sideA: 'considérer comme acquis', sideB: ' To take for GRANTED ' },
+			{ sideA: 'chaton', sideB: 'CAT' },
+			{ sideA: 'chien', sideB: 'dog', context: ' ' }
+		];
+
+		it('classifies a batch against the deck and itself, without creating anything', async () => {
+			const existing = await cards.create(alice, aliceDeck, input, 'web', now);
+			await cards.create(bob, bobDeck, { sideA: 'chien', sideB: 'dog' }, 'web', now);
+
+			const entries = await cards.checkBatch(
+				alice,
+				{ id: aliceDeck, kind: 'language' },
+				batch,
+				now
+			);
+			expect(entries).toEqual([
+				{ status: 'new' },
+				{ status: 'duplicate', duplicates: [expect.objectContaining({ id: existing.id })] },
+				{ status: 'duplicate_in_batch', of: 0 },
+				{ status: 'new' }
+			]);
+			expect(await db.card.count({ where: { ownerId: alice } })).toBe(1);
+		});
+
+		it('creates the new cards of a batch, in its order, with their reviews', async () => {
+			await cards.create(alice, aliceDeck, input, 'web', now);
+
+			const results = await cards.createBatch(alice, aliceDeck, batch, 'claude', now);
+			expect(results.map((r) => r.status)).toEqual([
+				'created',
+				'duplicate',
+				'duplicate_in_batch',
+				'created'
+			]);
+			const created = await db.card.findMany({
+				where: { origin: 'claude' },
+				orderBy: { createdAt: 'asc' },
+				include: { reviews: true }
+			});
+			expect(created.map((c) => [c.sideA, c.context])).toEqual([
+				['chat', null],
+				['chien', null]
+			]);
+			expect(created[1].createdAt.getTime()).toBeGreaterThan(created[0].createdAt.getTime());
+			expect(created.every((c) => c.reviews.length === 2 && c.deckId === aliceDeck)).toBe(true);
+		});
+
+		it('recognizes a replayed batch within 10 minutes, and duplicates after', async () => {
+			const first = await cards.createBatch(alice, aliceDeck, batch, 'claude', now);
+			const ids = first.flatMap((r) => (r.status === 'created' ? [r.card.id] : []));
+
+			const replay = await cards.createBatch(alice, aliceDeck, batch, 'claude', minutesLater(9));
+			expect(replay.flatMap((r) => (r.status === 'existing' ? [r.card.id] : []))).toEqual(ids);
+
+			const later = await cards.createBatch(alice, aliceDeck, batch, 'claude', minutesLater(11));
+			expect(later.map((r) => r.status)).toEqual([
+				'duplicate',
+				'duplicate',
+				'duplicate_in_batch',
+				'duplicate'
+			]);
+			expect(await db.card.count()).toBe(3);
+		});
+
+		it('creates all or nothing', async () => {
+			const broken = batch.map((c, i) => (i === 3 ? { ...c, context: 'a\u0000b' } : c));
+
+			await expect(cards.createBatch(alice, aliceDeck, broken, 'claude', now)).rejects.toThrow();
+			expect(await db.card.count()).toBe(0);
+		});
+
+		it('refuses a deck of another owner', async () => {
+			await expect(cards.createBatch(alice, bobDeck, batch, 'claude', now)).rejects.toThrow(
+				NotFoundError
+			);
+		});
+	});
+
 	it('finds duplicates ignoring case and spaces, but not itself nor deleted cards', async () => {
 		const first = await cards.create(alice, aliceDeck, input, 'web', now);
 		const deleted = await cards.create(alice, aliceDeck, input, 'web', now);

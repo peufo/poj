@@ -19,6 +19,20 @@ export interface CardInput {
 
 export type CardWithReviews = Card & { deck: Deck; reviews: Review[] };
 
+/** Place d'une carte d'un lot face aux cartes du deck et à celles qui la précèdent dans le lot. */
+export type BatchEntry =
+	| { status: 'new' }
+	/** Identique (trois champs) à une carte créée il y a moins de 10 minutes : un lot rejoué. */
+	| { status: 'existing'; card: Card }
+	/** Même face identifiante (`duplicateSide`) que des cartes du deck. */
+	| { status: 'duplicate'; duplicates: Card[] }
+	/** Même face identifiante qu'une carte précédente du lot, d'indice `of`. */
+	| { status: 'duplicate_in_batch'; of: number };
+
+/** Issue d'une carte d'un lot créé : créée, ou écartée (`BatchEntry`). */
+export type BatchResult =
+	Exclude<BatchEntry, { status: 'new' }> | { status: 'created'; card: Card };
+
 export type CardDetail = Card & { deck: Deck; reviews: (Review & { logs: ReviewLog[] })[] };
 
 export interface CardStats {

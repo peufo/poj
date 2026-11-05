@@ -33,14 +33,14 @@ describe('DeepL translator', () => {
 		const fetch = fakeFetch(json({ translations: [{ text: 'to take for granted' }] }));
 		const translator = createDeeplTranslator('key:fx', fetch.fn);
 
-		const text = await translator.translate({
-			text: 'tenir pour acquis',
+		const texts = await translator.translate({
+			texts: ['tenir pour acquis'],
 			from: 'fr',
 			to: 'en-GB',
 			context: 'réunion budget'
 		});
 
-		expect(text).toBe('to take for granted');
+		expect(texts).toEqual(['to take for granted']);
 		const [{ url, init }] = fetch.calls;
 		expect(url).toBe('https://api-free.deepl.com/v2/translate');
 		expect(init.headers).toMatchObject({ Authorization: 'DeepL-Auth-Key key:fx' });
@@ -55,7 +55,7 @@ describe('DeepL translator', () => {
 	it('omits an empty context', async () => {
 		const fetch = fakeFetch(json({ translations: [{ text: 'bonjour' }] }));
 		await createDeeplTranslator('key', fetch.fn).translate({
-			text: 'hello',
+			texts: ['hello'],
 			from: 'en-GB',
 			to: 'fr'
 		});
@@ -67,6 +67,25 @@ describe('DeepL translator', () => {
 		});
 	});
 
+	it('translates several texts per request, at most 50 at a time, in order', async () => {
+		const calls: string[][] = [];
+		const fn = (async (_url: string, init: RequestInit) => {
+			const { text } = JSON.parse(init.body as string) as { text: string[] };
+			calls.push(text);
+			return json({ translations: text.map((t) => ({ text: t.toUpperCase() })) });
+		}) as unknown as typeof fetch;
+		const texts = Array.from({ length: 120 }, (_, i) => `t${i}`);
+
+		const translated = await createDeeplTranslator('key', fn).translate({
+			texts,
+			from: 'fr',
+			to: 'en'
+		});
+
+		expect(calls.map((chunk) => chunk.length)).toEqual([50, 50, 20]);
+		expect(translated).toEqual(texts.map((t) => t.toUpperCase()));
+	});
+
 	it.each([
 		[403, 'auth'],
 		[456, 'quota'],
@@ -75,7 +94,9 @@ describe('DeepL translator', () => {
 	])('maps HTTP %i to the %s failure', async (status, reason) => {
 		const translator = createDeeplTranslator('key', fakeFetch(json({ message: 'x' }, status)).fn);
 
-		await expect(translator.translate({ text: 'a', from: 'fr', to: 'en' })).rejects.toMatchObject({
+		await expect(
+			translator.translate({ texts: ['a'], from: 'fr', to: 'en' })
+		).rejects.toMatchObject({
 			reason
 		});
 	});
@@ -83,7 +104,9 @@ describe('DeepL translator', () => {
 	it('maps a network error to unavailable', async () => {
 		const translator = createDeeplTranslator('key', fakeFetch(new TypeError('fetch failed')).fn);
 
-		const error = await translator.translate({ text: 'a', from: 'fr', to: 'en' }).catch((e) => e);
+		const error = await translator
+			.translate({ texts: ['a'], from: 'fr', to: 'en' })
+			.catch((e) => e);
 		expect(error).toBeInstanceOf(TranslatorError);
 		expect(error.reason).toBe('unavailable');
 	});
@@ -92,11 +115,14 @@ describe('DeepL translator', () => {
 		['no translation', json({ translations: [] })],
 		['a translation without text', json({ translations: [{ detected_source_language: 'FR' }] })],
 		['an unexpected shape', json({ text: 'to take for granted' })],
+		['fewer translations than texts', json({ translations: [{ text: 'x' }] })],
 		['a body that is not JSON', new Response('<html>busy</html>', { status: 200 })]
 	])('maps a response with %s to unavailable', async (_, response) => {
 		const translator = createDeeplTranslator('key', fakeFetch(response).fn);
 
-		const error = await translator.translate({ text: 'a', from: 'fr', to: 'en' }).catch((e) => e);
+		const error = await translator
+			.translate({ texts: ['a', 'b'], from: 'fr', to: 'en' })
+			.catch((e) => e);
 		expect(error).toBeInstanceOf(TranslatorError);
 		expect(error.reason).toBe('unavailable');
 	});

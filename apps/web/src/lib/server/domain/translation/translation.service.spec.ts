@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createTranslationService } from './translation.service';
+import { createTranslationService, diverges } from './translation.service';
 import { TranslatorError, type TranslateRequest, type Translator } from './translator';
 
-function fakeTranslator(impl: (request: TranslateRequest) => string): Translator & {
+/** Faux DeepL : traduit chaque texte par `impl`, et garde les demandes reçues. */
+function fakeTranslator(impl: (text: string, request: TranslateRequest) => string): Translator & {
 	calls: TranslateRequest[];
 } {
 	const calls: TranslateRequest[] = [];
@@ -10,7 +11,7 @@ function fakeTranslator(impl: (request: TranslateRequest) => string): Translator
 		calls,
 		async translate(request) {
 			calls.push(request);
-			return impl(request);
+			return request.texts.map((text) => impl(text, request));
 		}
 	};
 }
@@ -28,7 +29,7 @@ describe('translation service', () => {
 			text: 'to take for granted'
 		});
 		expect(translator.calls).toEqual([
-			{ text: 'tenir pour acquis', from: 'fr', to: 'en-GB', context: 'réunion' }
+			{ texts: ['tenir pour acquis'], from: 'fr', to: 'en-GB', context: 'réunion' }
 		]);
 	});
 
@@ -41,12 +42,12 @@ describe('translation service', () => {
 			text: 'tenir pour acquis'
 		});
 		expect(translator.calls).toEqual([
-			{ text: 'to take for granted', from: 'en-GB', to: 'fr', context: 'réunion' }
+			{ texts: ['to take for granted'], from: 'en-GB', to: 'fr', context: 'réunion' }
 		]);
 	});
 
 	it('checks a card in both directions of the pair', async () => {
-		const translator = fakeTranslator(({ to }) =>
+		const translator = fakeTranslator((_, { to }) =>
 			to === 'en-GB' ? 'to take for granted' : 'tenir pour acquis'
 		);
 		const service = createTranslationService(translator);
@@ -61,6 +62,76 @@ describe('translation service', () => {
 			['fr', 'en-GB'],
 			['en-GB', 'fr']
 		]);
+	});
+
+	it('checks a batch in one request per direction and context, in the order of the cards', async () => {
+		const dictionary: Record<string, string> = {
+			chat: 'cat',
+			chien: 'dog',
+			maison: 'house',
+			cat: 'chat',
+			dog: 'chien',
+			house: 'maison'
+		};
+		const translator = fakeTranslator((text) => dictionary[text]);
+		const service = createTranslationService(translator);
+
+		const checks = await service.checkAll(pair, [
+			{ sideA: 'chat', sideB: 'cat', context: 'Source : cours' },
+			{ sideA: 'maison', sideB: 'house' },
+			{ sideA: 'chien', sideB: 'dog', context: ' Source : cours ' }
+		]);
+
+		expect(checks.map(({ aToB, bToA }) => [aToB, bToA])).toEqual([
+			[
+				{ ok: true, text: 'cat' },
+				{ ok: true, text: 'chat' }
+			],
+			[
+				{ ok: true, text: 'house' },
+				{ ok: true, text: 'maison' }
+			],
+			[
+				{ ok: true, text: 'dog' },
+				{ ok: true, text: 'chien' }
+			]
+		]);
+		expect(translator.calls).toEqual([
+			{ texts: ['chat', 'chien'], from: 'fr', to: 'en-GB', context: 'Source : cours' },
+			{ texts: ['maison'], from: 'fr', to: 'en-GB', context: undefined },
+			{ texts: ['cat', 'dog'], from: 'en-GB', to: 'fr', context: 'Source : cours' },
+			{ texts: ['house'], from: 'en-GB', to: 'fr', context: undefined }
+		]);
+	});
+
+	it('reports a failure for every card of the batch', async () => {
+		const service = createTranslationService(
+			fakeTranslator(() => {
+				throw new TranslatorError('quota', 'Quota exceeded');
+			})
+		);
+
+		const checks = await service.checkAll(pair, [
+			{ sideA: 'chat', sideB: 'cat' },
+			{ sideA: 'chien', sideB: 'dog' }
+		]);
+		expect(checks).toEqual(
+			Array(2).fill({ aToB: { ok: false, reason: 'quota' }, bToA: { ok: false, reason: 'quota' } })
+		);
+	});
+
+	it('finds a divergence only when neither direction matches the card', () => {
+		const card = { sideA: 'tenir pour acquis', sideB: 'to take for granted' };
+		const ok = (text: string) => ({ ok: true as const, text });
+
+		expect(diverges(card, { aToB: ok('To take for granted.'), bToA: ok('autre') })).toBe(false);
+		expect(diverges(card, { aToB: ok('autre'), bToA: ok(' Tenir pour  acquis ') })).toBe(false);
+		expect(diverges(card, { aToB: ok('to assume'), bToA: ok('considérer comme acquis') })).toBe(
+			true
+		);
+		expect(diverges(card, { aToB: { ok: false, reason: 'quota' }, bToA: ok('considérer') })).toBe(
+			false
+		);
 	});
 
 	it('reports a missing configuration', async () => {

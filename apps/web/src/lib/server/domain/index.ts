@@ -7,6 +7,7 @@ export * from './cards/cards.service';
 export * from './cards/daily-goal.service';
 export type * from './cards/types';
 export * from './cards/limits';
+export * from './cards/hint';
 export * from './reviews/reviews.service';
 export { presentations, type Presentation, type ReviewSlot } from './reviews/availability';
 export {
