@@ -39,11 +39,12 @@ describe('deck schemas', () => {
 			labelB: null,
 			bothDirections: false
 		});
-		expect(deckUpdateSchema.parse({ name: 'Capitales' })).toEqual({
+		expect(deckUpdateSchema.parse({ name: 'Capitales', newCardsPerDay: 10 })).toEqual({
 			name: 'Capitales',
 			labelA: null,
 			labelB: null,
-			bothDirections: false
+			bothDirections: false,
+			newCardsPerDay: 10
 		});
 	});
 
@@ -105,17 +106,35 @@ describe('deck schemas', () => {
 	});
 
 	it('updates the name, the directions and the labels, never the kind or the languages', () => {
-		expect(deckUpdateSchema.parse({ ...subject, kind: 'language', bothDirections: true })).toEqual({
+		expect(
+			deckUpdateSchema.parse({
+				...subject,
+				kind: 'language',
+				bothDirections: true,
+				newCardsPerDay: 20
+			})
+		).toEqual({
 			name: 'Capitales',
 			labelA: 'Pays',
 			labelB: 'Capitale',
-			bothDirections: true
+			bothDirections: true,
+			newCardsPerDay: 20
 		});
 		// Une langue n'a pas de champ nom : il reste celui de sa langue apprise.
-		expect(deckUpdateSchema.parse({ bothDirections: true })).toEqual({
+		expect(deckUpdateSchema.parse({ bothDirections: true, newCardsPerDay: 10 })).toEqual({
 			labelA: null,
 			labelB: null,
-			bothDirections: true
+			bothDirections: true,
+			newCardsPerDay: 10
 		});
+	});
+
+	it('bounds the new cards per day', () => {
+		const message = 'Entre 1 et 100 cartes par jour.';
+		for (const newCardsPerDay of [0, 101, 2.5, undefined]) {
+			expect(fieldErrors(deckUpdateSchema, { name: 'Capitales', newCardsPerDay })).toEqual({
+				newCardsPerDay: message
+			});
+		}
 	});
 });

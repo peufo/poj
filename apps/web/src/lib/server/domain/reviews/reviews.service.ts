@@ -3,7 +3,9 @@ import { reviewedDirections } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 import type { Card, Direction, Origin, Rating, Review, ReviewLog } from '../cards/types';
 import { applyRating, pickState, previewDue } from './scheduler';
+import { startOfNextDay } from '../time';
 import { opposite, SIBLING_BURY_MS } from './availability';
+import { findNewCards, presentableCard, type NewCards } from './new-cards';
 import type { AmendResult, AnswerResult, LastAnswer, NextResult } from './types';
 
 export type ReviewsService = ReturnType<typeof createReviewsService>;
@@ -46,9 +48,10 @@ export function createReviewsService(db: Db) {
 	/**
 	 * Révisions du propriétaire : sens révisés des cartes non supprimées (du deck `deckId`
 	 * s'il est précisé). Une `b_to_a` d'un deck passé à sens unique n'en fait plus partie.
+	 * Avec `fresh`, sans les cartes neuves en attente.
 	 */
-	const owned = (ownerId: string, deckId?: string) => ({
-		card: { ownerId, deletedAt: null, deckId },
+	const owned = (ownerId: string, deckId?: string, fresh?: NewCards) => ({
+		card: { ownerId, deletedAt: null, deckId, ...(fresh && presentableCard(fresh)) },
 		...reviewedDirections
 	});
 
@@ -79,14 +82,29 @@ export function createReviewsService(db: Db) {
 	}
 
 	/**
-	 * Révisions présentables : sens révisés des cartes non supprimées (du deck de la
-	 * session), sens inverse mis de côté.
+	 * Ce qui écarte une révision de la session à cet instant : sens inverse mis de côté, et
+	 * cartes neuves au-delà de la limite du jour de leur deck (`findNewCards`).
 	 */
-	async function availableFilter(ownerId: string, now: Date, { deckId }: ReviewScope) {
-		return {
-			...owned(ownerId, deckId),
-			...(await buriedFilter(ownerId, now))
-		};
+	async function presentability(ownerId: string, now: Date, { deckId }: ReviewScope) {
+		const [buried, fresh] = await Promise.all([
+			buriedFilter(ownerId, now),
+			findNewCards(db, ownerId, now, deckId)
+		]);
+		return { buried, fresh };
+	}
+
+	type Presentability = Awaited<ReturnType<typeof presentability>>;
+
+	/**
+	 * Révisions présentables : sens révisés des cartes non supprimées (du deck de la
+	 * session), sens inverse mis de côté et cartes neuves en attente exclus.
+	 */
+	function availableFilter(
+		ownerId: string,
+		{ deckId }: ReviewScope,
+		{ buried, fresh }: Presentability
+	) {
+		return { ...owned(ownerId, deckId, fresh), ...buried };
 	}
 
 	/**
@@ -94,17 +112,15 @@ export function createReviewsService(db: Db) {
 	 * répondre à un sens met l'autre de côté (et les sens déjà mis de côté sont exclus).
 	 * C'est donc le nombre de cartes ayant une révision présentable maintenant.
 	 */
-	async function countPresentable(
+	function countPresentable(
 		ownerId: string,
 		now: Date,
-		{ deckId }: ReviewScope
+		{ deckId }: ReviewScope,
+		{ buried, fresh }: Presentability
 	): Promise<number> {
-		const buried = await buriedFilter(ownerId, now);
 		return db.card.count({
 			where: {
-				ownerId,
-				deletedAt: null,
-				deckId,
+				...owned(ownerId, deckId, fresh).card,
 				reviews: { some: { ...buried, ...reviewedDirections, due: { lte: now } } }
 			}
 		});
@@ -112,24 +128,28 @@ export function createReviewsService(db: Db) {
 
 	return {
 		/**
-		 * Nombre de révisions à présenter maintenant : dues, hors sens mis de côté, et au plus
-		 * une par carte (l'autre sens sera mis de côté après la réponse).
+		 * Nombre de révisions à présenter maintenant : dues, hors sens mis de côté et cartes
+		 * neuves en attente, et au plus une par carte (l'autre sens sera mis de côté après la
+		 * réponse).
 		 */
-		countDue(ownerId: string, now = new Date(), scope: ReviewScope = {}): Promise<number> {
-			return countPresentable(ownerId, now, scope);
+		async countDue(ownerId: string, now = new Date(), scope: ReviewScope = {}): Promise<number> {
+			return countPresentable(ownerId, now, scope, await presentability(ownerId, now, scope));
 		},
 
 		/**
 		 * Prochaine révision à présenter : la plus en retard d'abord. Avec `ahead`, les
-		 * révisions à venir sont aussi candidates (révision en avance). Avec `deckId`, seules
-		 * les cartes de ce deck.
+		 * révisions à venir sont aussi candidates (révision en avance), mais jamais les cartes
+		 * neuves en attente. Avec `deckId`, seules les cartes de ce deck. Sans révision, la
+		 * prochaine échéance tient compte des cartes neuves en attente, présentées au plus tôt
+		 * le lendemain.
 		 */
 		async next(
 			ownerId: string,
 			now = new Date(),
 			{ ahead = false, ...scope }: { ahead?: boolean } & ReviewScope = {}
 		): Promise<NextResult> {
-			const available = await availableFilter(ownerId, now, scope);
+			const presentable = await presentability(ownerId, now, scope);
+			const available = availableFilter(ownerId, scope, presentable);
 			const dueNow = { ...available, due: { lte: now } };
 
 			const [review, remaining] = await Promise.all([
@@ -138,7 +158,7 @@ export function createReviewsService(db: Db) {
 					orderBy: [{ due: 'asc' }, { id: 'asc' }],
 					include: withDeck
 				}),
-				countPresentable(ownerId, now, scope)
+				countPresentable(ownerId, now, scope, presentable)
 			]);
 
 			if (!review) {
@@ -147,7 +167,12 @@ export function createReviewsService(db: Db) {
 					orderBy: { due: 'asc' },
 					select: { due: true }
 				});
-				return { review: null, nextDue: upcoming?.due ?? null };
+				const waiting = presentable.fresh.held.length;
+				// La limite repart à minuit : les cartes en attente viennent au plus tôt demain.
+				const tomorrow = waiting > 0 ? startOfNextDay(now) : null;
+				const nextDue =
+					upcoming && (!tomorrow || upcoming.due < tomorrow) ? upcoming.due : tomorrow;
+				return { review: null, nextDue, waiting };
 			}
 
 			const { card } = review;
@@ -169,6 +194,15 @@ export function createReviewsService(db: Db) {
 				},
 				remaining
 			};
+		},
+
+		/** Cartes neuves en attente (au-delà de la limite du jour de leur deck). */
+		async heldNewCards(
+			ownerId: string,
+			now = new Date(),
+			{ deckId }: ReviewScope = {}
+		): Promise<Set<string>> {
+			return new Set((await findNewCards(db, ownerId, now, deckId)).held);
 		},
 
 		/**

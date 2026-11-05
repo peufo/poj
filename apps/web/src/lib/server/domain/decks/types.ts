@@ -19,7 +19,8 @@ export type DeckInput = Pick<
 /**
  * Ce qui se modifie après la création : le type et les langues restent figés. Le nom et les
  * libellés d'un sujet restent tels quels s'ils sont absents ; une langue garde le nom de sa
- * langue apprise et n'a pas de libellés.
+ * langue apprise et n'a pas de libellés. La limite de nouvelles cartes par jour reste telle
+ * quelle si elle est absente.
  */
 export type DeckUpdate = Pick<Deck, 'bothDirections'> &
-	Partial<Pick<Deck, 'name' | 'labelA' | 'labelB'>>;
+	Partial<Pick<Deck, 'name' | 'labelA' | 'labelB'>> & { newCardsPerDay?: number };

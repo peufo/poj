@@ -18,7 +18,7 @@ Je veux créer une carte avec un formulaire simple, pour pouvoir capturer sans C
 - Champs : **français** (obligatoire), **anglais** (obligatoire), **contexte d'origine** (facultatif, texte libre).
 - Une action « Traduire avec DeepL » affiche la traduction DeepL du français, avec le contexte s'il est renseigné. Je peux la reprendre dans le champ anglais d'un clic, ou l'ignorer.
 - La suggestion DeepL n'est jamais enregistrée automatiquement, et la carte n'a aucun statut particulier.
-- À l'enregistrement, la carte reçoit ses deux révisions (`fr_to_en` et `en_to_fr`), dues immédiatement.
+- À l'enregistrement, la carte reçoit ses deux révisions (`fr_to_en` et `en_to_fr`), dues immédiatement, dans la limite de nouvelles cartes par jour de son deck.
 - **Doublon :** si une carte non supprimée a déjà le même texte anglais (casse et espaces ignorés), le formulaire m'en avertit avec un lien vers elle. Je peux enregistrer quand même : une même expression peut avoir un autre sens dans un autre contexte.
 
 ## WEB-3 — Lister mes cartes
@@ -69,3 +69,4 @@ Je veux pouvoir réviser quand même quand rien n'est dû, pour profiter d'un mo
 
 - Quand aucune révision n'est due, la page l'indique avec la date de la prochaine échéance.
 - Elle propose de « Réviser en avance » les prochaines révisions à venir, avec le même déroulé que WEB-7.
+- Les cartes neuves en attente (limite du jour de leur deck atteinte) ne sont pas avancées ; s'il ne reste qu'elles, la page indique combien attendent les jours suivants.

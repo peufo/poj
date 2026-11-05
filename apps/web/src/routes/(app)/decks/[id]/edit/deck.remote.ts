@@ -12,7 +12,8 @@ function deckOfPage() {
 }
 
 /**
- * Nom, option des deux sens et noms des faces (ignorés pour une langue par `decks.update`).
+ * Nom, option des deux sens, nouvelles cartes par jour et noms des faces (ignorés pour une
+ * langue par `decks.update`).
  * Le type et les langues ne changent pas. Une langue n'a pas de champ nom : son nom déjà
  * pris (un ancien deck renommé d'après sa langue apprise) est signalé sur le formulaire.
  */

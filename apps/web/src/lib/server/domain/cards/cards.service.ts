@@ -4,6 +4,7 @@ import type { Deck } from '../decks/types';
 import { NotFoundError } from '../errors';
 import { comparisonKey } from '../text';
 import { presentations } from '../reviews/availability';
+import { findNewCards, presentableCard } from '../reviews/new-cards';
 import { emptyState } from '../reviews/scheduler';
 import { calendarDaysBetween, startOfDay, startOfNextDay } from '../time';
 import type {
@@ -39,7 +40,10 @@ export function duplicateSide(deck: Pick<Deck, 'kind'>): 'sideA' | 'sideB' {
 	return deck.kind === 'language' ? 'sideB' : 'sideA';
 }
 
-/** Révisions neuves d'une carte, dues immédiatement, pour chaque sens révisé du deck. */
+/**
+ * Révisions neuves d'une carte, dues immédiatement, pour chaque sens révisé du deck (la
+ * présentation reste soumise à la limite de nouvelles cartes du deck).
+ */
 const newReviews = (deck: Deck, now: Date) => ({
 	create: directionsOf(deck).map((direction) => ({ direction, ...emptyState(now) }))
 });
@@ -53,11 +57,16 @@ export function createCardsService(db: Db) {
 
 	/**
 	 * Les révisions des sens révisés des cartes non supprimées (du deck `deckId` s'il est
-	 * précisé), de quoi calculer leur présentation.
+	 * précisé), de quoi calculer leur présentation. Les cartes neuves en attente (au-delà de
+	 * la limite du jour de leur deck) n'en font pas partie.
 	 */
-	function reviewSlots(ownerId: string, deckId?: string) {
+	async function reviewSlots(ownerId: string, now: Date, deckId?: string) {
+		const fresh = await findNewCards(db, ownerId, now, deckId);
 		return db.review.findMany({
-			where: { card: { ownerId, deletedAt: null, deckId }, ...reviewedDirections },
+			where: {
+				card: { ownerId, deletedAt: null, deckId, ...presentableCard(fresh) },
+				...reviewedDirections
+			},
 			select: { id: true, cardId: true, direction: true, due: true, lastReview: true }
 		});
 	}
@@ -251,8 +260,8 @@ export function createCardsService(db: Db) {
 		/**
 		 * Nombre de cartes, et révisions qui seront présentées d'ici la fin du jour civil
 		 * (Europe/Zurich) : sans les sens mis de côté jusqu'à demain, et au plus un sens par
-		 * carte quand les deux viendraient aujourd'hui (voir `presentations`). Tous les decks,
-		 * ou le deck `deckId`.
+		 * carte quand les deux viendraient aujourd'hui (voir `presentations`), sans les cartes
+		 * neuves en attente. Tous les decks, ou le deck `deckId`.
 		 */
 		async stats(
 			ownerId: string,
@@ -261,7 +270,7 @@ export function createCardsService(db: Db) {
 		): Promise<CardStats> {
 			const [totalCards, slots] = await Promise.all([
 				db.card.count({ where: { ownerId, deletedAt: null, deckId } }),
-				reviewSlots(ownerId, deckId)
+				reviewSlots(ownerId, now, deckId)
 			]);
 			const endOfDay = startOfNextDay(now).getTime();
 			let dueToday = 0;
@@ -274,8 +283,8 @@ export function createCardsService(db: Db) {
 		/**
 		 * Révisions présentées sur les `days` prochains jours civils (Europe/Zurich), une entrée
 		 * par jour à partir d'aujourd'hui ; le premier jour inclut le retard. Un sens mis de
-		 * côté compte au jour où sa mise de côté se termine, comme dans `stats`. Tous les decks,
-		 * ou le deck `deckId`.
+		 * côté compte au jour où sa mise de côté se termine, comme dans `stats`. Les cartes
+		 * neuves en attente n'y figurent pas. Tous les decks, ou le deck `deckId`.
 		 */
 		async horizon(
 			ownerId: string,
@@ -283,7 +292,7 @@ export function createCardsService(db: Db) {
 			days = 14,
 			{ deckId }: { deckId?: string } = {}
 		): Promise<HorizonDay[]> {
-			const slots = await reviewSlots(ownerId, deckId);
+			const slots = await reviewSlots(ownerId, now, deckId);
 			const end = startOfDay(now, days).getTime();
 			const counts = Array.from({ length: days }, () => 0);
 			for (const { at } of presentations(slots, now).values()) {

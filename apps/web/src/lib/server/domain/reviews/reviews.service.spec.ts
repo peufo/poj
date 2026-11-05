@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
-import { createCard, createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
+import {
+	createCard,
+	createDeck,
+	createUser,
+	setNewCardsPerDay,
+	SUBJECT_DECK
+} from '../../testing/factories';
 import { createCardsService } from '../cards/cards.service';
 import { createDecksService } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
+import { startOfNextDay } from '../time';
+import { DEFAULT_NEW_CARDS_PER_DAY } from './new-cards';
 import { createReviewsService } from './reviews.service';
 import { applyRating, pickState } from './scheduler';
 import type { NextReview, NextResult } from './types';
@@ -79,7 +87,7 @@ describe('reviews service', () => {
 		await setDue(id, at(DAY));
 		await createCard(db, bob, { sideA: 'b', sideB: 'b', now: t0 });
 
-		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY) });
+		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY), waiting: 0 });
 	});
 
 	it('reviews ahead when nothing is due', async () => {
@@ -95,7 +103,7 @@ describe('reviews service', () => {
 		const { id } = await createCard(db, alice, { now: t0 });
 		await cards.softDelete(alice, id);
 
-		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: null });
+		expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: null, waiting: 0 });
 	});
 
 	it('buries the opposite direction for 24 hours after an answer', async () => {
@@ -109,7 +117,7 @@ describe('reviews service', () => {
 		);
 
 		// Le sens inverse est dû mais mis de côté ; le sens noté revient après son pas d'apprentissage.
-		expect(await reviews.next(alice, at(1))).toEqual({ review: null, nextDue: due });
+		expect(await reviews.next(alice, at(1))).toEqual({ review: null, nextDue: due, waiting: 0 });
 
 		const nextDay = presented(await reviews.next(alice, at(DAY + 1)));
 		expect(nextDay).toMatchObject({ cardId: id });
@@ -443,8 +451,141 @@ describe('reviews service', () => {
 			});
 
 			expect(await reviews.countDue(alice, t0)).toBe(0);
-			expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY) });
+			expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY), waiting: 0 });
 			expect(presented(await reviews.next(alice, t0, { ahead: true })).direction).toBe('a_to_b');
+		});
+	});
+
+	describe('new cards per day', () => {
+		const LIMIT = DEFAULT_NEW_CARDS_PER_DAY;
+		/** Deck de sujet d'Alice, à sens unique. */
+		let subject: string;
+
+		beforeEach(async () => {
+			subject = (await createDeck(db, alice, SUBJECT_DECK)).id;
+		});
+
+		/** `n` cartes neuves créées à l'instant `at` dans le deck, de la plus ancienne à la plus récente. */
+		async function addCards(deckId: string, n: number, at = t0): Promise<string[]> {
+			const ids: string[] = [];
+			for (let i = 0; i < n; i += 1) {
+				const card = await cards.create(
+					alice,
+					deckId,
+					{ sideA: `q${i}`, sideB: `r${i}` },
+					'web',
+					at
+				);
+				ids.push(card.id);
+			}
+			return ids;
+		}
+
+		/** Répond Easy (la carte s'éloigne de plusieurs jours) à la prochaine révision présentée. */
+		async function answerNext(now: Date, options: { ahead?: boolean } = {}) {
+			const review = presented(await reviews.next(alice, now, options));
+			await reviews.answer(
+				alice,
+				review.id,
+				{ rating: 'easy', version: review.version, origin: 'web' },
+				now
+			);
+			return review;
+		}
+
+		it('presents only the 10 oldest new cards of a deck of 200 each day', async () => {
+			const ids = await addCards(subject, 200);
+
+			expect(await reviews.countDue(alice, at(1))).toBe(LIMIT);
+			const first: string[] = [];
+			for (let i = 0; i < LIMIT; i += 1) first.push((await answerNext(at(1))).cardId);
+			expect(first).toEqual(ids.slice(0, LIMIT));
+
+			// Le reste attend : il n'est pas dû, et la limite repart à minuit.
+			const tomorrow = startOfNextDay(t0);
+			expect(await reviews.countDue(alice, at(2))).toBe(0);
+			expect(await reviews.next(alice, at(2))).toEqual({
+				review: null,
+				nextDue: tomorrow,
+				waiting: 200 - LIMIT
+			});
+			expect(await reviews.countDue(alice, tomorrow)).toBe(LIMIT);
+			const next = await reviews.next(alice, tomorrow);
+			expect(next).toMatchObject({ remaining: LIMIT, review: { cardId: ids[LIMIT], isNew: true } });
+		});
+
+		it('leaves the cards already seen and the other decks alone', async () => {
+			// Vue hier, de nouveau due : la limite d'aujourd'hui ne la concerne pas.
+			const [seen] = await addCards(subject, 1, at(-DAY));
+			await answerNext(at(-DAY));
+			await setDue(seen, t0);
+			await addCards(subject, 15);
+			await addCards(aliceDeck, 3);
+
+			expect(await reviews.countDue(alice, at(1))).toBe(1 + LIMIT + 3);
+			expect(await reviews.countDue(alice, at(1), { deckId: subject })).toBe(1 + LIMIT);
+			expect(await reviews.countDue(alice, at(1), { deckId: aliceDeck })).toBe(3);
+			expect(presented(await reviews.next(alice, at(1))).cardId).toBe(seen);
+		});
+
+		it('does not count the second direction of a started card', async () => {
+			const ids = await addCards(aliceDeck, 25);
+			for (let i = 0; i < LIMIT; i += 1) await answerNext(at(1));
+			expect(await reviews.countDue(alice, at(2))).toBe(0);
+
+			// Le lendemain : les seconds sens, hors limite, et 10 nouvelles cartes.
+			const nextDay = at(DAY + 2);
+			expect(await reviews.countDue(alice, nextDay)).toBe(2 * LIMIT);
+			for (const cardId of ids.slice(0, LIMIT)) {
+				const review = await db.review.findFirstOrThrow({ where: { cardId, lastReview: null } });
+				await reviews.answer(
+					alice,
+					review.id,
+					{ rating: 'easy', version: 'new', origin: 'web' },
+					nextDay
+				);
+			}
+			expect(await reviews.countDue(alice, at(DAY + 3))).toBe(LIMIT);
+		});
+
+		it('never brings waiting new cards forward when reviewing ahead', async () => {
+			const ids = await addCards(subject, LIMIT + 2);
+			for (let i = 0; i < LIMIT; i += 1) await answerNext(at(1));
+
+			expect(await reviews.next(alice, at(2))).toMatchObject({ review: null, waiting: 2 });
+			const early = await answerNext(at(2), { ahead: true });
+			expect(ids.slice(0, LIMIT)).toContain(early.cardId);
+			expect(early.isNew).toBe(false);
+		});
+
+		it('keeps the waiting new cards out of today and the horizon', async () => {
+			const ids = await addCards(subject, 30);
+
+			expect(await cards.stats(alice, at(1))).toEqual({ totalCards: 30, dueToday: LIMIT });
+			const horizon = await cards.horizon(alice, at(1));
+			expect(horizon.reduce((total, day) => total + day.count, 0)).toBe(LIMIT);
+			expect(await reviews.heldNewCards(alice, at(1))).toEqual(new Set(ids.slice(LIMIT)));
+		});
+
+		it('applies a new limit from now on, counting the cards started today', async () => {
+			await addCards(subject, 20);
+			await answerNext(at(1));
+			await answerNext(at(1));
+
+			await setNewCardsPerDay(db, alice, subject, 3, at(2));
+			expect(await reviews.countDue(alice, at(3))).toBe(1);
+			await setNewCardsPerDay(db, alice, subject, 15, at(4));
+			expect(await reviews.countDue(alice, at(5))).toBe(13);
+		});
+
+		it('presents an edited card again, whatever the limit', async () => {
+			await setNewCardsPerDay(db, alice, subject, 1, t0);
+			const [edited] = await addCards(subject, 2);
+			await answerNext(at(1));
+			await cards.update(alice, edited, { sideA: 'q0 bis', sideB: 'r0' }, at(2));
+
+			expect(await reviews.countDue(alice, at(3))).toBe(1);
+			expect(presented(await reviews.next(alice, at(3))).cardId).toBe(edited);
 		});
 	});
 });

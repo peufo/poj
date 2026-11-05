@@ -173,21 +173,22 @@ enum DeckKind {
 /// `decks_language_pair` de la migration). Les libellés de face, facultatifs, remplacent
 /// le nom de la langue ou « Question » / « Réponse ».
 model Deck {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  ownerId        String    @map("owner_id") @db.Uuid
-  owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id             String          @id @default(uuid(7)) @db.Uuid
+  ownerId        String          @map("owner_id") @db.Uuid
+  owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name           String
   kind           DeckKind
-  languageA      String?   @map("language_a")
-  languageB      String?   @map("language_b")
-  labelA         String?   @map("label_a")
-  labelB         String?   @map("label_b")
+  languageA      String?         @map("language_a")
+  languageB      String?         @map("language_b")
+  labelA         String?         @map("label_a")
+  labelB         String?         @map("label_b")
   /// Faux : seul le sens `a_to_b` est créé et révisé.
-  bothDirections Boolean   @default(true) @map("both_directions")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  bothDirections Boolean         @default(true) @map("both_directions")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  deletedAt      DateTime?       @map("deleted_at")
   cards          Card[]
+  newCardsLimits NewCardsLimit[]
 
   @@index([ownerId])
   @@map("decks")
@@ -289,6 +290,27 @@ model DailyGoal {
 
   @@unique([userId, effectiveFrom])
   @@map("daily_goals")
+}
+
+// ─── Limite de nouvelles cartes par jour (doc/story/ajout-en-masse.md) ───
+
+/// Historique de la limite d'un deck : une ligne par jour où elle a changé. Un jour est jugé
+/// avec la limite en vigueur ce jour-là (la dernière ligne dont `effectiveFrom` le précède) ;
+/// sans ligne, elle vaut 10. Pas de `deletedAt` : l'historique ne fait que s'allonger, un
+/// second changement le même jour remplace la ligne du jour.
+model NewCardsLimit {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  deckId        String   @map("deck_id") @db.Uuid
+  deck          Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  /// Cartes jamais révisées présentées par jour civil (Europe/Zurich).
+  perDay        Int      @map("per_day")
+  /// Minuit (Europe/Zurich) du jour à partir duquel la limite s'applique.
+  effectiveFrom DateTime @map("effective_from")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([deckId, effectiveFrom])
+  @@map("new_cards_limits")
 }
 
 // ─── Serveur d'autorisation OAuth du connecteur Claude (plugins jwt et @better-auth/mcp) ───

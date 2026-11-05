@@ -15,6 +15,7 @@ import {
 	resolveDeck
 } from './decks.service';
 import { ConflictError, NotFoundError } from '../errors';
+import { DEFAULT_NEW_CARDS_PER_DAY } from '../reviews/new-cards';
 
 const db = useTestDatabase();
 const decks = createDecksService(db);
@@ -175,6 +176,35 @@ describe('decks service', () => {
 		});
 		expect(reviews.map((r) => r.direction)).toEqual(['a_to_b', 'b_to_a']);
 		expect(reviews[1]).toMatchObject({ state: 'new', due: later, reps: 0 });
+	});
+
+	it('sets the new cards per day from today, keeping the past days', async () => {
+		const deck = await createDeck(db, alice, SUBJECT_DECK);
+		const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+		const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+		const history = () =>
+			db.newCardsLimit.findMany({
+				where: { deckId: deck.id },
+				select: { perDay: true },
+				orderBy: { effectiveFrom: 'asc' }
+			});
+		expect(await decks.newCardsPerDay(alice, deck.id, now)).toBe(DEFAULT_NEW_CARDS_PER_DAY);
+
+		// Une limite inchangée n'ajoute rien ; un second changement le même jour remplace le premier.
+		await decks.update(alice, deck.id, { bothDirections: false, newCardsPerDay: 10 }, now);
+		expect(await history()).toEqual([]);
+		await decks.update(alice, deck.id, { bothDirections: false, newCardsPerDay: 5 }, now);
+		await decks.update(alice, deck.id, { bothDirections: false, newCardsPerDay: 20 }, now);
+		await decks.update(alice, deck.id, { bothDirections: false, newCardsPerDay: 30 }, tomorrow);
+		expect(await history()).toEqual([{ perDay: 20 }, { perDay: 30 }]);
+
+		expect(await decks.newCardsPerDay(alice, deck.id, yesterday)).toBe(DEFAULT_NEW_CARDS_PER_DAY);
+		expect(await decks.newCardsPerDay(alice, deck.id, now)).toBe(20);
+		expect(await decks.newCardsPerDay(alice, deck.id, tomorrow)).toBe(30);
+		// Sans limite fournie, elle reste telle quelle.
+		await decks.update(alice, deck.id, { bothDirections: true }, tomorrow);
+		expect(await decks.newCardsPerDay(alice, deck.id, tomorrow)).toBe(30);
+		await expect(decks.newCardsPerDay(bob, deck.id, now)).rejects.toThrow(NotFoundError);
 	});
 
 	it('soft-deletes a deck and its cards, idempotently, the last one included', async () => {

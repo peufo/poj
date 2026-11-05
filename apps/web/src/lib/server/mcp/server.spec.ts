@@ -484,6 +484,31 @@ describe('MCP server', () => {
 	});
 
 	describe('review', () => {
+		it('presents only the new cards of the day, as on the web', async () => {
+			for (let i = 0; i < 15; i += 1) {
+				await cards.create(alice, aliceDeck, { sideA: `q${i}`, sideB: `r${i}` }, 'web', t0);
+			}
+			const client = await connect(alice);
+
+			let next = data(await call(client, 'next_review'));
+			expect(next).toMatchObject({ nothing_due: false, remaining: 10 });
+			for (let i = 10; i > 0; i -= 1) {
+				const answer = data(
+					await call(client, 'submit_review', {
+						review_id: next.review_id,
+						version: next.version,
+						rating: 'easy'
+					})
+				);
+				expect(answer.remaining).toBe(i - 1);
+				if (answer.next) next = answer.next as Record<string, unknown>;
+			}
+
+			// Les 5 autres attendent demain (minuit à Zurich).
+			const idle = data(await call(client, 'next_review'));
+			expect(idle).toMatchObject({ nothing_due: true, next_due: '2026-01-05T23:00:00.000Z' });
+		});
+
 		it('runs next, hint and submit, capping at hard after a hint', async () => {
 			await cards.create(alice, aliceDeck, { ...card, context: 'réunion budget' }, 'web', t0);
 			const client = await connect(alice);

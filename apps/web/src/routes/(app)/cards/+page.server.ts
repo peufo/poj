@@ -32,12 +32,13 @@ export const load: PageServerLoad = async (event) => {
 	// sur lui ; sans lui, sur tous (le seul deck s'il n'y en a qu'un). L'objectif reste global.
 	const scope = { deckId: deckParam(url) };
 
-	const [owned, all, stats, horizon, dueNow, goal] = await Promise.all([
+	const [owned, all, stats, horizon, dueNow, held, goal] = await Promise.all([
 		decks.list(ownerId),
 		cards.list(ownerId, scope),
 		cards.stats(ownerId, now, scope),
 		cards.horizon(ownerId, now, HORIZON_DAYS, scope),
 		reviews.countDue(ownerId, now, scope),
+		reviews.heldNewCards(ownerId, now, scope),
 		// Du lundi d'il y a sept semaines jusqu'à aujourd'hui.
 		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1)
 	]);
@@ -77,8 +78,11 @@ export const load: PageServerLoad = async (event) => {
 					// Un sens mis de côté s'affiche à la fin de sa mise de côté.
 					due: buriedUntil ?? review.due,
 					isNew: review.state === 'new' && !buriedUntil,
-					/** Jour de l'échéancier où ce sens compte (0 : aujourd'hui, retard compris). */
-					day: Math.max(0, calendarDaysBetween(now, at))
+					/**
+					 * Jour de l'échéancier où ce sens compte (0 : aujourd'hui, retard compris) ;
+					 * `null` pour une carte neuve en attente, hors échéancier.
+					 */
+					day: held.has(card.id) ? null : Math.max(0, calendarDaysBetween(now, at))
 				};
 			})
 		}))

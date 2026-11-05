@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
-import { createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
+import { createDeck, createUser, setNewCardsPerDay, SUBJECT_DECK } from '../../testing/factories';
 import { createCardsService } from '../cards/cards.service';
 import { createDailyGoalService } from '../cards/daily-goal.service';
 import type { Direction, Origin, Rating } from '../cards/types';
+import { DEFAULT_NEW_CARDS_PER_DAY } from './new-cards';
 import { REVIEWS_CAP } from './review-day';
 import { createReviewsService } from './reviews.service';
 
@@ -66,6 +67,20 @@ async function answer(
 	expect(result.replayed).toBe(false);
 }
 
+/** Répond Easy aux `n` prochaines révisions présentées à l'instant `at`, comme une session. */
+async function reviewNext(at: Date, n: number) {
+	for (let i = 0; i < n; i += 1) {
+		const { review } = await reviews.next(alice, at);
+		if (!review) throw new Error(`expected a review to be presented at ${at.toISOString()}`);
+		await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'easy', version: review.version, origin: 'web' },
+			at
+		);
+	}
+}
+
 async function reviewDays(days: number, at = now) {
 	return (await goals.progress(alice, at, days)).days.map((day) => day.review);
 }
@@ -104,6 +119,7 @@ describe('review days', () => {
 	});
 
 	it(`is reached after ${REVIEWS_CAP} reviews, even with cards still due`, async () => {
+		await setNewCardsPerDay(db, alice, subject, REVIEWS_CAP + 1, on(3));
 		const ids = await addCards(on(2), REVIEWS_CAP + 1);
 
 		for (const id of ids.slice(0, REVIEWS_CAP - 1)) await answer(id, on(0, 9));
@@ -190,6 +206,55 @@ describe('review days', () => {
 		const [yesterday, today] = await reviewDays(2);
 		expect(yesterday).toEqual({ due: 1, answered: 1, reviews: 2, reached: true, done: true });
 		expect(today).toMatchObject({ due: 0 });
+	});
+
+	describe('new cards per day', () => {
+		it('only requires the new cards within the daily limit of each deck', async () => {
+			await addCards(on(1), 15);
+			await addCards(on(1), 3, language);
+
+			expect((await reviewDays(1))[0]).toMatchObject({ due: DEFAULT_NEW_CARDS_PER_DAY + 3 });
+			await reviewNext(on(0, 9), DEFAULT_NEW_CARDS_PER_DAY + 3);
+			expect((await reviewDays(1))[0]).toMatchObject({
+				due: DEFAULT_NEW_CARDS_PER_DAY + 3,
+				answered: DEFAULT_NEW_CARDS_PER_DAY + 3,
+				reached: true
+			});
+			expect(await reviews.countDue(alice, on(0, 10))).toBe(0);
+		});
+
+		it('breaks neither the day nor the streak with a batch of 200 cards', async () => {
+			await addCards(on(3), 200);
+			for (const n of [2, 1, 0]) {
+				// L'objectif d'ajout (2 cartes par jour) est tenu chaque jour.
+				await addCards(on(n, 8), 2, language);
+				// Une session par jour, jusqu'à ce que plus rien ne soit présenté.
+				let answered = 0;
+				while ((await reviews.next(alice, on(n, 9))).review) {
+					await reviewNext(on(n, 9), 1);
+					answered += 1;
+				}
+				expect(answered).toBeLessThanOrEqual(DEFAULT_NEW_CARDS_PER_DAY + 4);
+			}
+
+			const progress = await goals.progress(alice, now, 3);
+			expect(progress.days.map((day) => day.level)).toEqual(['full', 'full', 'full']);
+			// Le jour du lot compte aussi : rien n'y était dû.
+			expect(progress.streak).toBe(4);
+			const rest = await reviews.next(alice, on(0, 10));
+			expect(rest).toMatchObject({ review: null, waiting: 200 - 3 * DEFAULT_NEW_CARDS_PER_DAY });
+		});
+
+		it('keeps the limit in force on each past day', async () => {
+			await addCards(on(2), 30);
+			await reviewNext(on(1, 9), DEFAULT_NEW_CARDS_PER_DAY);
+			// Relever la limite aujourd'hui ne rend pas hier plus difficile.
+			await setNewCardsPerDay(db, alice, subject, 20, on(0, 8));
+
+			const [yesterday, today] = await reviewDays(2);
+			expect(yesterday).toMatchObject({ due: DEFAULT_NEW_CARDS_PER_DAY, reached: true });
+			expect(today).toMatchObject({ due: 20, answered: 0 });
+		});
 	});
 
 	it("ignores other users' reviews", async () => {

@@ -41,7 +41,13 @@ export interface LastAnswer {
 }
 
 export type NextResult =
-	{ review: NextReview; remaining: number } | { review: null; nextDue: Date | null };
+	| { review: NextReview; remaining: number }
+	| {
+			review: null;
+			nextDue: Date | null;
+			/** Cartes neuves en attente : au-delà de la limite du jour de leur deck. */
+			waiting: number;
+	  };
 
 export interface AnswerResult {
 	reviewId: string;
@@ -61,7 +67,10 @@ export interface AmendResult extends AnswerResult {
 
 /** Un jour civil de révision, moitié « révision » de la journée Poj. */
 export interface ReviewDay {
-	/** Cartes dues à l'ouverture du jour (minuit), hors sens mis de côté. */
+	/**
+	 * Cartes dues à l'ouverture du jour (minuit), hors sens mis de côté et cartes neuves
+	 * au-delà de la limite du jour de leur deck.
+	 */
 	due: number;
 	/** Parmi elles, celles qui ont reçu au moins une réponse ce jour-là. */
 	answered: number;

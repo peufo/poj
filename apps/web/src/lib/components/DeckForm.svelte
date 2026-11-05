@@ -1,6 +1,7 @@
 <script lang="ts" generics="Mode extends 'create' | 'edit'">
 	import { languageDeckName, languageName, type DeckFormValues } from '#lib/format/decks.js';
-	import { capitalize } from '#lib/format/labels.js';
+	import { capitalize, plural } from '#lib/format/labels.js';
+	import { issueOf } from '#lib/ui/field.js';
 	import { languageOption, languageOptions } from '#lib/format/languages.js';
 	import Button from '#lib/ui/Button.svelte';
 	import SelectField from '#lib/ui/SelectField.svelte';
@@ -28,12 +29,17 @@
 		values: DeckFormValues;
 		/** Sans lien d'annulation (premier deck : il n'y a nulle part où revenir). */
 		cancelHref?: string;
+		/** En modification : limite de nouvelles cartes par jour en vigueur, et ses bornes. */
+		newCards?: { perDay: number; min: number; max: number };
 	};
 
-	let { form, mode, values, cancelHref }: Props = $props();
+	let { form, mode, values, cancelHref, newCards }: Props = $props();
 	const fields = $derived(form.fields);
 	/** Champs propres à la création : le type et les langues (`mode` et `form` vont ensemble). */
 	const creation = $derived(mode === 'create' ? (form as NewDeckForm).fields : null);
+	/** Champ propre à la modification : les nouvelles cartes par jour. */
+	const perDay = $derived(mode === 'edit' ? (form as DeckEditForm).fields.newCardsPerDay : null);
+	const perDayError = $derived(issueOf(perDay ?? undefined));
 
 	// Les champs partent des valeurs reçues, puis vivent ici.
 	// svelte-ignore state_referenced_locally
@@ -185,6 +191,39 @@
 			</span>
 		</span>
 	</label>
+
+	{#if perDay && newCards}
+		<div class="flex flex-col gap-1.5">
+			<label for="new-cards-per-day" class="text-sm font-medium text-ink"
+				>Nouvelles cartes par jour</label
+			>
+			<input
+				id="new-cards-per-day"
+				name={perDay.as('number').name}
+				type="number"
+				inputmode="numeric"
+				required
+				min={newCards.min}
+				max={newCards.max}
+				value={perDay.value() ?? newCards.perDay}
+				aria-invalid={perDayError ? 'true' : undefined}
+				aria-describedby="new-cards-per-day-help"
+				class={[
+					'h-10 w-20 rounded-lg border bg-inset px-3 text-base text-ink tabular-nums',
+					'transition-[border-color,box-shadow] duration-150 ease-out',
+					'focus:border-accent focus:ring-3 focus:ring-accent/20 focus:outline-none',
+					perDayError ? 'border-danger' : 'border-line-strong hover:border-ink-3'
+				]}
+			/>
+			<p
+				id="new-cards-per-day-help"
+				class={['text-sm', perDayError ? 'text-danger' : 'text-ink-2']}
+			>
+				{perDayError ??
+					`Au plus ${plural(newCards.perDay, 'carte jamais révisée', 'cartes jamais révisées')} par jour : les autres attendent les jours suivants. Le second sens d’une carte ne compte pas.`}
+			</p>
+		</div>
+	{/if}
 
 	<FormIssues issues={fields.issues()} />
 

@@ -1,5 +1,6 @@
 import {
 	createCardsService,
+	createDecksService,
 	type CardInput,
 	type Db,
 	type Deck,
@@ -75,4 +76,17 @@ export async function createCard(
 		origin,
 		now
 	);
+}
+
+/** Limite de nouvelles cartes par jour du deck, dès le jour de `now`. */
+export async function setNewCardsPerDay(
+	db: Db,
+	ownerId: string,
+	deckId: string,
+	newCardsPerDay: number,
+	now = new Date()
+) {
+	const decks = createDecksService(db);
+	const { bothDirections } = await decks.get(ownerId, deckId);
+	await decks.update(ownerId, deckId, { bothDirections, newCardsPerDay }, now);
 }

@@ -1,0 +1,140 @@
+// Limite de nouvelles cartes par jour et par deck (doc/specs/repetition.md, « Nouvelles
+// cartes ») : une carte jamais répondue n'est présentée que dans la limite du jour de son
+// deck. Au-delà, elle attend les jours suivants : c'est un stock, pas une dette.
+import type { Prisma } from '../../db/generated/prisma/client';
+import type { Db } from '../db';
+import { startOfDay } from '../time';
+
+/** Limite d'un deck tant que l'utilisateur ne l'a pas changée. */
+export const DEFAULT_NEW_CARDS_PER_DAY = 10;
+export const MIN_NEW_CARDS_PER_DAY = 1;
+export const MAX_NEW_CARDS_PER_DAY = 100;
+
+/** Un changement de limite, applicable à partir de `effectiveFrom` (minuit local). */
+export interface NewCardsLimitChange {
+	perDay: number;
+	effectiveFrom: Date;
+}
+
+/** Limite en vigueur le jour qui commence à `dayStart`. `changes` est trié par date. */
+export function limitOn(changes: readonly NewCardsLimitChange[], dayStart: Date): number {
+	let limit = DEFAULT_NEW_CARDS_PER_DAY;
+	for (const change of changes) {
+		if (change.effectiveFrom.getTime() > dayStart.getTime()) break;
+		limit = change.perDay;
+	}
+	return limit;
+}
+
+/** Historique des limites d'un deck, du plus ancien changement au plus récent. */
+export const limitHistory = {
+	select: { perDay: true, effectiveFrom: true },
+	orderBy: { effectiveFrom: 'asc' }
+} as const satisfies Prisma.NewCardsLimitFindManyArgs;
+
+/**
+ * Carte déjà répondue, dans n'importe quel sens. Une carte réinitialisée (faces modifiées)
+ * l'a été : elle n'est plus neuve et échappe à la limite.
+ */
+export const answeredCard = {
+	reviews: { some: { logs: { some: {} } } }
+} satisfies Prisma.CardWhereInput;
+
+/** Cartes neuves réparties par la limite du jour de leur deck. */
+export interface NewCards {
+	/** Présentables aujourd'hui : dans ce qui reste de la limite du jour de leur deck. */
+	released: string[];
+	/** Au-delà : elles attendent les jours suivants. */
+	held: string[];
+}
+
+/** Ce qu'il faut d'une carte neuve pour la placer dans la limite de son deck. */
+export interface NewCard {
+	id: string;
+	deckId: string;
+	createdAt: Date;
+}
+
+/**
+ * Ordre dans lequel les cartes neuves d'un deck sont présentées : les plus anciennes
+ * d'abord, puis par id (`newCardsOrder` en base).
+ */
+export function byCreation(a: NewCard, b: NewCard): number {
+	return a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/** `byCreation`, côté Prisma. */
+export const newCardsOrder = [
+	{ createdAt: 'asc' },
+	{ id: 'asc' }
+] as const satisfies Prisma.CardOrderByWithRelationInput[];
+
+/**
+ * Répartit des cartes neuves, triées par `byCreation` : dans chaque deck, les `quota(deck)`
+ * premières sont présentables, les autres attendent. C'est la seule règle de répartition,
+ * partagée par la session (`findNewCards`) et la journée de révision.
+ */
+export function splitNewCards(
+	cards: readonly Pick<NewCard, 'id' | 'deckId'>[],
+	quota: (deckId: string) => number
+): NewCards {
+	const taken = new Map<string, number>();
+	const result: NewCards = { released: [], held: [] };
+	for (const { id, deckId } of cards) {
+		const count = taken.get(deckId) ?? 0;
+		(count < quota(deckId) ? result.released : result.held).push(id);
+		taken.set(deckId, count + 1);
+	}
+	return result;
+}
+
+/**
+ * Cartes neuves du propriétaire (du deck `deckId` s'il est précisé), réparties selon la
+ * limite du jour civil (Europe/Zurich) de chaque deck. La limite compte des cartes : une
+ * carte la consomme à sa première réponse, quel que soit le sens, et le second sens d'une
+ * carte commencée n'y compte plus. Une carte commencée aujourd'hui puis supprimée la
+ * consomme quand même.
+ */
+export async function findNewCards(
+	db: Db,
+	ownerId: string,
+	now: Date,
+	deckId?: string
+): Promise<NewCards> {
+	const today = startOfDay(now);
+	const [pending, started, decks] = await Promise.all([
+		db.card.findMany({
+			where: { ownerId, deletedAt: null, deckId, NOT: answeredCard },
+			select: { id: true, deckId: true },
+			orderBy: newCardsOrder
+		}),
+		// Cartes dont la première réponse date d'aujourd'hui.
+		db.card.groupBy({
+			by: ['deckId'],
+			where: {
+				ownerId,
+				deckId,
+				AND: [
+					{ reviews: { some: { logs: { some: { reviewedAt: { gte: today } } } } } },
+					{ reviews: { none: { logs: { some: { reviewedAt: { lt: today } } } } } }
+				]
+			},
+			_count: { _all: true }
+		}),
+		db.deck.findMany({
+			where: { ownerId, id: deckId },
+			select: { id: true, newCardsLimits: limitHistory }
+		})
+	]);
+
+	const limits = new Map(decks.map((deck) => [deck.id, limitOn(deck.newCardsLimits, today)]));
+	const startedIn = new Map(started.map(({ deckId: id, _count }) => [id, _count._all]));
+	return splitNewCards(
+		pending,
+		(id) => (limits.get(id) ?? DEFAULT_NEW_CARDS_PER_DAY) - (startedIn.get(id) ?? 0)
+	);
+}
+
+/** Filtre de carte : déjà répondue, ou neuve présentable aujourd'hui (`released`). */
+export const presentableCard = ({ released }: Pick<NewCards, 'released'>) =>
+	({ OR: [answeredCard, { id: { in: released } }] }) satisfies Prisma.CardWhereInput;

@@ -14,7 +14,7 @@
 ## Algorithme
 
 - FSRS via la bibliothèque [`ts-fsrs`](https://github.com/open-spaced-repetition/ts-fsrs), avec ses paramètres par défaut et une rétention cible de 90 %.
-- Une révision nouvellement créée est due immédiatement.
+- Une révision nouvellement créée est due immédiatement. Sa présentation reste soumise à la limite de nouvelles cartes de son deck (voir [Sessions](#sessions)).
 - La planification est entièrement déléguée à `ts-fsrs` : on lui donne l'état courant, la note et la date, et on stocke l'état qu'il renvoie.
 - **Optimisation des paramètres :** hors périmètre pour l'instant. À envisager après quelques centaines de révisions (`@open-spaced-repetition/binding`).
 
@@ -43,11 +43,17 @@
 - Une session est une suite de révisions dues, présentées une à une. Ce n'est pas une entité persistée : il n'y a ni début ni fin à enregistrer.
 - **Chaque réponse est enregistrée immédiatement.** Interrompre une session (arrivée à destination, appel) ne perd rien et ne pénalise rien.
 - **Ordre de présentation :** les révisions les plus en retard d'abord.
+- **Nouvelles cartes par jour :** chaque deck présente au plus un nombre réglable de cartes neuves (jamais répondues) par jour civil (Europe/Zurich) : 10 par défaut, entre 1 et 100, dans les réglages du deck.
+  - La limite compte des **cartes** : une carte la consomme à sa première réponse, quel que soit le sens. Le second sens d'une carte commencée n'y compte pas.
+  - Les cartes neuves sont présentées des plus anciennes aux plus récentes. Au-delà de la limite, elles attendent les jours suivants : c'est un **stock, pas une dette**. Elles ne sont ni présentées, ni comptées dans les compteurs, l'échéancier ou la journée de révision.
+  - Une carte réinitialisée (faces modifiées) a déjà été répondue : elle échappe à la limite.
+  - Une nouvelle limite s'applique dès aujourd'hui ; les jours passés gardent la leur.
+  - Quand il ne reste que des cartes en attente, la prochaine échéance est minuit.
 - **Mise de côté du sens inverse :** quand une carte vient d'être révisée dans un sens, l'autre sens n'est pas présenté avant 24 heures, même s'il est dû. Sinon, la seconde révision révélerait la réponse de la première. L'idée vient de spacedrep.
 - **Compteurs :** ils ne comptent que ce qui sera réellement présenté.
   - Révisions restantes d'une session : au plus une par carte, car répondre à un sens mettra l'autre de côté ; les sens déjà mis de côté sont exclus.
   - Dues aujourd'hui et échéancier : un sens mis de côté compte au jour où sa mise de côté se termine, s'il est encore dû. Quand les deux sens d'une carte viendraient à moins de 24 heures d'intervalle, le second compte 24 heures après le premier.
-- **Révision en avance :** quand rien n'est dû, on peut réviser les prochaines révisions à venir. FSRS tient compte du temps réellement écoulé ; une révision anticipée fait peu progresser la carte, mais ne fausse rien.
+- **Révision en avance :** quand rien n'est dû, on peut réviser les prochaines révisions à venir, jamais les cartes neuves en attente. FSRS tient compte du temps réellement écoulé ; une révision anticipée fait peu progresser la carte, mais ne fausse rien.
 
 ## Affichage de la progression
 

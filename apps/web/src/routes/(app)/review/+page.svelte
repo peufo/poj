@@ -247,6 +247,14 @@
 							>{next.prompt}</span
 						>{endsWithPunctuation(next.prompt) ? '' : '.'}
 					</p>
+				{:else if data.waiting > 0}
+					<p class="max-w-[50ch] text-ink-2">
+						Les nouvelles cartes du jour sont faites : {plural(
+							data.waiting,
+							'autre attend',
+							'autres attendent'
+						)} les jours suivants.
+					</p>
 				{:else}
 					<p class="max-w-[50ch] text-ink-2">
 						{data.ahead

@@ -9,6 +9,11 @@ export type * from './cards/types';
 export * from './cards/limits';
 export * from './reviews/reviews.service';
 export { presentations, type Presentation, type ReviewSlot } from './reviews/availability';
+export {
+	DEFAULT_NEW_CARDS_PER_DAY,
+	MAX_NEW_CARDS_PER_DAY,
+	MIN_NEW_CARDS_PER_DAY
+} from './reviews/new-cards';
 export type * from './reviews/types';
 export * from './translation/translator';
 export * from './translation/translation.service';

@@ -4,7 +4,9 @@ import { languageDeckName } from '../../../format/decks';
 import type { Prisma } from '../../db/generated/prisma/client';
 import type { Db, Tx } from '../db';
 import { ConflictError, NotFoundError } from '../errors';
+import { limitHistory, limitOn } from '../reviews/new-cards';
 import { emptyState } from '../reviews/scheduler';
+import { startOfDay } from '../time';
 import { comparisonKey } from '../text';
 import type { Direction } from '../cards/types';
 import type { Deck, DeckInput, DeckUpdate, DeckWithCount } from './types';
@@ -125,6 +127,21 @@ async function assertNameFree(tx: Tx, ownerId: string, name: string, excludeId?:
 	}
 }
 
+/**
+ * Limite de nouvelles cartes par jour du deck, dès aujourd'hui : un second changement le
+ * même jour remplace le premier, et une limite inchangée n'ajoute rien à l'historique.
+ */
+async function setNewCardsPerDay(tx: Tx, deckId: string, perDay: number, now: Date) {
+	const effectiveFrom = startOfDay(now);
+	const history = await tx.newCardsLimit.findMany({ where: { deckId }, ...limitHistory });
+	if (limitOn(history, effectiveFrom) === perDay) return;
+	await tx.newCardsLimit.upsert({
+		where: { deckId_effectiveFrom: { deckId, effectiveFrom } },
+		create: { deckId, perDay, effectiveFrom },
+		update: { perDay }
+	});
+}
+
 export function createDecksService(db: Db) {
 	return {
 		/** Decks non supprimés, du plus ancien au plus récent, avec leur nombre de cartes. */
@@ -139,6 +156,16 @@ export function createDecksService(db: Db) {
 
 		get(ownerId: string, id: string): Promise<Deck> {
 			return findOwnedDeck(db, ownerId, id);
+		},
+
+		/** Limite de nouvelles cartes par jour du deck, en vigueur aujourd'hui. */
+		async newCardsPerDay(ownerId: string, id: string, now = new Date()): Promise<number> {
+			const deck = await db.deck.findFirst({
+				where: { id, ownerId, deletedAt: null },
+				select: { newCardsLimits: limitHistory }
+			});
+			if (!deck) throw new NotFoundError(`Deck ${id} not found`);
+			return limitOn(deck.newCardsLimits, startOfDay(now));
 		},
 
 		/**
@@ -159,14 +186,15 @@ export function createDecksService(db: Db) {
 		 * l'option des deux sens ; le type et les langues ne changent pas, et une langue garde
 		 * le nom de sa langue apprise (`deckName`) sans libellés. Activer
 		 * les deux sens crée les révisions `b_to_a` manquantes, dues immédiatement ; le
-		 * désactiver ne supprime rien.
+		 * désactiver ne supprime rien. Une nouvelle limite de nouvelles cartes par jour
+		 * s'applique dès aujourd'hui ; les jours passés gardent la leur (`limitOn`).
 		 */
 		update(ownerId: string, id: string, input: DeckUpdate, now = new Date()): Promise<Deck> {
 			return db.$transaction(async (tx) => {
 				await lockOwner(tx, ownerId);
 				const existing = await findOwnedDeck(tx, ownerId, id);
 				// Une langue nomme ses faces d'après ses langues : pas de libellés.
-				const { labelA, labelB, ...rest } = input;
+				const { labelA, labelB, newCardsPerDay, ...rest } = input;
 				const labels = existing.kind === 'subject' ? { labelA, labelB } : {};
 				const name = deckName({ ...existing, name: input.name ?? existing.name });
 				const data = { ...rest, ...labels, name };
@@ -188,6 +216,9 @@ export function createDecksService(db: Db) {
 						})),
 						skipDuplicates: true
 					});
+				}
+				if (newCardsPerDay !== undefined) {
+					await setNewCardsPerDay(tx, id, newCardsPerDay, now);
 				}
 				return tx.deck.update({ where: { id }, data });
 			});

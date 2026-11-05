@@ -5,6 +5,13 @@ import type { Db } from '../db';
 import type { Direction } from '../cards/types';
 import { startOfDay } from '../time';
 import { opposite, SIBLING_BURY_MS } from './availability';
+import {
+	byCreation,
+	limitHistory,
+	limitOn,
+	splitNewCards,
+	type NewCardsLimitChange
+} from './new-cards';
 import type { ReviewDay } from './types';
 
 /** Révisions dans la journée au-delà desquelles le jour est réussi, retard ou pas. */
@@ -13,6 +20,13 @@ export const REVIEWS_CAP = 30;
 /** Historique d'un sens : de quoi retrouver son échéance à n'importe quel instant. */
 export interface ReviewTrack {
 	cardId: string;
+	deckId: string;
+	/** Création de la carte : les cartes neuves d'un deck sont présentées dans cet ordre. */
+	createdAt: Date;
+	/** Première réponse à la carte, tous sens et tout l'historique confondus. */
+	firstAnswer: Date | null;
+	/** Historique de la limite de nouvelles cartes du deck, trié par date. */
+	newCardsLimits: readonly NewCardsLimitChange[];
 	direction: Direction;
 	/** Sens révisé (toujours `a_to_b`, `b_to_a` si le deck est révisé dans les deux sens). */
 	reviewed: boolean;
@@ -31,10 +45,13 @@ const NEVER = Number.POSITIVE_INFINITY;
  * ancienneté (0 : aujourd'hui, le jour de `now`).
  *
  * Une carte est due un jour si l'un de ses sens révisés est présentable à minuit : échue, et
- * pas mis de côté par une réponse au sens inverse dans les 24 h précédentes. C'est ce que
- * `countDue` aurait compté à l'ouverture du jour ; une carte qui échoit dans la journée
- * compte le lendemain. Une carte supprimée avant la fin du jour n'est plus due. Une réponse
- * compte quelle que soit sa note, sur le web comme par Claude, et pour n'importe quel sens.
+ * pas mis de côté par une réponse au sens inverse dans les 24 h précédentes. Une carte neuve
+ * (encore jamais répondue à minuit) ne l'est que dans la limite du jour de son deck, en
+ * vigueur ce jour-là : les plus anciennes d'abord, les autres attendent sans être dues.
+ * C'est ce que `countDue` aurait compté à l'ouverture du jour ; une carte qui échoit dans la
+ * journée compte le lendemain. Une carte supprimée avant la fin du jour n'est plus due (ni
+ * ne prend de place dans la limite). Une réponse compte quelle que soit sa note, sur le web
+ * comme par Claude, et pour n'importe quel sens.
  *
  * L'échéance d'un sens à un instant est celle qui précédait sa première réponse postérieure,
  * ou son échéance actuelle. Une réinitialisation (carte modifiée) ne laisse pas de trace :
@@ -65,6 +82,8 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 	const reviews = Array.from({ length: span }, () => 0);
 	const answered = Array.from({ length: span }, () => new Set<string>());
 	const due = Array.from({ length: span }, () => new Set<string>());
+	/** Cartes neuves échues à minuit, avant application de la limite de leur deck. */
+	const fresh = Array.from({ length: span }, () => new Map<string, ReviewTrack>());
 
 	for (const track of tracks) {
 		for (const { at } of track.logs) {
@@ -91,6 +110,7 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 		const buried = (t: number) =>
 			sibling?.logs.some(({ at }) => at.getTime() < t && at.getTime() > t - SIBLING_BURY_MS);
 		const deletedAt = track.deletedAt?.getTime() ?? NEVER;
+		const firstAnswer = track.firstAnswer?.getTime() ?? NEVER;
 		// Entre deux réponses, l'échéance est celle qui précédait la seconde.
 		for (let i = 0; i <= track.logs.length; i += 1) {
 			const from = i === 0 ? -NEVER : track.logs[i - 1].at.getTime();
@@ -99,11 +119,25 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 			for (let ago = firstDayFrom(Math.max(from, dueAt)); ago >= 0; ago -= 1) {
 				const start = starts[ago];
 				if (start >= until) break;
-				if (deletedAt < endOf(ago)) continue;
-				if (!buried(start)) due[ago].add(track.cardId);
+				if (deletedAt < endOf(ago) || buried(start)) continue;
+				if (firstAnswer >= start) fresh[ago].set(track.cardId, track);
+				else due[ago].add(track.cardId);
 			}
 		}
 	}
+
+	fresh.forEach((tracks, ago) => {
+		const cards = [...tracks.values()]
+			.map((track) => ({ id: track.cardId, deckId: track.deckId, createdAt: track.createdAt }))
+			.sort(byCreation);
+		const limits = new Map(
+			[...tracks.values()].map((track) => [track.deckId, track.newCardsLimits])
+		);
+		const { released } = splitNewCards(cards, (deckId) =>
+			limitOn(limits.get(deckId) ?? [], days[ago])
+		);
+		for (const cardId of released) due[ago].add(cardId);
+	});
 
 	return due.map((cards, ago) => {
 		const done = [...cards].filter((cardId) => answered[ago].has(cardId)).length;
@@ -121,7 +155,8 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 /**
  * Historique des révisions du propriétaire, cartes supprimées comprises. Avec `from`, seules
  * les réponses utiles aux jours qui commencent à `from` ou après sont chargées (mise de côté
- * comprise, qui remonte aux 24 h précédentes).
+ * comprise, qui remonte aux 24 h précédentes) ; la première réponse de chaque carte vient
+ * toujours de tout l'historique.
  */
 export async function loadReviewTracks(
 	db: Db,
@@ -129,22 +164,48 @@ export async function loadReviewTracks(
 	from?: Date
 ): Promise<ReviewTrack[]> {
 	const since = from && new Date(from.getTime() - SIBLING_BURY_MS);
-	const rows = await db.review.findMany({
-		where: { card: { ownerId } },
-		select: {
-			cardId: true,
-			direction: true,
-			due: true,
-			card: { select: { deletedAt: true, deck: { select: { bothDirections: true } } } },
-			logs: {
-				where: since && { reviewedAt: { gte: since } },
-				select: { reviewedAt: true, due: true },
-				orderBy: { reviewedAt: 'asc' }
+	const [rows, firsts] = await Promise.all([
+		db.review.findMany({
+			where: { card: { ownerId } },
+			select: {
+				id: true,
+				cardId: true,
+				direction: true,
+				due: true,
+				card: {
+					select: {
+						deckId: true,
+						createdAt: true,
+						deletedAt: true,
+						deck: { select: { bothDirections: true, newCardsLimits: limitHistory } }
+					}
+				},
+				logs: {
+					where: since && { reviewedAt: { gte: since } },
+					select: { reviewedAt: true, due: true },
+					orderBy: { reviewedAt: 'asc' }
+				}
 			}
-		}
-	});
+		}),
+		db.reviewLog.groupBy({
+			by: ['reviewId'],
+			where: { review: { card: { ownerId } } },
+			_min: { reviewedAt: true }
+		})
+	]);
+	const firstOfReview = new Map(firsts.map((row) => [row.reviewId, row._min.reviewedAt]));
+	const firstAnswer = new Map<string, Date>();
+	for (const row of rows) {
+		const first = firstOfReview.get(row.id);
+		const known = firstAnswer.get(row.cardId);
+		if (first && (!known || first < known)) firstAnswer.set(row.cardId, first);
+	}
 	return rows.map((row) => ({
 		cardId: row.cardId,
+		deckId: row.card.deckId,
+		createdAt: row.card.createdAt,
+		firstAnswer: firstAnswer.get(row.cardId) ?? null,
+		newCardsLimits: row.card.deck.newCardsLimits,
 		direction: row.direction,
 		reviewed: row.direction === 'a_to_b' || row.card.deck.bothDirections,
 		deletedAt: row.card.deletedAt,

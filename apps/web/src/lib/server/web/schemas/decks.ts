@@ -1,7 +1,12 @@
 import * as z from 'zod';
 import { baseLanguage } from '#lib/format/decks.js';
 import { isDeckLanguage } from '#lib/format/languages.js';
-import type { DeckInput, DeckUpdate } from '#lib/server/domain/index.js';
+import {
+	MAX_NEW_CARDS_PER_DAY,
+	MIN_NEW_CARDS_PER_DAY,
+	type DeckInput,
+	type DeckUpdate
+} from '#lib/server/domain/index.js';
 import { tooLong } from './fields';
 
 // Formulaires des decks : création (une langue ou un sujet) et modification.
@@ -79,14 +84,24 @@ export const newDeckSchema = z
 				}
 	);
 
+const newCardsMessage = `Entre ${MIN_NEW_CARDS_PER_DAY} et ${MAX_NEW_CARDS_PER_DAY} cartes par jour.`;
+
+/** Nouvelles cartes présentées par jour (champ `n:`). */
+const newCardsPerDay = z
+	.number({ error: newCardsMessage })
+	.int(newCardsMessage)
+	.min(MIN_NEW_CARDS_PER_DAY, newCardsMessage)
+	.max(MAX_NEW_CARDS_PER_DAY, newCardsMessage);
+
 /**
- * Modification : nom, option des deux sens et noms des faces. Le type et les langues ne
- * changent pas. Une langue n'a pas de champ nom (elle garde celui de sa langue apprise), et
- * `decks.update` ignore ses noms de faces.
+ * Modification : nom, option des deux sens, noms des faces et nouvelles cartes par jour. Le
+ * type et les langues ne changent pas. Une langue n'a pas de champ nom (elle garde celui de
+ * sa langue apprise), et `decks.update` ignore ses noms de faces.
  */
 export const deckUpdateSchema = z.object({
 	name: name.optional(),
 	labelA: label,
 	labelB: label,
-	bothDirections
+	bothDirections,
+	newCardsPerDay
 }) satisfies z.ZodType<DeckUpdate, unknown>;

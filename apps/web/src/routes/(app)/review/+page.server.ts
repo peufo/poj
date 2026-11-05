@@ -36,6 +36,8 @@ export const load: PageServerLoad = async (event) => {
 		/** Réponse déjà affichée (sans JavaScript, via `?reveal=1`). */
 		revealed: reveal,
 		remaining: next.review ? next.remaining : 0,
+		/** Cartes neuves en attente (limite du jour atteinte), quand rien n'est présenté. */
+		waiting: next.review ? 0 : next.waiting,
 		current: current && {
 			id: current.id,
 			deck: deckView(current.deck),

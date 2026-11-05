@@ -24,7 +24,13 @@
 <div class="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 pb-12 md:px-8">
 	<PageHeader title="Modifier le deck" {back} />
 
-	<DeckForm form={saveDeck} mode="edit" values={data.values} cancelHref={back.href} />
+	<DeckForm
+		form={saveDeck}
+		mode="edit"
+		values={data.values}
+		newCards={data.newCards}
+		cancelHref={back.href}
+	/>
 
 	<DeleteConfirm
 		form={deleteDeck}

@@ -83,9 +83,9 @@ Appelé **avant chaque création**, avec la proposition de Claude.
   - `has_hint` : vrai si la carte a un contexte ;
   - `version` : jeton opaque à renvoyer avec la note ;
   - `remaining` : nombre de révisions qui seront encore présentées dans la session, au plus une par carte (voir [Sessions](repetition.md#sessions)) ;
-  - si rien n'est dû et que `ahead` vaut `false` : `nothing_due` et la date de la prochaine échéance (dans le deck demandé, s'il y en a un).
+  - si rien n'est dû et que `ahead` vaut `false` : `nothing_due` et la date de la prochaine échéance (dans le deck demandé, s'il y en a un). Des cartes neuves en attente (limite du jour atteinte) la ramènent au plus tard à minuit.
 - **Le contexte n'est pas renvoyé ici :** il ne s'obtient que par `get_hint`. Le serveur sait ainsi quand un indice a été demandé.
-- **Ordre et mise de côté** du sens inverse : ceux de la spec de répétition, appliqués par le serveur.
+- **Ordre, mise de côté** du sens inverse **et limite de nouvelles cartes par jour** : ceux de la spec de répétition, appliqués par le serveur.
 - **Lecture seule.**
 
 ### `get_hint` — obtenir un indice
