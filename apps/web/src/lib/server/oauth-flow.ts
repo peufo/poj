@@ -35,11 +35,11 @@ export function oauthRedirect(result: unknown): string | undefined {
 }
 
 const SCOPE_LABELS: Record<string, string> = {
-	cards: 'Lire, créer et réviser vos cartes',
-	openid: 'Connaître votre identifiant Poj',
-	profile: 'Voir votre nom',
-	email: 'Voir votre adresse email',
-	offline_access: 'Rester connecté sans vous redemander votre accord'
+	cards: 'Lire, créer et réviser tes cartes',
+	openid: 'Connaître ton identifiant Poj',
+	profile: 'Voir ton nom',
+	email: 'Voir ton adresse email',
+	offline_access: 'Rester connecté sans te redemander ton accord'
 };
 
 /** Libellés des scopes demandés, dans l'ordre de la requête. */

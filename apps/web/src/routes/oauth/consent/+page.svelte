@@ -1,6 +1,9 @@
 <script lang="ts">
 	import FormIssues from '#lib/components/form/FormIssues.svelte';
 	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
+	import AuthShell from '#lib/components/AuthShell.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
+	import Notice from '#lib/ui/Notice.svelte';
 	import { consent } from './consent.remote';
 	import type { PageProps } from './$types';
 
@@ -10,18 +13,30 @@
 	let choice = $state<'true' | 'false'>();
 </script>
 
-<main class="mx-auto mt-16 max-w-sm px-4">
-	<h1 class="mb-6 text-2xl font-semibold">{data.client.name} demande l’accès à vos cartes</h1>
-	<p class="mb-2">Si vous autorisez, cette application pourra :</p>
-	<ul class="mb-6 list-disc pl-6">
+<svelte:head><title>Autorisation · Poj</title></svelte:head>
+
+<AuthShell>
+	<div class="flex flex-col gap-1.5">
+		<h1 class="text-2xl font-bold tracking-tight">
+			{data.client.name} demande l’accès à tes cartes
+		</h1>
+		<p class="text-ink-2">Si tu autorises, cette application pourra :</p>
+	</div>
+
+	<ul class="flex flex-col gap-2.5 rounded-xl bg-surface px-3.5 py-3">
 		{#each data.scopes as scope (scope)}
-			<li>{scope}</li>
+			<li class="flex gap-3">
+				<Icon name="check" size={18} class="mt-px text-accent-text" />
+				<span>{scope}</span>
+			</li>
 		{/each}
 	</ul>
-	<p class="text-gray-600 mb-6 text-sm">
-		Vous serez ensuite redirigé vers <strong>{data.redirectHost}</strong>.
-	</p>
-	<form {...consent} class="flex flex-col gap-4">
+
+	<Notice>
+		Tu seras ensuite redirigé vers <span class="font-medium text-ink">{data.redirectHost}</span>.
+	</Notice>
+
+	<form {...consent} class="flex flex-col gap-5">
 		<input {...consent.fields.oauth_query.as('hidden', data.query)} />
 		<FormIssues issues={consent.fields.allIssues()} />
 		<SubmitButton
@@ -46,4 +61,4 @@
 			Refuser
 		</SubmitButton>
 	</form>
-</main>
+</AuthShell>

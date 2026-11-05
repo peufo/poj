@@ -42,10 +42,18 @@ test('authorizes a dynamically registered client up to its callback', async ({
 
 	await open(page, `/api/auth/oauth2/authorize?${authorize}`);
 	await expect(page).toHaveURL(/\/login\?.*sig=/);
+	// Même avec une requête signée valable, le consentement exige une session.
+	const signedQuery = new URL(page.url()).search;
+	await open(page, `/oauth/consent${signedQuery}`);
+	await expect(page).toHaveURL(/\/login\?.*sig=/);
 	await submitSignIn(page);
 
 	await expect(page).toHaveURL(/\/oauth\/consent\?.*sig=/);
-	await expect(page.getByRole('heading', { name: /Client e2e demande l’accès/ })).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'Client e2e demande l’accès à tes cartes' })
+	).toBeVisible();
+	await expect(page.getByText('Lire, créer et réviser tes cartes')).toBeVisible();
+	await expect(page.getByText('client.example')).toBeVisible();
 	await waitForApp(page);
 	await page.getByRole('button', { name: 'Autoriser' }).click();
 
