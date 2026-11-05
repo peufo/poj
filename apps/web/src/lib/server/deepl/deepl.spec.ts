@@ -86,6 +86,32 @@ describe('DeepL translator', () => {
 		expect(translated).toEqual(texts.map((t) => t.toUpperCase()));
 	});
 
+	it('sends at most 4 requests at a time, across overlapping calls', async () => {
+		let inFlight = 0;
+		let peak = 0;
+		let requests = 0;
+		const fn = (async (_url: string, init: RequestInit) => {
+			requests += 1;
+			peak = Math.max(peak, ++inFlight);
+			await new Promise((resolve) => setTimeout(resolve, 1));
+			inFlight -= 1;
+			const { text } = JSON.parse(init.body as string) as { text: string[] };
+			return json({ translations: text.map((t) => ({ text: t.toUpperCase() })) });
+		}) as unknown as typeof fetch;
+		const translator = createDeeplTranslator('key', fn);
+
+		// Un lot aux contextes tous différents : une requête par texte.
+		const translated = await Promise.all(
+			Array.from({ length: 20 }, (_, i) =>
+				translator.translate({ texts: [`t${i}`], from: 'fr', to: 'en', context: `c${i}` })
+			)
+		);
+
+		expect(requests).toBe(20);
+		expect(peak).toBe(4);
+		expect(translated.flat()).toEqual(Array.from({ length: 20 }, (_, i) => `T${i}`));
+	});
+
 	it.each([
 		[403, 'auth'],
 		[456, 'quota'],

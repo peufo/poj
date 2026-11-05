@@ -85,7 +85,7 @@ Appelé **avant `create_cards`**, à la place de `check_card` carte par carte, p
   - `divergences` (deck de langue) : cartes pour lesquelles ni la traduction DeepL de la face A ne correspond à la face B, ni celle de la face B à la face A (casse, espaces et ponctuation finale ignorés), avec `deepl_a_to_b` et `deepl_b_to_a`. Un seul sens qui correspond suffit : synonymes et tournures idiomatiques ne sont pas signalés ;
   - `deepl_error` : une seule fois pour le lot si DeepL est indisponible ou que le quota est épuisé.
   - Le texte commence par un bilan d'une ligne (« Lot de 12 cartes pour « Anglais » : 1 doublon, 2 divergences DeepL. »), puis une ligne par problème.
-- **DeepL :** seules les cartes qui seraient créées sont traduites, en une requête par sens et par contexte (les cartes d'une même source partagent souvent le leur), soit deux requêtes pour un lot sans contexte. Rien pour un deck de sujet.
+- **DeepL :** seules les cartes qui seraient créées sont traduites, en une requête par sens et par contexte (les cartes d'une même source partagent souvent le leur), soit deux requêtes pour un lot sans contexte. Le client DeepL n'envoie jamais plus de 4 requêtes à la fois, tous appels confondus, pour ne pas déclencher de refus de DeepL (429). Rien pour un deck de sujet.
 - **Lecture seule.**
 
 ### `create_cards` — créer un lot de cartes

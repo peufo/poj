@@ -19,6 +19,31 @@ const TIMEOUT_MS = 5_000;
 /** Nombre maximal de textes par requête `/v2/translate`. */
 const DEEPL_MAX_TEXTS = 50;
 
+/**
+ * Requêtes simultanées au plus, pour un traducteur (un seul par processus) : un lot aux
+ * contextes tous différents enverrait sinon jusqu'à deux requêtes par carte d'un coup, et
+ * DeepL répondrait 429.
+ */
+const MAX_PARALLEL_REQUESTS = 4;
+
+/** Exécute au plus `max` tâches à la fois ; les suivantes attendent, dans l'ordre d'arrivée. */
+function limiter(max: number) {
+	let active = 0;
+	const waiting: (() => void)[] = [];
+	return async <T>(task: () => Promise<T>): Promise<T> => {
+		if (active < max) active += 1;
+		else await new Promise<void>((resolve) => waiting.push(resolve));
+		try {
+			return await task();
+		} finally {
+			// La place passe directement à la tâche suivante, s'il y en a une.
+			const next = waiting.shift();
+			if (next) next();
+			else active -= 1;
+		}
+	};
+}
+
 /** Réponse attendue de `/v2/translate` : une traduction par texte envoyé. */
 const responseSchema = z.object({
 	translations: z.array(z.object({ text: z.string() })).nonempty()
@@ -31,6 +56,7 @@ export function deeplBaseUrl(apiKey: string): string {
 
 export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fetch): Translator {
 	const url = `${deeplBaseUrl(apiKey)}/v2/translate`;
+	const limit = limiter(MAX_PARALLEL_REQUESTS);
 
 	/** Une requête, pour au plus `DEEPL_MAX_TEXTS` textes. */
 	async function post(
@@ -93,7 +119,7 @@ export function createDeeplTranslator(apiKey: string, fetchFn: typeof fetch = fe
 			const chunks = Array.from({ length: Math.ceil(texts.length / DEEPL_MAX_TEXTS) }, (_, i) =>
 				texts.slice(i * DEEPL_MAX_TEXTS, (i + 1) * DEEPL_MAX_TEXTS)
 			);
-			return (await Promise.all(chunks.map((chunk) => post(chunk, request)))).flat();
+			return (await Promise.all(chunks.map((chunk) => limit(() => post(chunk, request))))).flat();
 		}
 	};
 }
