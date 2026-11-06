@@ -16,7 +16,6 @@
   "worktree": {
     "baseRef": "head"
   },
-  "outputStyle": "ork:ork",
   "permissions": {
     "deny": ["Agent(fork)"]
   }
