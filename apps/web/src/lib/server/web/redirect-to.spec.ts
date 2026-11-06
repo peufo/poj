@@ -34,7 +34,7 @@ describe('redirect after login', () => {
 	});
 
 	it('drops form action parameters from the page to return to', () => {
-		expect(loginUrl(page('/cards?/goal'))).toBe('/login');
+		expect(loginUrl(page('/cards?/save'))).toBe('/login');
 		expect(loginUrl(page('/review?ahead=1&/remote=x1y2/answer'))).toBe(
 			'/login?redirectTo=%2Freview%3Fahead%3D1'
 		);

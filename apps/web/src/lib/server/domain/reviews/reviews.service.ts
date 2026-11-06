@@ -4,7 +4,7 @@ import { ConflictError, NotFoundError } from '../errors';
 import { hintOf } from '../cards/hint';
 import type { Card, Direction, Origin, Rating, Review, ReviewLog } from '../cards/types';
 import { applyRating, pickState, previewDue } from './scheduler';
-import { startOfNextDay } from '../time';
+import { DAY, startOfNextDay } from '../time';
 import { opposite, SIBLING_BURY_MS } from './availability';
 import { findNewCards, presentableCard, type NewCards } from './new-cards';
 import type {
@@ -13,13 +13,20 @@ import type {
 	LastAnswer,
 	LeadResult,
 	NextResult,
-	NextReview
+	NextReview,
+	Velocities
 } from './types';
 
 export type ReviewsService = ReturnType<typeof createReviewsService>;
 
 /** Délai pendant lequel la dernière note d'une révision peut être corrigée. */
 const AMEND_WINDOW_MS = 60 * 60 * 1000;
+
+/** Fenêtre glissante de la moyenne de répétitions, en périodes de 24 h. */
+export const VELOCITY_WINDOW_DAYS = 7;
+
+/** Stabilité FSRS, en jours, à partir de laquelle un sens est mûr. */
+export const MATURE_STABILITY_DAYS = 21;
 
 const versionOf = (review: Pick<Review, 'lastReview'>) => review.lastReview?.toISOString() ?? 'new';
 
@@ -277,6 +284,39 @@ export function createReviewsService(db: Db) {
 			{ deckId }: ReviewScope = {}
 		): Promise<Set<string>> {
 			return new Set((await findNewCards(db, ownerId, now, deckId)).held);
+		},
+
+		/**
+		 * Les deux vélocités, tous decks confondus. Les répétitions comptent toutes les réponses
+		 * de la fenêtre, quelle que soit la note, cartes supprimées ou réinitialisées comprises.
+		 * Une carte est mûre quand chacun de ses sens révisés l'est : hors apprentissage, avec
+		 * une stabilité d'au moins `MATURE_STABILITY_DAYS`.
+		 */
+		async velocities(ownerId: string, now = new Date()): Promise<Velocities> {
+			const since = new Date(now.getTime() - VELOCITY_WINDOW_DAYS * DAY);
+			const [answers, matureCards] = await Promise.all([
+				db.reviewLog.count({
+					where: { reviewedAt: { gt: since, lte: now }, review: { card: { ownerId } } }
+				}),
+				db.card.count({
+					where: {
+						ownerId,
+						deletedAt: null,
+						reviews: {
+							none: {
+								...reviewedDirections,
+								NOT: { state: 'review', stability: { gte: MATURE_STABILITY_DAYS } }
+							}
+						}
+					}
+				})
+			]);
+			return {
+				repsPerDay: answers / VELOCITY_WINDOW_DAYS,
+				windowDays: VELOCITY_WINDOW_DAYS,
+				matureCards,
+				matureDays: MATURE_STABILITY_DAYS
+			};
 		},
 
 		/**

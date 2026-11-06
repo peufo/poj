@@ -1,14 +1,7 @@
-import {
-	calendarDaysBetween,
-	MAX_DAILY_GOAL,
-	MIN_DAILY_GOAL,
-	presentations,
-	weekdayIndex
-} from '#lib/server/domain/index.js';
+import { calendarDaysBetween, presentations } from '#lib/server/domain/index.js';
 import { masteryOf, type MasteryLevel } from '#lib/format/mastery.js';
 import {
 	cards,
-	dailyGoal,
 	deckParam,
 	decks,
 	deckSummary,
@@ -20,8 +13,6 @@ import { cardsSearchSchema } from '#lib/server/web/schemas/cards.js';
 import type { PageServerLoad } from './$types';
 
 const HORIZON_DAYS = 14;
-/** Semaines du calendrier d'accomplissement, la dernière étant la semaine en cours. */
-const GOAL_WEEKS = 8;
 
 export const load: PageServerLoad = async (event) => {
 	const { url } = event;
@@ -29,18 +20,18 @@ export const load: PageServerLoad = async (event) => {
 	const { q: query } = cardsSearchSchema.parse(Object.fromEntries(url.searchParams));
 	const now = new Date();
 	// Le deck de `?deck=` : liste, recherche, échéancier, maîtrise et révision ne portent que
-	// sur lui ; sans lui, sur tous (le seul deck s'il n'y en a qu'un). L'objectif reste global.
+	// sur lui ; sans lui, sur tous (le seul deck s'il n'y en a qu'un). Les vélocités restent
+	// globales.
 	const scope = { deckId: deckParam(url) };
 
-	const [owned, all, stats, horizon, dueNow, held, goal] = await Promise.all([
+	const [owned, all, stats, horizon, dueNow, held, velocities] = await Promise.all([
 		decks.list(ownerId),
 		cards.list(ownerId, scope),
 		cards.stats(ownerId, now, scope),
 		cards.horizon(ownerId, now, HORIZON_DAYS, scope),
 		reviews.countDue(ownerId, now, scope),
 		reviews.heldNewCards(ownerId, now, scope),
-		// Du lundi d'il y a sept semaines jusqu'à aujourd'hui.
-		dailyGoal.progress(ownerId, now, (GOAL_WEEKS - 1) * 7 + weekdayIndex(now) + 1)
+		reviews.velocities(ownerId, now)
 	]);
 	const { deck } = deckInScope(url, owned.map(deckSummary));
 	const listed = query ? await cards.list(ownerId, { ...scope, query }) : all;
@@ -61,8 +52,7 @@ export const load: PageServerLoad = async (event) => {
 		query,
 		stats: { totalCards: stats.totalCards, dueToday: stats.dueToday, dueNow },
 		horizon,
-		goal,
-		goalBounds: { min: MIN_DAILY_GOAL, max: MAX_DAILY_GOAL },
+		velocities,
 		mastery,
 		/** Deck affiché, `null` pour tous les decks. */
 		deck,

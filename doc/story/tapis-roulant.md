@@ -1,6 +1,6 @@
 # Story : le tapis roulant des révisions
 
-Statut : en idéation depuis le 2026-11-01, en pause depuis le 2026-11-05 (tickets t33, t34, t35 créés en `idea`).
+Statut : en idéation depuis le 2026-11-01, en pause depuis le 2026-11-05, sauf t33 (vélocités) réalisé le 2026-11-06. t34 et t35 restent en `idea`.
 
 ## Le problème
 
@@ -39,6 +39,14 @@ Une piste : une vue tournée vers l'avenir, à échelle logarithmique, où les c
   - *Conséquence :* t29 n'a plus à protéger la journée de révision ni la série (étape 5 de son plan), et la raison d'historiser la limite (ne pas casser rétroactivement la série) disparaît.
 - **2026-11-05 : l'objectif quotidien est supprimé, table comprise** (migration), pas seulement masqué.
 - **2026-11-05 : la célébration est supprimée.**
+- **2026-11-06 : définition des deux vélocités** (`reviews.velocities`).
+  - *Répétitions :* les réponses des 7 dernières périodes de 24 h, divisées par 7. Toutes les notes, web et Claude, cartes supprimées ou réinitialisées comprises.
+  - *Cartes mûres :* un stock, le nombre actuel de cartes non supprimées dont **chaque sens révisé** est mûr : hors apprentissage, avec une stabilité FSRS d'au moins 21 jours. Le nombre peut baisser (oubli, carte modifiée, deck passé à deux sens).
+  - *Portée :* tous les decks, comme le suivi avant elles (`decks.md`) ; `/cards?deck=x` précise « Tous les decks » dès que le compte en a plusieurs.
+  - *Écart assumé :* la barre de maîtrise appelle « Solide » une stabilité d'au moins 30 jours et compte des sens. Elle ne change pas.
+  - *Rejeté :* un flux (cartes devenues mûres sur 7 jours) : à reconstruire depuis les logs, il relève plutôt de la page de détail (t35). Une carte mûre dès qu'un seul sens l'est : elle n'est durable que dans les deux sens.
+- **2026-11-06 : `new_cards_limits` reste une table d'historique**, bien que seule la limite du jour soit encore lue.
+  - *Raison :* une seconde migration de données n'apporte rien à t33. À reprendre par un ticket à part si le besoin apparaît.
 - **2026-11-01 : la densité est un défi de design assumé** (rendre lisible et joli des centaines de cartes sur le tapis).
 
 ## Hors périmètre

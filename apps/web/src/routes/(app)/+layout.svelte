@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import AppShell from '#lib/components/AppShell.svelte';
-	import Celebration from '#lib/components/Celebration.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -31,8 +30,6 @@
 			(page.route.id?.endsWith('/edit') ?? false)
 	);
 </script>
-
-<Celebration date={data.day.date} full={data.day.full} />
 
 <AppShell
 	{current}

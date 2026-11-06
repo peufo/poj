@@ -57,6 +57,12 @@ describe('sandbox seed', () => {
 			expect(await createAccountsService(db).isSignUpOpen()).toBe(false);
 		});
 
+		it('gives both velocities something to show', async () => {
+			const { repsPerDay, matureCards } = await reviews.velocities(owner, now);
+			expect(repsPerDay).toBeGreaterThan(0);
+			expect(matureCards).toBeGreaterThan(0);
+		});
+
 		it('creates one language deck, named after its learned language', async () => {
 			expect(await decks.list(owner)).toEqual([
 				expect.objectContaining({ name: 'Anglais', kind: 'language', languageB: 'en-GB' })

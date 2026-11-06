@@ -12,8 +12,13 @@ import { createDecksService } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
 import { startOfNextDay } from '../time';
 import { DEFAULT_NEW_CARDS_PER_DAY } from './new-cards';
-import { createReviewsService } from './reviews.service';
+import {
+	createReviewsService,
+	MATURE_STABILITY_DAYS,
+	VELOCITY_WINDOW_DAYS
+} from './reviews.service';
 import { applyRating, pickState } from './scheduler';
+import type { Rating } from '../cards/types';
 import type { NextReview, NextResult } from './types';
 
 const db = useTestDatabase();
@@ -704,6 +709,100 @@ describe('reviews service', () => {
 
 			expect(await reviews.countDue(alice, at(3))).toBe(1);
 			expect(presented(await reviews.next(alice, at(3))).cardId).toBe(edited);
+		});
+	});
+
+	describe('velocities', () => {
+		const now = at(VELOCITY_WINDOW_DAYS * DAY);
+
+		/** Une carte neuve, créée et répondue une fois à l'instant `when`. */
+		async function answeredCard(owner: string, when: Date, rating: Rating = 'good') {
+			const card = await createCard(db, owner, { sideA: `q${when.getTime()}`, now: when });
+			const review = await db.review.findFirstOrThrow({ where: { cardId: card.id } });
+			await reviews.answer(owner, review.id, { rating, version: 'new', origin: 'web' }, when);
+			return card;
+		}
+
+		/** Une carte dont les sens ont la stabilité donnée (`a_to_b`, `b_to_a`), hors apprentissage. */
+		async function cardWith(a: number, b: number, deckId = aliceDeck) {
+			const card = await createCard(db, alice, { sideA: `s${a}-${b}`, deckId, now: t0 });
+			await db.review.updateMany({ where: { cardId: card.id }, data: { state: 'review' } });
+			await db.review.updateMany({
+				where: { cardId: card.id, direction: 'a_to_b' },
+				data: { stability: a }
+			});
+			await db.review.updateMany({
+				where: { cardId: card.id, direction: 'b_to_a' },
+				data: { stability: b }
+			});
+			return card;
+		}
+
+		it('starts at zero', async () => {
+			expect(await reviews.velocities(alice, now)).toEqual({
+				repsPerDay: 0,
+				windowDays: VELOCITY_WINDOW_DAYS,
+				matureCards: 0,
+				matureDays: MATURE_STABILITY_DAYS
+			});
+		});
+
+		it('averages every answer of the sliding window over its days', async () => {
+			await answeredCard(alice, t0); // pile sept jours avant : hors de la fenêtre
+			await answeredCard(alice, at(1), 'again');
+			const deleted = await answeredCard(alice, at(2));
+			await cards.softDelete(alice, deleted.id);
+			await answeredCard(alice, now);
+			await answeredCard(bob, at(3));
+
+			const { repsPerDay } = await reviews.velocities(alice, now);
+			expect(repsPerDay).toBe(3 / VELOCITY_WINDOW_DAYS);
+		});
+
+		it('keeps counting an answer after its card was reset', async () => {
+			const card = await answeredCard(alice, at(1));
+			await cards.update(alice, card.id, { sideA: 'autre', sideB: 'face' }, at(2));
+
+			const { repsPerDay } = await reviews.velocities(alice, now);
+			expect(repsPerDay).toBe(1 / VELOCITY_WINDOW_DAYS);
+		});
+
+		it('counts a card as mature once every direction reaches the threshold', async () => {
+			await cardWith(MATURE_STABILITY_DAYS, MATURE_STABILITY_DAYS + 100);
+			await cardWith(MATURE_STABILITY_DAYS, MATURE_STABILITY_DAYS - 0.1);
+			await createCard(db, alice, { sideA: 'neuve', now: t0 });
+
+			expect((await reviews.velocities(alice, now)).matureCards).toBe(1);
+		});
+
+		it('does not count a card relearning, whatever its stability', async () => {
+			const card = await cardWith(100, 100);
+			expect((await reviews.velocities(alice, now)).matureCards).toBe(1);
+
+			await db.review.updateMany({
+				where: { cardId: card.id, direction: 'a_to_b' },
+				data: { state: 'relearning' }
+			});
+			expect((await reviews.velocities(alice, now)).matureCards).toBe(0);
+		});
+
+		it('ignores a direction the deck no longer reviews', async () => {
+			await cardWith(100, 1);
+			expect((await reviews.velocities(alice, now)).matureCards).toBe(0);
+
+			await db.deck.update({ where: { id: aliceDeck }, data: { bothDirections: false } });
+			expect((await reviews.velocities(alice, now)).matureCards).toBe(1);
+		});
+
+		it('leaves out deleted cards and the cards of other users, across all decks', async () => {
+			const subject = await createDeck(db, alice, SUBJECT_DECK);
+			await cardWith(100, 100);
+			const deleted = await cardWith(200, 200);
+			await cardWith(300, 300, subject.id);
+			await cards.softDelete(alice, deleted.id);
+
+			expect((await reviews.velocities(alice, now)).matureCards).toBe(2);
+			expect((await reviews.velocities(bob, now)).matureCards).toBe(0);
 		});
 	});
 });

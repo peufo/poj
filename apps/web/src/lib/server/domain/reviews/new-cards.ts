@@ -11,7 +11,7 @@ export const MIN_NEW_CARDS_PER_DAY = 1;
 export const MAX_NEW_CARDS_PER_DAY = 100;
 
 /** Un changement de limite, applicable à partir de `effectiveFrom` (minuit local). */
-export interface NewCardsLimitChange {
+interface NewCardsLimitChange {
 	perDay: number;
 	effectiveFrom: Date;
 }
@@ -48,34 +48,12 @@ export interface NewCards {
 	held: string[];
 }
 
-/** Ce qu'il faut d'une carte neuve pour la placer dans la limite de son deck. */
-export interface NewCard {
-	id: string;
-	deckId: string;
-	createdAt: Date;
-}
-
 /**
- * Ordre dans lequel les cartes neuves d'un deck sont présentées : les plus anciennes
- * d'abord, puis par id (`newCardsOrder` en base).
+ * Répartit des cartes neuves, dans leur ordre de présentation : dans chaque deck, les
+ * `quota(deck)` premières sont présentables, les autres attendent.
  */
-export function byCreation(a: NewCard, b: NewCard): number {
-	return a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-}
-
-/** `byCreation`, côté Prisma. */
-export const newCardsOrder = [
-	{ createdAt: 'asc' },
-	{ id: 'asc' }
-] as const satisfies Prisma.CardOrderByWithRelationInput[];
-
-/**
- * Répartit des cartes neuves, triées par `byCreation` : dans chaque deck, les `quota(deck)`
- * premières sont présentables, les autres attendent. C'est la seule règle de répartition,
- * partagée par la session (`findNewCards`) et la journée de révision.
- */
-export function splitNewCards(
-	cards: readonly Pick<NewCard, 'id' | 'deckId'>[],
+function splitNewCards(
+	cards: readonly { id: string; deckId: string }[],
 	quota: (deckId: string) => number
 ): NewCards {
 	const taken = new Map<string, number>();
@@ -106,7 +84,8 @@ export async function findNewCards(
 		db.card.findMany({
 			where: { ownerId, deletedAt: null, deckId, NOT: answeredCard },
 			select: { id: true, deckId: true },
-			orderBy: newCardsOrder
+			// Ordre de présentation : les plus anciennes d'abord.
+			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
 		}),
 		// Cartes dont la première réponse date d'aujourd'hui.
 		db.card.groupBy({

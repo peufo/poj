@@ -1,9 +1,8 @@
 import * as z from 'zod';
-import { CARD_LIMITS, MAX_DAILY_GOAL, MIN_DAILY_GOAL } from '#lib/server/domain/index.js';
+import { CARD_LIMITS } from '#lib/server/domain/index.js';
 import { tooLong } from './fields';
 
-// Formulaires des cartes (création, modification, suggestion DeepL), de l'objectif du jour,
-// et paramètres de `/cards`.
+// Formulaires des cartes (création, modification, suggestion DeepL) et paramètres de `/cards`.
 
 /** Longueur de la recherche gardée, au-delà de laquelle le reste est ignoré. */
 const QUERY_LIMIT = 200;
@@ -69,17 +68,6 @@ export const cardFormSchema = z.discriminatedUnion('intent', [
 	z.object({ ...cardTranslationSchema.shape, ...translate }),
 	z.object({ ...cardBackTranslationSchema.shape, ...translateBack })
 ]);
-
-const goalMessage = `Entre ${MIN_DAILY_GOAL} et ${MAX_DAILY_GOAL} cartes par jour.`;
-
-/** Objectif de cartes à ajouter par jour (`/cards`). */
-export const dailyGoalSchema = z.object({
-	goal: z
-		.number({ error: goalMessage })
-		.int(goalMessage)
-		.min(MIN_DAILY_GOAL, goalMessage)
-		.max(MAX_DAILY_GOAL, goalMessage)
-});
 
 /** Paramètres de `/cards` (le deck de `?deck=` passe par `deckParam`). */
 export const cardsSearchSchema = z.object({

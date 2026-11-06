@@ -2,6 +2,8 @@
 
 Statut : validée le 2026-11-01. Tickets : t29, t31, t30 (plus tard).
 
+La journée de révision, la série et l'objectif d'ajout cités ici n'existent plus depuis t33 ([tapis-roulant.md](tapis-roulant.md)). La règle des cartes neuves vaut toujours pour les compteurs, l'échéancier et la session.
+
 ## Le problème
 
 Aujourd'hui, une carte s'ajoute une à une, avec une confirmation à chaque fois. Remplir un deck de sujet (par exemple « Géographie », avec ~200 pays) ou absorber une page de cours devient fastidieux. Le développeur veut que l'assistant IA absorbe des sources variées (photo d'une page de cours, Wikipedia, fichier…) puis fasse des appels MCP propres, et que l'application gère le remplissage rapide d'un deck sans le rendre décourageant.

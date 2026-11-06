@@ -45,9 +45,9 @@
 - **Ordre de présentation :** les révisions les plus en retard d'abord.
 - **Nouvelles cartes par jour :** chaque deck présente au plus un nombre réglable de cartes neuves (jamais répondues) par jour civil (Europe/Zurich) : 10 par défaut, entre 1 et 100, dans les réglages du deck.
   - La limite compte des **cartes** : une carte la consomme à sa première réponse, quel que soit le sens. Le second sens d'une carte commencée n'y compte pas.
-  - Les cartes neuves sont présentées des plus anciennes aux plus récentes. Au-delà de la limite, elles attendent les jours suivants : c'est un **stock, pas une dette**. Elles ne sont ni présentées, ni comptées dans les compteurs, l'échéancier ou la journée de révision.
+  - Les cartes neuves sont présentées des plus anciennes aux plus récentes. Au-delà de la limite, elles attendent les jours suivants : c'est un **stock, pas une dette**. Elles ne sont ni présentées, ni comptées dans les compteurs ou l'échéancier.
   - Une carte réinitialisée (faces modifiées) a déjà été répondue : elle échappe à la limite.
-  - Une nouvelle limite s'applique dès aujourd'hui ; les jours passés gardent la leur.
+  - Une nouvelle limite s'applique dès aujourd'hui.
   - Quand il ne reste que des cartes en attente, la prochaine échéance est minuit.
 - **Mise de côté du sens inverse :** quand une carte vient d'être révisée dans un sens, l'autre sens n'est pas présenté avant 24 heures, même s'il est dû. Sinon, la seconde révision révélerait la réponse de la première. L'idée vient de spacedrep.
 - **Compteurs :** ils ne comptent que ce qui sera réellement présenté.
@@ -58,3 +58,8 @@
 ## Affichage de la progression
 
 Les notions de stabilité et de difficulté ne sont pas exposées telles quelles. On montre plutôt la prochaine échéance (« dans 12 jours ») et une indication simple de maîtrise. Le libellé exact reste à définir.
+
+`/cards` résume le passé en deux vélocités, sur tous les decks ([story/tapis-roulant.md](../story/tapis-roulant.md)) :
+
+- **Répétitions par jour :** les réponses des 7 dernières périodes de 24 h, divisées par 7. Toutes les notes, cartes supprimées ou réinitialisées comprises.
+- **Cartes mûres :** les cartes non supprimées dont chaque sens révisé est hors apprentissage, avec une stabilité d'au moins 21 jours.

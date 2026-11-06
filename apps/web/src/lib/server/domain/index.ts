@@ -5,7 +5,6 @@ export * from './time';
 export * from './decks/decks.service';
 export type * from './decks/types';
 export * from './cards/cards.service';
-export * from './cards/daily-goal.service';
 export type * from './cards/types';
 export * from './cards/limits';
 export * from './cards/hint';

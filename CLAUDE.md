@@ -85,7 +85,7 @@ Il n'y a aucune form action : tous les formulaires, auth et OAuth compris, sont 
   - formulaires et paramètres des `load` : `src/lib/server/web/schemas/<domaine>.ts` (un `z.object` par formulaire, avec les noms des champs) ; un id d'URL passe par `idOf` / `deckParam` (`idSchema`, 404 sinon) ;
   - API : les schémas des `createRoute` ;
   - MCP : les `inputSchema` des outils (`mcp/server.ts`), décrits pour Claude.
-- **Qui valide quoi :** le schéma valide la forme à la frontière (types, champs obligatoires, longueurs, formats, listes). Le domaine ne la revalide pas : il ne garde que les règles qui dépendent de l'état de la base (existence, unicité, invitation encore valable, version, doublons). Les bornes métier restent des constantes du domaine (`PASSWORD_MIN_LENGTH`, `MAX_DAILY_GOAL`…), importées par les schémas.
+- **Qui valide quoi :** le schéma valide la forme à la frontière (types, champs obligatoires, longueurs, formats, listes). Le domaine ne la revalide pas : il ne garde que les règles qui dépendent de l'état de la base (existence, unicité, invitation encore valable, version, doublons). Les bornes métier restent des constantes du domaine (`PASSWORD_MIN_LENGTH`, `MAX_NEW_CARDS_PER_DAY`…), importées par les schémas.
 - **Schémas prêts pour les remote functions** (`form(schema, fn)`) : ils lisent l'objet que SvelteKit tire du formulaire. Un champ absent n'y figure pas, un nombre arrive en `number` (champ `n:`), et un booléen doit être optionnel (`z.boolean().default(false)`), car une case non cochée n'est pas envoyée.
 - **Messages en français :** chaque règle visible par l'utilisateur porte son message explicite. `hooks.server.ts` règle `z.config(z.locales.fr())` pour les autres (types invalides, API, MCP).
 

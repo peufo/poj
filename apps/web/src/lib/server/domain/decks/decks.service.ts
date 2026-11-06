@@ -188,7 +188,7 @@ export function createDecksService(db: Db) {
 		 * le nom de sa langue apprise (`deckName`) sans libellés. Activer
 		 * les deux sens crée les révisions `b_to_a` manquantes, dues immédiatement ; le
 		 * désactiver ne supprime rien. Une nouvelle limite de nouvelles cartes par jour
-		 * s'applique dès aujourd'hui ; les jours passés gardent la leur (`limitOn`).
+		 * s'applique dès aujourd'hui (`limitOn`).
 		 */
 		update(ownerId: string, id: string, input: DeckUpdate, now = new Date()): Promise<Deck> {
 			return db.$transaction(async (tx) => {

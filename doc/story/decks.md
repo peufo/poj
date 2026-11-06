@@ -10,7 +10,7 @@ Tout est construit pour le seul français → anglais (voir [vision.md](../visio
 
 - Un deck a un type, par exemple « Langue », avec une option de paire (français-anglais).
 - Les sens deviennent génériques : `a_to_b` et `b_to_a`, au lieu de `fr_to_en` et `en_to_fr`.
-- Le suivi (objectif, série) reste global, et les sessions de révision se font par deck.
+- Le suivi (les vélocités, voir [tapis-roulant.md](tapis-roulant.md)) reste global, et les sessions de révision se font par deck.
 - Pas d'import d'un gros deck d'un coup : ce serait décourageant et peu personnel.
 
 ## Coût (enquête du 2026-10-29)
@@ -45,7 +45,7 @@ Tout est construit pour le seul français → anglais (voir [vision.md](../visio
   - *Raison :* le développeur ne veut pas de choses écrites en dur.
   - *Rejeté :* attendre le premier vrai deuxième deck ou l'exposition des cartes dans le contrat REST, comme le recommandait l'enquête.
   - *Hors t3 :* l'interface multi-decks (t4).
-- **2026-10-29 : la révision se lance de deux façons.** L'entrée « Réviser » globale mélange tous les decks, et chaque deck a son propre bouton « Réviser ». Le suivi (objectif, série) reste global.
+- **2026-10-29 : la révision se lance de deux façons.** L'entrée « Réviser » globale mélange tous les decks, et chaque deck a son propre bouton « Réviser ». Le suivi (objectif et série à l'époque, vélocités depuis t33) reste global.
   - *Raison :* au volant, « on révise » ne demande aucun choix.
 - **2026-10-29 : les decks se créent depuis le web, y compris pour des sujets qui ne sont pas des langues.**
 - **2026-10-29 : chaque deck nomme ses deux faces.** Exemple : « Pays » / « Capitale ». Pour une langue, ce sont les noms des langues. Par défaut : « Question » / « Réponse ».

@@ -2,8 +2,7 @@
 	import { goto } from '$app/navigation';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Horizon from '#lib/components/Horizon.svelte';
-	import GoalCalendar from '#lib/components/GoalCalendar.svelte';
-	import { setGoal } from './goal.remote';
+	import Velocities from '#lib/components/Velocities.svelte';
 	import MasteryBar from '#lib/components/MasteryBar.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
 	import DeckChips from '#lib/components/DeckChips.svelte';
@@ -70,8 +69,6 @@
 		<DeckChips decks={data.nav.decks} active={deck?.id ?? null} class="pt-2 md:hidden" />
 	</PageHeader>
 
-	<GoalCalendar progress={data.goal} bounds={data.goalBounds} form={setGoal} />
-
 	{#if data.stats.totalCards === 0}
 		<div class="flex flex-col items-start gap-3 py-8">
 			<p class="text-lg font-semibold">Aucune carte pour l'instant</p>
@@ -84,6 +81,8 @@
 			<Button href="/cards/new{deckQuery}" variant="primary" icon="plus">Créer une carte</Button>
 		</div>
 	{:else}
+		<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
+
 		<!-- L'échéancier : ce qui est dû, ce qui vient, où en est le paquet -->
 		<section aria-label="Échéancier" class="flex flex-col gap-5 rounded-2xl bg-surface p-4 md:p-5">
 			<div class="flex items-center justify-between gap-4">

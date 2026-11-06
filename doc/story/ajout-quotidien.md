@@ -1,6 +1,8 @@
 # Story : ajouter des cartes chaque jour
 
-Statut : validée le 2026-10-29. Tickets : t1, t2.
+Statut : validée le 2026-10-29, révisée le 2026-11-01. Tickets : t1, t2, t6 ; révision : t33.
+
+**Révision :** l'objectif quotidien, la série, le record, le calendrier d'accomplissement, la journée de révision et la célébration sont supprimés. Deux vélocités les remplacent : voir [tapis-roulant.md](tapis-roulant.md). Restent en vigueur l'inspiration par Claude, l'absence de notification et le refus des suggestions de cartes. Le reste de ce document garde l'historique du raisonnement.
 
 ## Le problème
 
@@ -10,13 +12,18 @@ Les cartes que je propose moi-même sont les meilleures, parce qu'elles sont rat
 
 ## Version retenue
 
+- **Inspiration par Claude :** quand je manque d'idées, Claude m'interroge sur des situations réelles (ma journée, ce que j'aurais voulu dire en anglais) ou s'appuie sur ce qu'il sait de moi, pour en tirer une carte. La carte suit ensuite le déroulé habituel de capture (CL-2) : vérification DeepL, relecture et confirmation.
+
+## Version supprimée le 2026-11-06 (t33)
+
 - **Objectif quotidien :** un nombre de cartes à ajouter par jour (2 par défaut), modifiable sur le web.
 - **Série :** un nombre de jours consécutifs où l'objectif est atteint. Un jour manqué est toléré : la série continue. Deux jours manqués d'affilée l'arrêtent.
 - **Calendrier d'accomplissement** sur le web : c'est une gratification visuelle. Claude n'annonce pas l'état de l'objectif.
 - **Ce qui compte, c'est l'acte d'ajouter :** une carte supprimée après coup compte toujours pour le jour où elle a été créée.
-- **Inspiration par Claude :** quand je manque d'idées, Claude m'interroge sur des situations réelles (ma journée, ce que j'aurais voulu dire en anglais) ou s'appuie sur ce qu'il sait de moi, pour en tirer une carte. La carte suit ensuite le déroulé habituel de capture (CL-2) : vérification DeepL, relecture et confirmation.
 
 ## Décisions
+
+Celles qui portent sur l'objectif, la série et le calendrier sont révisées le 2026-11-01 ([tapis-roulant.md](tapis-roulant.md)).
 
 - **2026-10-29 : un jour manqué toléré, deux arrêtent la série.**
   - *Raison :* une série stricte décourage. Un seul jour de tolérance suffit, sans mécanique de jokers à gérer.
@@ -49,6 +56,8 @@ Les cartes que je propose moi-même sont les meilleures, parce qu'elles sont rat
 - L'annonce de l'objectif ou de la série par Claude.
 
 ## Suite (2026-10-29) : calendrier des révisions et leviers de motivation
+
+Supprimée elle aussi le 2026-11-06 (t33) : ni journée de révision, ni série, ni record, ni célébration.
 
 Le développeur veut aussi un calendrier d'accomplissement pour les révisions, et compte sur les leviers connus de la dopamine, puisqu'ils servent ici quelque chose d'utile. Ticket : t6.
 

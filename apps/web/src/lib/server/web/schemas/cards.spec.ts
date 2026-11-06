@@ -5,7 +5,6 @@ import {
 	cardSchema,
 	cardsSearchSchema,
 	cardTranslationSchema,
-	dailyGoalSchema,
 	newCardFormSchema,
 	newCardSchema
 } from './cards';
@@ -98,17 +97,6 @@ describe('card form intents', () => {
 		expect(newCardFormSchema.safeParse({ deckId: DECK, sideA: 'a', sideB: 'b' }).success).toBe(
 			false
 		);
-	});
-});
-
-describe('daily goal', () => {
-	it('takes a whole number between 1 and 20', () => {
-		expect(dailyGoalSchema.parse({ goal: 20 })).toEqual({ goal: 20 });
-		for (const goal of [0, 21, 1.5, Number.NaN, undefined]) {
-			expect(errors(dailyGoalSchema, { goal })).toEqual({
-				goal: 'Entre 1 et 20 cartes par jour.'
-			});
-		}
 	});
 });
 

@@ -1125,7 +1125,7 @@ describe('MCP server', () => {
 				);
 				expect(instructions).toContain("- Proposer d'ajouter des cartes : en fin de révision");
 				expect(instructions).toContain("Jamais entre deux cartes d'une révision");
-				expect(instructions).toContain("N'annonce jamais l'état de son objectif quotidien");
+				expect(instructions).not.toContain('objectif quotidien');
 				expect(instructions).toContain('la répartition des notes');
 			}
 			expect((await connect(alice)).getInstructions()).not.toContain(

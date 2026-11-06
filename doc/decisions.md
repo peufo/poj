@@ -2,6 +2,20 @@
 
 Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut.
 
+## 2026-11-06 — Suppression de `daily_goals` : le retour arrière n'est plus garanti
+
+**Décision :** la table `daily_goals` part en une seule migration, en même temps que le code qui la lisait. C'est une exception assumée à la règle de [deploiement.md](deploiement.md) (« une version antérieure doit rester compatible avec le schéma ») : une image antérieure interroge cette table sur toutes les pages connectées, et répondrait 500. Revenir en arrière demanderait de recréer la table à la main. L'historique des objectifs de chaque utilisateur est perdu sans retour.
+
+**Rejeté :** *un déploiement en deux temps* (le code d'abord, la table plus tard) : disproportionné pour une table que plus rien ne lit, à ce stade du projet.
+
+## 2026-11-06 — Deux vélocités à la place de l'objectif quotidien, de la série et du calendrier
+
+**Décision :** `/cards` résume le passé en deux chiffres, sur tous les decks : les répétitions par jour (moyenne glissante sur 7 jours) et les cartes mûres (chaque sens révisé hors apprentissage, avec une stabilité FSRS d'au moins 21 jours). L'objectif quotidien, la série, le record, le calendrier, la journée de révision et la célébration sont supprimés. Décidé le 2026-11-01, réalisé par t33. Voir [story/tapis-roulant.md](story/tapis-roulant.md).
+
+**Remplace :** « Objectif quotidien d'ajout et série tolérante » et « Calendrier des révisions et leviers de motivation » (2026-10-29), sauf l'inspiration par Claude et l'absence de notification.
+
+**Rejeté :** rattacher la célébration à un palier de cartes mûres (10, 50, 100…), et garder la table de l'objectif inutilisée.
+
 ## 2026-10-29 — Testeurs invités par l'admin, Claude seulement
 
 **Décision :**

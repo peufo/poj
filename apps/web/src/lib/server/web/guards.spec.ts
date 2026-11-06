@@ -33,7 +33,7 @@ describe('owner guard', () => {
 	});
 
 	it('drops form action parameters from the requested page', () => {
-		expect(redirectOf(run(ownerOf, eventOf('/cards?/goal')))).toBe('/login');
+		expect(redirectOf(run(ownerOf, eventOf('/cards?/save')))).toBe('/login');
 		expect(redirectOf(run(ownerOf, eventOf('/review?ahead=1&/answer')))).toBe(
 			'/login?redirectTo=%2Freview%3Fahead%3D1'
 		);

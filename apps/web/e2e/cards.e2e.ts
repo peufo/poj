@@ -10,7 +10,7 @@ import {
 } from './helpers';
 
 // Formulaires des cartes : création et doublon, bouton DeepL, modification et
-// avertissement de réinitialisation, suppression, objectif du jour.
+// avertissement de réinitialisation, suppression. Vélocités de la liste.
 
 test.beforeEach(async ({ page }) => signIn(page));
 
@@ -74,13 +74,14 @@ test('deletes a card after confirmation', async ({ page }) => {
 	await expect(page.getByText(question)).toHaveCount(0);
 });
 
-test('sets the daily goal', async ({ page }) => {
+test('shows the velocities, naming their scope on a single deck', async ({ page }) => {
+	await createSubjectDeck(page);
 	await open(page, '/cards');
-	await page.getByText(/Objectif : \d+ cartes? par jour/).click();
-	await page.getByLabel('Cartes à ajouter par jour').fill('7');
-	await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+	const velocities = page.getByRole('region', { name: 'Vélocités' });
+	await expect(velocities.getByText(/répétitions? par jour/)).toBeVisible();
+	await expect(velocities.getByText(/cartes? mûres?/)).toBeVisible();
+	await expect(velocities.getByText('Tous les decks')).toHaveCount(0);
 
-	await expect(page.getByText('Objectif enregistré : 7 cartes par jour.')).toBeVisible();
-	await expectRemoteSubmission(page);
-	await expect(page.getByText('Objectif : 7 cartes par jour')).toBeVisible();
+	await open(page, `/cards?deck=${await languageDeckId(page)}`);
+	await expect(velocities.getByText('Tous les decks')).toBeVisible();
 });

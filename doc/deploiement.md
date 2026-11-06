@@ -51,7 +51,7 @@ Un enregistrement `A` (et `AAAA` si le VPS a une IPv6) de `poj.ch` vers le VPS, 
 - **Créer le compte admin juste après la première mise en ligne :** le premier visiteur de `/register` crée le compte administrateur, puis l'inscription se ferme. Les testeurs arrivent ensuite par un lien d'invitation, généré sur `/admin`.
 - **Brancher Claude :** sur claude.ai, ajouter un connecteur personnalisé d'URL `https://poj.ch/mcp`. Claude s'enregistre (DCR), puis redirige vers `/login` et `/oauth/consent` : on se connecte et on accepte le consentement. Voir [specs/mcp.md](specs/mcp.md).
 - **Pare-feu :** si l'accès entrant est filtré, autoriser les IP d'Anthropic, `160.79.104.0/21`.
-- **Retour arrière :** déployer un tag `sha-<court>` dans Dokploy. Les migrations ne sont pas annulées : une version antérieure doit rester compatible avec le schéma.
+- **Retour arrière :** déployer un tag `sha-<court>` dans Dokploy. Les migrations ne sont pas annulées : une version antérieure doit rester compatible avec le schéma. Exception : une image antérieure à la suppression de `daily_goals` (2026-11-06) ne fonctionne plus sans recréer la table, voir [decisions.md](decisions.md).
 
 ## Checklist de mise en ligne
 
