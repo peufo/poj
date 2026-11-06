@@ -17,7 +17,7 @@ updated: 2026-10-30
 ---
 
 ## Context
-Aujourd'hui, tous les worktrees partagent les bases `poj_test` et `poj_sandbox`, ainsi que les ports fixes 5173 (dev, `ORIGIN`), 5174 (bac à sable), 4173 (preview Playwright), 3000 et 5433 (Docker). C'est pour cela que `max_parallel` est à 1 dans `doc/ork.md` : deux suites de tests lancées en même temps se vident mutuellement les tables. Par ailleurs, une migration testée dans un worktree reste appliquée à `poj_test` (incident pendant t15). Le développeur veut isoler chaque worktree pour pouvoir paralléliser.
+Aujourd'hui, tous les worktrees partagent les bases `poj_test` et `poj_sandbox`, ainsi que les ports fixes 5173 (dev, `ORIGIN`), 5174 (bac à sable), 4173 (preview Playwright), 3000 et 5433 (Docker). C'est pour cela que `max_parallel` est à 1 dans `.ork/config.md` : deux suites de tests lancées en même temps se vident mutuellement les tables. Par ailleurs, une migration testée dans un worktree reste appliquée à `poj_test` (incident pendant t15). Le développeur veut isoler chaque worktree pour pouvoir paralléliser.
 
 Piste, à confirmer dans le plan : dériver du nom du worktree (ou d'une variable) un suffixe de base (`poj_test_<slug>`, `poj_sandbox_<slug>`) et un décalage de ports. Le checkout principal garderait les noms et ports actuels. Le serveur Postgres Docker (5433) peut rester unique et partagé, seules les bases changent.
 
@@ -94,10 +94,10 @@ Rendu le 2026-10-30 (opus, high). Branche de plan : `worktree-agent-a6447ab16afa
   - [x] `apps/web/scripts/worktree.ts:77` : `prune` ouvre une connexion par base supprimée.
 - **Pour le développeur, après l'intégration :**
   - `bun run worktree:prune` après chaque suppression de worktree (le chef s'en charge à l'intégration) ;
-  - passer `max_parallel` à 2 dans `doc/ork.md`.
+  - passer `max_parallel` à 2 dans `.ork/config.md`.
 
 ## Log
-- 2026-10-30 — créé depuis une remarque du développeur. Une fois intégré, le chef proposera de passer `max_parallel` à 2 dans `doc/ork.md`.
+- 2026-10-30 — créé depuis une remarque du développeur. Une fois intégré, le chef proposera de passer `max_parallel` à 2 dans `.ork/config.md`.
 - 2026-10-30 — ouvrier lancé en PLAN MODE (opus, high)
 - 2026-10-30 — PLAN READY, attend la validation du développeur
 - 2026-10-30 — plan validé tel quel (5173/5174/4173 réservés au checkout principal), ouvrier relancé en EXECUTION MODE

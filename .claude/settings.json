@@ -17,6 +17,10 @@
     "baseRef": "head"
   },
   "agent": "ork:lead",
+  "statusLine": {
+    "type": "command",
+    "command": "sh /Users/jonasvoisard/.claude/skills/ork/scripts/statusline.sh"
+  },
   "permissions": {
     "deny": ["Agent(fork)"]
   }

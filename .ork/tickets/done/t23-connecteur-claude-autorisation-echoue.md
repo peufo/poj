@@ -16,12 +16,12 @@ updated: 2026-10-30
 ---
 
 ## Context
-Capture du développeur (`doc/tickets/captures/t23-connecteur-claude-echec.png`) : sur claude.ai, le connecteur `https://poj.ch/mcp` affiche « Problème de connexion — Votre connexion à Poj ne fonctionne plus. Reconnectez-vous pour continuer. », et la reconnexion échoue : « L'autorisation avec Poj a échoué. Vous pouvez vérifier vos identifiants et permissions. Référence : ofid_51fea5f1a1a1cf79 ».
+Capture du développeur (`.ork/tickets/captures/t23-connecteur-claude-echec.png`) : sur claude.ai, le connecteur `https://poj.ch/mcp` affiche « Problème de connexion — Votre connexion à Poj ne fonctionne plus. Reconnectez-vous pour continuer. », et la reconnexion échoue : « L'autorisation avec Poj a échoué. Vous pouvez vérifier vos identifiants et permissions. Référence : ofid_51fea5f1a1a1cf79 ».
 
 L'app est donc en ligne sur poj.ch. C'est la **première** connexion de Claude qui échoue (ni base ni secret changés).
 
 **Cause (confirmée le 2026-10-30) :** la protection CSRF de SvelteKit bloque l'échange du code.
-- Logs Dokploy (`doc/tickets/captures/t23-logs-dokploy.png`) : register 201 → authorize 302 → GET/POST /oauth/consent 200 → **POST /api/auth/oauth2/token 403 (1,5 ms)** depuis une IP d'Anthropic → POST /mcp 401.
+- Logs Dokploy (`.ork/tickets/captures/t23-logs-dokploy.png`) : register 201 → authorize 302 → GET/POST /oauth/consent 200 → **POST /api/auth/oauth2/token 403 (1,5 ms)** depuis une IP d'Anthropic → POST /mcp 401.
 - Reproduit en prod : `curl -X POST https://poj.ch/api/auth/oauth2/token -H 'content-type: application/x-www-form-urlencoded' -d '…'` répond **403 « Cross-site POST form submissions are forbidden »**, avec ou sans en-tête Origin. Le endpoint n'accepte que `application/x-www-form-urlencoded` (JSON → 415), donc tout client OAuth est refusé par SvelteKit avant d'atteindre Better Auth.
 - Les tests ne l'ont pas vu : ils appellent `auth.handler` directement, sans passer par le CSRF de SvelteKit ; et Claude ne peut pas joindre localhost.
 

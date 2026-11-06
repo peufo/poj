@@ -19,7 +19,7 @@ updated: 2026-11-06
 ## Context
 Le développeur fournit une nouvelle identité visuelle et demande de l'intégrer avec le skill `impeccable` ; « le style de l'app doit suivre ».
 
-Assets (copiés depuis `~/Downloads/poj-logo/`) dans `doc/tickets/captures/t38-identite-visuelle/` :
+Assets (copiés depuis `~/Downloads/poj-logo/`) dans `.ork/tickets/captures/t38-identite-visuelle/` :
 - `poj-logo.svg` (clair : marque teal + mot « poj » en `#1E222B`), `poj-logo-dark.svg` (fond `#1E222B`, texte `#F6F5F1`), `poj-logo-white.svg` (sans fond, texte `#F6F5F1`, pour fond sombre) ;
 - `poj-mark.svg` (marque seule : trois barres croissantes teal `#0F766E` en opacités 0.35 / 0.65 / 1 et un point au-dessus de la dernière, qui forme un « i » / « j ») ;
 - `favicon.svg` (32 px, carré arrondi teal, trois barres blanches, sans point) et `favicon-180.png` (apple-touch) ;
@@ -45,7 +45,7 @@ Rendu le 2026-11-06 (opus, high). Branche `ticket/t38-identite-visuelle`.
 5. PNG aplatis sur le teal (`magick -background '#0F766E' -flatten -alpha off`) : iOS refuse l'alpha et applique son masque.
 6. Docs : `DESIGN.md` (indigo → teal, « The One Teal Rule »), `.impeccable/design.json`, `PRODUCT.md`, commentaires.
 7. Spec client `Wordmark.svelte.spec.ts` (nom accessible « poj »).
-8. Revue impeccable : 16 captures (login, cartes, révision, consentement × clair/sombre × 390/1280) dans le scratchpad, à verser par l'orchestrateur dans `doc/tickets/captures/t38-…` ; `detect.mjs`, une passe de corrections, une de confirmation.
+8. Revue impeccable : 16 captures (login, cartes, révision, consentement × clair/sombre × 390/1280) dans le scratchpad, à verser par l'orchestrateur dans `.ork/tickets/captures/t38-…` ; `detect.mjs`, une passe de corrections, une de confirmation.
 9. test_command, `ios:test`, `ios:project` + `ios:build`.
 
 **Ce qui change à l'écran :** accent indigo vif (~#5b4fd6) → teal sourd #0F766E (deux fois moins saturé : bouton principal, puces, Horizon, focus, cases…) ; fonds clairs froids → papier chaud (`surface` = #F6F5F1, `canvas` ~#FBFAF7, `raised` blanc) ; `ink` = #1E222B ; sombre : fonds ardoise de la famille de l'encre, texte papier ; nouveau logo (barres + point + lettrage vectoriel), favicon teal, apple-touch, icône iOS.
@@ -69,7 +69,7 @@ Valeurs (clair | sombre) : canvas 0.985 0.004 95 | 0.175 0.012 266 ; surface #F6
 
 ## Review
 DONE le 2026-11-06. 12 fichiers · +207 −139 · 2 commits, rebasé sur dev 5f5d8ff. Worktree `.claude/worktrees/t38-identite-visuelle` (recréé par l'ouvrier ; ports 5193-5194). 347 tests verts, `ios:test` vert ; `ios:project`/`ios:build` non lancés (`xcodegen` absent), catalogue vérifié par `xcrun actool`.
-Captures (16) : `doc/tickets/captures/t38-identite-visuelle/revue/{login,cards,review,consent}-{light,dark}-{mobile,desktop}.png`. Good garde 155 : distinct du teal sur les captures.
+Captures (16) : `.ork/tickets/captures/t38-identite-visuelle/revue/{login,cards,review,consent}-{light,dark}-{mobile,desktop}.png`. Good garde 155 : distinct du teal sur les captures.
 - Décisions : PNG aplatis sur le teal ; `accent` = `var(--color-brand)` dans les deux thèmes ; opacités du logo 0,35/0,65 en sombre ; échelle sombre un peu plus claire (canvas 0.185 au lieu de 0.16, raised 0.24 au lieu de 0.215), fond sombre #101318 ; pas de manifeste ni de `favicon.ico`.
 - AUTO REVIEW /simplify : 3 corrections (teal à source unique `brand`, `ASSETCATALOG_COMPILER_APPICON_NAME` retiré car posé par le preset XcodeGen, spec qui lit le viewBox) + commentaire `canvas`/`theme-color`.
 
@@ -77,7 +77,7 @@ Captures (16) : `doc/tickets/captures/t38-identite-visuelle/revue/{login,cards,r
 - [x] REVIEW FIRST — `apps/web/src/lib/components/Wordmark.svelte:21` · 6/10 · point teal du logo terne sur fond sombre (3,4:1, `consent-dark-mobile.png`) ; option : `accent-text` en sombre.
 - [x] REVIEW FIRST — `apps/web/src/lib/components/Horizon.svelte:78` · 5/10 · non modifié : en sombre, barres non sélectionnées sourdes (1,8:1) ; réglage par thème = ticket à part. → Développeur : rien à faire, l'Horizon va bientôt changer (tapis roulant).
 - [x] remaining — `apps/web/src/lib/components/Wordmark.svelte:11` · 8/10 · viewBox décalé (22 13), coordonnées de l'export gardées. (évident)
-- [x] remaining — `apps/web/static/apple-touch-icon.png:1` · 7/10 · PNG commités sans source SVG ; sources dans `doc/tickets/captures/t38-identite-visuelle/`. (évident)
+- [x] remaining — `apps/web/static/apple-touch-icon.png:1` · 7/10 · PNG commités sans source SVG ; sources dans `.ork/tickets/captures/t38-identite-visuelle/`. (évident)
 
 ## Log
 - 2026-11-06 — créé depuis les assets envoyés par le développeur (logo, favicon, icône). Plan requis (> 5 fichiers, design system, iOS), relecture requise (choix visuels). Lancé en PLAN MODE (opus, high).

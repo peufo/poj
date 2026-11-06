@@ -77,7 +77,7 @@ Rendu le 2026-11-06 (opus, high). Branche `ticket/t36-review-carte-d-avance`.
 DONE le 2026-11-06. 9 fichiers · +630 −370 · 1 commit (7577902). Worktree `.claude/worktrees/t36-review` (recréé par l'ouvrier). 345 tests verts, contrat inchangé, pas de migration.
 - Décisions : `remaining` compte carte tenue et cartes renvoyées ; erreur de note = erreur d'outil sans carte, rappel sans `answer` avec le même `holding` ; carte tenue puis supprimée = toujours tenue ; `holding` mal formé refusé ; `deck` inconnu = erreur avant écriture ; sortie `cards[]`, `answer` imbriqué, `remaining` à la racine, `nothing_due` seulement si rien renvoyé ni tenu.
 - AUTO REVIEW /simplify : 5 corrections (`countPresentable` en parallèle, `waiting` retiré, garde et copie inutiles, `while`, commentaire de `lead`).
-- Note du chef : le `remaining` sur `doc/tickets/T-0002-inspiration-claude.md` vise un ancien nom de fichier, déjà clos (`done/t2-inspiration-claude.md`) : rien à faire.
+- Note du chef : le `remaining` sur `.ork/tickets/T-0002-inspiration-claude.md` vise un ancien nom de fichier, déjà clos (`done/t2-inspiration-claude.md`) : rien à faire.
 
 - [ ] REVIEW FIRST — `apps/web/src/lib/server/mcp/guidance.ts:13` · 6/10 · REVIEW_RULE et CORRECTION_RULE : ordre parole puis appel, appel dans le même tour après again/hard ; vocal réel vérifiable après déploiement. → non relu : le développeur intègre, le test se fera en conditions réelles.
 - [x] REVIEW FIRST — `apps/web/src/lib/server/mcp/server.ts:924` · 6/10 · conflit de note : erreur sans carte. (évident : choix présenté au plan, validé)

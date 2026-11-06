@@ -17,7 +17,7 @@ updated: 2026-10-31
 ---
 
 ## Context
-Remarque du développeur (capture `doc/tickets/captures/t21-formulaire-deck.png`, formulaire de création de deck) :
+Remarque du développeur (capture `.ork/tickets/captures/t21-formulaire-deck.png`, formulaire de création de deck) :
 - le champ « Nom » doit venir **après** le choix du type ;
 - pour un deck de type **Langue**, l'utilisateur n'a pas à saisir de nom : le nom est automatiquement **la langue apprise** (ex. « Finnois »), et non « Français → Finnois » comme le suggère le placeholder actuel.
 

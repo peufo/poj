@@ -17,7 +17,7 @@ updated: 2026-10-30
 ---
 
 ## Context
-Remarque du développeur (capture `doc/tickets/captures/t20-autocomplete-nom-deck.png`) : sur le formulaire de deck, le champ « Nom » (placeholder « Français → Anglais ») déclenche le remplissage automatique du navigateur, qui propose son identité (« Jonas / Jonas Voisard »). Ce champ n'a rien à voir avec une donnée personnelle : aucune autocomplétion ne devrait être proposée.
+Remarque du développeur (capture `.ork/tickets/captures/t20-autocomplete-nom-deck.png`) : sur le formulaire de deck, le champ « Nom » (placeholder « Français → Anglais ») déclenche le remplissage automatique du navigateur, qui propose son identité (« Jonas / Jonas Voisard »). Ce champ n'a rien à voir avec une donnée personnelle : aucune autocomplétion ne devrait être proposée.
 
 Probablement dû au `name="name"` du champ et à l'absence d'`autocomplete="off"`. Certains gestionnaires (navigateur ou extension) ignorent `autocomplete="off"` : vérifier ce qui est nécessaire pour qu'aucune suggestion n'apparaisse.
 

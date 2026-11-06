@@ -22,7 +22,7 @@ L'API Hono valide déjà avec Zod (`@hono/zod-openapi`), et le contrat OpenAPI e
 
 Constaté pendant la relecture de t7 : `invite/[token]/+page.server.ts:39` vérifie la longueur du mot de passe, et `invitations.accept` la revérifie (`RangeError`).
 
-**Comparatif (2026-10-29)**, rapport complet dans `doc/tickets/annexes/t12-validation-comparatif.md`. Scores sur 45, sans tenir compte de l'usage actuel de Zod :
+**Comparatif (2026-10-29)**, rapport complet dans `.ork/tickets/annexes/t12-validation-comparatif.md`. Scores sur 45, sans tenir compte de l'usage actuel de Zod :
 
 | Zod 4 | zod/mini | Valibot | ArkType | Effect 4 | TypeBox 1 |
 |---|---|---|---|---|---|
@@ -126,5 +126,5 @@ Rapport DONE du 2026-10-30. Worktree `.claude/worktrees/t12-validation-par-schem
 - 2026-10-30 — DONE : schémas Zod partout, RangeError retirés du domaine, 237 tests verts après rebase. Statut in-review (relecture requise : passé par un plan).
 - 2026-10-30 — relecture guidée commencée ; 4 points évidents cochés par le chef (doublon assumé pour t17, règle déplacée sans changement visible, confiance au schéma conforme à la décision, messages génériques acceptés au plan).
 - 2026-10-30 — relecture terminée. Limites MCP reportées dans t19.
-- 2026-10-30 — intégration demandée ; dev a avancé (doc/ork.md), ouvrier relancé en INTEGRATION MODE pour rebaser.
+- 2026-10-30 — intégration demandée ; dev a avancé (.ork/config.md), ouvrier relancé en INTEGRATION MODE pour rebaser.
 - 2026-10-30 — intégré dans dev par avance rapide (4dd92c6, 9435780), sans conflit, 237 tests verts. Worktree et branche supprimés.

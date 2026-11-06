@@ -30,7 +30,7 @@ Tout est construit pour le seul français → anglais (voir [vision.md](../visio
 ## Interface (demande du 2026-10-29)
 
 - L'interface multi-decks entre dans le périmètre dès maintenant.
-- Dans la navigation, l'entrée générique « Cartes » est remplacée par le nom du deck (capture : `doc/tickets/captures/2026-10-29-nav-cartes.png`).
+- Dans la navigation, l'entrée générique « Cartes » est remplacée par le nom du deck (capture : `.ork/tickets/captures/2026-10-29-nav-cartes.png`).
 
 ## Questions ouvertes
 

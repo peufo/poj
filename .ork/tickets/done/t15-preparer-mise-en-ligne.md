@@ -16,7 +16,7 @@ updated: 2026-10-29
 ---
 
 ## Context
-Rien n'est encore en ligne. Le développeur veut mettre l'app en ligne, notamment pour tester le connecteur Claude.ai : t8-comportement-claude en dépend, et l'arrivée des testeurs de t7 aussi. Il avait prévu de remplacer `prisma/migrations` par une seule migration propre avant la mise en ligne (note de `doc/ork.md`). Le déploiement passe par `main` (GitHub Actions → GHCR → webhook Dokploy), voir `doc/deploiement.md`.
+Rien n'est encore en ligne. Le développeur veut mettre l'app en ligne, notamment pour tester le connecteur Claude.ai : t8-comportement-claude en dépend, et l'arrivée des testeurs de t7 aussi. Il avait prévu de remplacer `prisma/migrations` par une seule migration propre avant la mise en ligne (note de `.ork/config.md`). Le déploiement passe par `main` (GitHub Actions → GHCR → webhook Dokploy), voir `doc/deploiement.md`.
 
 Le push sur `main` et les réglages Dokploy reviennent au développeur. L'ouvrier prépare le dépôt et la checklist.
 
@@ -32,7 +32,7 @@ Le push sur `main` et les réglages Dokploy reviennent au développeur. L'ouvrie
   - création du compte admin ;
   - ajout du connecteur MCP sur Claude.ai (URL `${ORIGIN}/mcp`).
 - [ ] Une vérification de fumée après le déploiement est décrite (login, `/admin`, invitation, `/mcp` en 401 sans jeton avec `WWW-Authenticate`).
-- [ ] La note « Migrations » de `doc/ork.md` sera retirée par le chef après l'intégration.
+- [ ] La note « Migrations » de `.ork/config.md` sera retirée par le chef après l'intégration.
 - [ ] `compose.yaml` fixe `name: poj`, pour que `stack:up` lancé depuis un worktree réutilise les conteneurs du projet au lieu d'en créer de nouveaux (découverte de t14).
 - [ ] Les tests passent.
 
@@ -75,7 +75,7 @@ Le push sur `main` et les réglages Dokploy reviennent au développeur. L'ouvrie
 - **`unaccent` et le CHECK** sont invisibles pour `migrate diff`, d'où le contrôle par psql.
 - **OAuth et JWKS de prod :** vérifiables seulement une fois en ligne.
 
-**Hors périmètre signalé :** `doc/specs/mcp.md` (« Exposition : mon compte, le seul existant ») est à corriger, et la note « Migrations » de `doc/ork.md` est à retirer après l'intégration.
+**Hors périmètre signalé :** `doc/specs/mcp.md` (« Exposition : mon compte, le seul existant ») est à corriger, et la note « Migrations » de `.ork/config.md` est à retirer après l'intégration.
 
 ## Questions
 - 2026-10-29 — **Q1, base de dev locale après l'intégration** (à faire par le développeur) :

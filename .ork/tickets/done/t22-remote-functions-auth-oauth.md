@@ -17,7 +17,7 @@ updated: 2026-11-01
 ---
 
 ## Context
-Seconde livraison du plan validé de t17 (`doc/tickets/t17-remote-functions-et-feedback-formulaires.md`, ou `done/` une fois intégré). Le plan y est détaillé ; reprise ici des étapes concernées.
+Seconde livraison du plan validé de t17 (`.ork/tickets/t17-remote-functions-et-feedback-formulaires.md`, ou `done/` une fois intégré). Le plan y est détaillé ; reprise ici des étapes concernées.
 
 1. **Socle OAuth (à réévaluer : ne servait qu'au sans-JS, abandonné le 2026-10-31 ; garder seulement si utile avec JS) :** dans `oauth-flow.ts`, `oauthQuery` écarte les paramètres `/…` (`/remote=…`), comme `loginUrl`, avec un test. Sans JS, l'URL porte `&/remote=…`, ce qui altère la requête signée renvoyée au plugin. Schémas `accounts.ts` : `password` → `_password` (jamais renvoyé sans JS), `oauth.spec.ts` et `schemas/*.spec.ts` adaptés.
 2. **Auth et OAuth en remote forms :** login (requête OAuth lue dans `getRequestEvent().url`, `redirect(302, next, { external: true })`), register, invite, consent, logout (`lib/remote/logout.remote.ts`, partagé par AccountMenu et AppShell). Prototype de t17 : la redirection externe fonctionne avec et sans JS (code, state, iss livrés).

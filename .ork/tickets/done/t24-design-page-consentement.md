@@ -17,7 +17,7 @@ updated: 2026-11-06
 ---
 
 ## Context
-Remarque du développeur sur la page `/oauth/consent` (capture `doc/tickets/captures/t24-page-consentement.png`) : « il y a aussi un petit travail de design sur la page ».
+Remarque du développeur sur la page `/oauth/consent` (capture `.ork/tickets/captures/t24-page-consentement.png`) : « il y a aussi un petit travail de design sur la page ».
 
 Constaté sur la capture : le bouton « Autoriser » s'affiche comme du texte nu, sans le style de bouton principal, alors que « Refuser » a une bordure. L'ensemble (titre, liste des permissions, mention de la redirection) n'est pas aligné sur le design system (`apps/web/DESIGN.md`) ; l'analyse de t17 notait déjà une erreur affichée en `<p>` brut sur cette page.
 

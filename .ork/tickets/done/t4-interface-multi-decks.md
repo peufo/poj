@@ -22,7 +22,7 @@ updated: 2026-10-29
 ## Context
 Ce ticket fait suite à t3, qui ouvre le modèle : il crée l'entité Deck avec son type (langue ou sujet), sa paire de langues, le nom de ses faces et l'option « réviser dans les deux sens ». t4 ajoute l'**interface web** multi-decks. Voir la story `doc/story/decks.md`.
 
-Capture du développeur : `doc/tickets/captures/2026-10-29-nav-cartes.png`. La navigation affiche aujourd'hui « Cartes 1 » puis « + Nouvelle carte ». L'entrée générique « Cartes » doit être remplacée par le nom du deck.
+Capture du développeur : `.ork/tickets/captures/2026-10-29-nav-cartes.png`. La navigation affiche aujourd'hui « Cartes 1 » puis « + Nouvelle carte ». L'entrée générique « Cartes » doit être remplacée par le nom du deck.
 
 Le plan doit partir de l'état du code **après** l'intégration de t3 (et de t1, avec le calendrier en tête de `/cards`).
 
