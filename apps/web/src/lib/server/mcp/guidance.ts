@@ -11,10 +11,10 @@ export const DECK_CHOICE_RULE =
 	"Choix du deck : déduis le deck de chaque carte (langue de l'expression, sujet) et passe son nom en deck aux outils de capture (check_card, create_card, check_cards, create_cards). En cas de doute, demande-le-lui en une question courte. Garde ensuite ce deck pour les cartes suivantes, sauf indice contraire. list_decks liste les decks.";
 
 export const REVIEW_RULE =
-	"Révision : next_review, puis dis le prompt sans jamais lire la réponse attendue avant sa réponse. S'il demande un indice, appelle get_hint. Juge sa réponse, appelle submit_review, puis annonce la note retenue. Après good ou easy, submit_review renvoie la carte suivante (next) : donne la réponse attendue, la note et le prompt suivant dans le même message, pour éviter un silence. S'il conteste la note, appelle amend_review sur la carte précédente, puis reprends la carte en cours.";
+	"Révision, toujours une carte d'avance : review renvoie deux cartes si tu n'en tiens aucune, une sinon. Pose la première (dis le prompt, sans jamais lire la réponse attendue avant sa réponse) et garde l'autre. S'il demande un indice, appelle get_hint. Juge sa réponse. Après good ou easy : donne la réponse attendue et la note retenue, pose aussitôt la carte que tu tiens, puis appelle review dans le même tour, avec answer (review_id, version et note de la carte répondue) et holding (review_id de la carte que tu viens de poser) : aucun appel d'outil entre sa réponse et la question suivante. review te renvoie la carte d'avance suivante. Si l'appel n'aboutit pas (coupure), rejoue-le à l'identique : une note n'est jamais comptée deux fois, et la carte que tu tiens reste valable. S'il conteste la note, appelle amend_review sur la carte précédente, puis reprends la carte en cours.";
 
 export const CORRECTION_RULE =
-	"Correction : après again ou hard (réponse fausse, inconnue, ou trouvée avec hésitation ou indice), submit_review ne renvoie pas de carte suivante. Donne clairement la bonne réponse, puis invite-le brièvement à la répéter à voix haute (« Répète-la une fois ? ») et attends sa réponse : jamais la carte suivante dans le même message. Répétée correctement : confirme en un mot, puis appelle next_review. Encore fausse : corrige avec douceur et propose de la redire une fois. S'il préfère passer, appelle next_review sans insister.";
+	"Correction : après again ou hard (réponse fausse, inconnue, ou trouvée avec hésitation ou indice), ne pose pas encore la carte que tu tiens. Donne clairement la bonne réponse, invite-le brièvement à la répéter à voix haute (« Répète-la une fois ? »), appelle review dans le même tour (answer, et holding : la carte que tu tiens), puis attends sa réponse : jamais la carte suivante dans le même message. Répétée correctement : confirme en un mot, puis pose la carte que tu tiens. Encore fausse : corrige avec douceur et propose de la redire une fois. S'il préfère passer, pose la carte que tu tiens sans insister.";
 
 export const RATING_RULE =
 	'Notes : juge toi-même sa réponse, avec indulgence, jamais à la lettre : la transcription vocale déforme souvent les mots étrangers, et un mot proche par le son ou par le sens compte comme juste. Propose again, hard ou good en tolérant synonymes et approximations. Ne propose jamais easy : ne l’utilise que si l’utilisateur le demande explicitement (« trop facile »).';
@@ -57,13 +57,21 @@ export const batchRule = (subjects: boolean) =>
 /** Rappel de l'ajout en lot, pour la description de create_cards. */
 export const BATCH_CONFIRMATION = `Avant de l'appeler : vérifie le lot avec check_cards ; ${BATCH_SUMMARY}.`;
 
-/** Suite d'un submit_review noté again ou hard : la carte suivante attend la répétition. */
+/** Suite d'une note again ou hard : la carte tenue attend la répétition. */
 export const RETRY_LINE =
-	'Pas de carte suivante : donne la bonne réponse, invite-le à la répéter une fois à voix haute et attends sa réponse avant next_review.';
+	'Après again ou hard : donne la bonne réponse, invite-le à la répéter une fois à voix haute et attends sa réponse avant de poser la carte que tu tiens.';
 
-/** Suite d'un submit_review réussi quand plus rien n'est à présenter. */
+/** Suite d'une note quand plus rien n'est à présenter ni tenu. */
 export const SESSION_OVER_LINE =
-	"Session terminée : propose de réviser en avance (next_review avec ahead) et, une fois, d'ajouter une carte tirée de sa journée.";
+	"Session terminée : propose de réviser en avance (review avec ahead) et, une fois, d'ajouter une carte tirée de sa journée.";
+
+/** Suite quand Claude tient la dernière carte de la session. */
+export const LAST_CARD_LINE =
+	"Pas d'autre carte : celle que tu tiens est la dernière. Après sa réponse, appelle review avec answer, sans holding.";
+
+/** Fin d'un résultat d'erreur de review : la note n'est pas enregistrée, la carte tenue reste valable. */
+export const NOT_RECORDED =
+	"Rien n'a été enregistré : dis-le-lui en un mot, puis rappelle review sans answer, avec le même holding. La carte que tu tiens reste valable.";
 
 export const VOICE_RULE =
 	"L'utilisateur révise souvent en voiture, à la voix : réponses brèves, pas de listes longues.";

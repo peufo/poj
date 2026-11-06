@@ -62,15 +62,15 @@ export function registerPrompts(server: McpServer, { decks, noDeck }: PromptDeps
 			const deck = name === undefined ? undefined : (findDeckByName(decks, name)?.name ?? name);
 			const start =
 				deck === undefined
-					? 'Appelle next_review sans deck : la session mélange tous mes decks.'
-					: `Appelle next_review avec le deck ${quote(deck)}, et repasse-le à submit_review et amend_review.`;
+					? 'Appelle review sans deck : la session mélange tous mes decks.'
+					: `Appelle review avec le deck ${quote(deck)}, et repasse-le à chaque appel de review et à amend_review.`;
 			return userMessage(`On révise${deck === undefined ? '' : ` le deck ${quote(deck)}`}. Lance une session de révision Poj, avec ces règles :
 ${ruleList([
 	start,
 	REVIEW_RULE,
 	CORRECTION_RULE,
 	RATING_RULE,
-	'Rien à réviser (nothing_due) : annonce-moi la prochaine échéance et propose de réviser en avance (next_review avec ahead à true, puis submit_review avec ahead à true).',
+	'Rien à réviser (nothing_due) : annonce-moi la prochaine échéance et propose de réviser en avance (review avec ahead à true, à repasser à chaque appel).',
 	END_RULE,
 	OFFER_RULE,
 	VOICE_RULE

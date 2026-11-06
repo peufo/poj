@@ -50,6 +50,18 @@ export type NextResult =
 			waiting: number;
 	  };
 
+/** Révisions pour garder une carte d'avance (`lead`). */
+export interface LeadResult {
+	/** De cartes différentes, hors carte tenue : deux sans carte tenue, une sinon, ou moins. */
+	reviews: NextReview[];
+	/** Vrai si la révision tenue est connue : elle compte comme la carte d'avance. */
+	held: boolean;
+	/** Révisions encore à présenter, carte tenue et révisions renvoyées comprises. */
+	remaining: number;
+	/** Prochaine échéance, seulement quand rien n'est renvoyé ni tenu. */
+	nextDue: Date | null;
+}
+
 export interface AnswerResult {
 	reviewId: string;
 	/** Note effectivement retenue (plafonnée à `hard` après un indice). */

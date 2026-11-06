@@ -110,8 +110,20 @@ function data(result: CallToolResult) {
 const text = (result: CallToolResult) =>
 	result.content.map((c) => (c.type === 'text' ? c.text : '')).join('\n');
 
+type Entry = Record<string, unknown>;
+
+/** Cartes renvoyées par review. */
+const cardsOf = (result: CallToolResult) => data(result).cards as Entry[];
+
+/** Entrée answer de review : la réponse donnée à cette carte. */
+const answerOf = (card: Entry, rating: string) => ({
+	review_id: card.review_id,
+	version: card.version,
+	rating
+});
+
 describe('MCP server', () => {
-	it('exposes the nine tools, with read-only hints and instructions', async () => {
+	it('exposes the eight tools, with read-only hints and instructions', async () => {
 		const client = await connect(alice);
 		const { tools } = await client.listTools();
 
@@ -123,11 +135,10 @@ describe('MCP server', () => {
 			'create_cards',
 			'get_hint',
 			'list_decks',
-			'next_review',
-			'submit_review'
+			'review'
 		]);
 		const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
-		expect(readOnly.sort()).toEqual(['check_card', 'check_cards', 'list_decks', 'next_review']);
+		expect(readOnly.sort()).toEqual(['check_card', 'check_cards', 'list_decks']);
 		expect(client.getInstructions()).toContain('easy');
 	});
 
@@ -628,7 +639,7 @@ describe('MCP server', () => {
 				for (const [tool, input] of [
 					['check_card', { ...args, deck }],
 					['create_card', { ...args, deck }],
-					['next_review', { deck }]
+					['review', { deck }]
 				] as const) {
 					const result = await call(client, tool, input);
 					expect(result.isError).toBe(true);
@@ -659,36 +670,46 @@ describe('MCP server', () => {
 			clock = at(2);
 			const client = await connect(alice);
 
-			const mixed = data(await call(client, 'next_review'));
-			expect(mixed).toMatchObject({ deck: 'Anglais', remaining: 2 });
+			const mixed = data(await call(client, 'review'));
+			expect(mixed).toMatchObject({
+				remaining: 2,
+				cards: [{ deck: 'Anglais' }, { deck: 'Capitales' }]
+			});
 
-			const scoped = await call(client, 'next_review', { deck: 'Capitales' });
-			expect(data(scoped)).toMatchObject({ deck: 'Capitales', prompt: 'Suisse', remaining: 1 });
-			expect(text(scoped)).toMatch(/^Deck « Capitales »\.\n/);
+			const scoped = await call(client, 'review', { deck: 'Capitales' });
+			expect(data(scoped)).toMatchObject({
+				remaining: 1,
+				cards: [{ deck: 'Capitales', prompt: 'Suisse' }]
+			});
+			expect(text(scoped)).toMatch(/^Carte à poser maintenant :\nDeck « Capitales »\.\n/);
+			const [capital] = cardsOf(scoped);
 
-			// remaining est compté dans le deck passé à submit_review.
-			const answer = await call(client, 'submit_review', {
-				review_id: data(scoped).review_id,
-				version: data(scoped).version,
-				rating: 'good',
+			// remaining est compté dans le deck de la session.
+			const answer = await call(client, 'review', {
+				answer: answerOf(capital, 'good'),
 				deck: 'Capitales'
 			});
-			expect(data(answer)).toMatchObject({ remaining: 0 });
-			expect(text(answer)).toContain('Plus rien de dû.');
+			expect(data(answer)).toMatchObject({
+				answer: { rating: 'good' },
+				cards: [],
+				remaining: 0,
+				nothing_due: true
+			});
+			expect(text(answer)).toContain('Rien à réviser dans « Capitales »');
 
-			const idle = await call(client, 'next_review', { deck: 'capitales' });
+			const idle = await call(client, 'review', { deck: 'capitales' });
 			expect(data(idle)).toMatchObject({ nothing_due: true });
 			expect(text(idle)).toContain('Rien à réviser dans « Capitales »');
-			expect(data(await call(client, 'next_review'))).toMatchObject({ remaining: 1 });
+			expect(data(await call(client, 'review'))).toMatchObject({ remaining: 1 });
 
 			const amended = await call(client, 'amend_review', {
-				review_id: data(scoped).review_id,
+				review_id: capital.review_id,
 				rating: 'again'
 			});
 			expect(data(amended)).toMatchObject({ remaining: 1 });
 			// Un deck inconnu ne bloque pas la note : remaining est alors compté partout.
 			const unknown = await call(client, 'amend_review', {
-				review_id: data(scoped).review_id,
+				review_id: capital.review_id,
 				rating: 'good',
 				deck: 'Espagnol'
 			});
@@ -703,55 +724,54 @@ describe('MCP server', () => {
 			}
 			const client = await connect(alice);
 
-			let next = data(await call(client, 'next_review'));
-			expect(next).toMatchObject({ nothing_due: false, remaining: 10 });
+			const start = data(await call(client, 'review'));
+			expect(start).toMatchObject({ nothing_due: false, remaining: 10 });
+			let [current, held] = start.cards as (Entry | undefined)[];
+			let last: Entry = start;
 			for (let i = 10; i > 0; i -= 1) {
-				const answer = data(
-					await call(client, 'submit_review', {
-						review_id: next.review_id,
-						version: next.version,
-						rating: 'easy'
+				last = data(
+					await call(client, 'review', {
+						answer: answerOf(current!, 'easy'),
+						holding: held?.review_id
 					})
 				);
-				expect(answer.remaining).toBe(i - 1);
-				if (answer.next) next = answer.next as Record<string, unknown>;
+				expect(last.remaining).toBe(i - 1);
+				[current, held] = [held, (last.cards as Entry[])[0]];
 			}
+			expect(last).toMatchObject({ nothing_due: true, next_due: '2026-01-05T23:00:00.000Z' });
 
 			// Les 5 autres attendent demain (minuit à Zurich).
-			const idle = data(await call(client, 'next_review'));
+			const idle = data(await call(client, 'review'));
 			expect(idle).toMatchObject({ nothing_due: true, next_due: '2026-01-05T23:00:00.000Z' });
 		});
 
-		it('runs next, hint and submit, capping at hard after a hint', async () => {
+		it('runs review and hint, capping at hard after a hint', async () => {
 			await cards.create(alice, aliceDeck, { ...card, context: 'réunion budget' }, 'web', t0);
 			const client = await connect(alice);
 
-			const next = data(await call(client, 'next_review'));
-			expect(next).toMatchObject({ nothing_due: false, has_hint: true, remaining: 1 });
-			expect(JSON.stringify(next)).not.toContain('réunion budget');
+			const start = await call(client, 'review');
+			// Un seul sens de la carte : l'autre ne peut pas être la carte d'avance.
+			expect(data(start)).toMatchObject({ nothing_due: false, remaining: 1 });
+			const [next] = cardsOf(start);
+			expect(cardsOf(start)).toHaveLength(1);
+			expect(next).toMatchObject({ has_hint: true });
+			expect(JSON.stringify(data(start))).not.toContain('réunion budget');
 
 			const hint = await call(client, 'get_hint', { review_id: next.review_id });
 			expect(data(hint)).toEqual({ context: 'réunion budget' });
 
-			const submitted = await call(client, 'submit_review', {
-				review_id: next.review_id,
-				version: next.version,
-				rating: 'good'
-			});
-			const answer = data(submitted);
-			// Plafonnée à hard : pas de carte suivante avant la correction et la répétition.
-			expect(answer).not.toHaveProperty('next');
-			expect(text(submitted)).toContain('invite-le à la répéter une fois');
-			expect(answer).toMatchObject({
+			const reviewed = await call(client, 'review', { answer: answerOf(next, 'good') });
+			expect(data(reviewed).answer).toMatchObject({
 				review_id: next.review_id,
 				rating: 'hard',
 				capped: true,
 				replayed: false,
-				context: 'réunion budget',
-				// Le sens inverse est mis de côté pendant 24 heures.
-				remaining: 0
+				context: 'réunion budget'
 			});
-			expect(answer.next_due_in).toMatch(/^dans \d+ minutes?$/);
+			expect((data(reviewed).answer as Entry).next_due_in).toMatch(/^dans \d+ minutes?$/);
+			// Note enregistrée avant le choix : le sens inverse est déjà mis de côté.
+			expect(data(reviewed)).toMatchObject({ cards: [], remaining: 0, nothing_due: true });
+			expect(text(reviewed)).toContain('invite-le à la répéter une fois');
 			const [log] = await db.reviewLog.findMany();
 			expect(log).toMatchObject({ rating: 'hard', origin: 'claude', hintUsed: true });
 		});
@@ -781,114 +801,179 @@ describe('MCP server', () => {
 			clock = at(2);
 			const client = await connect(carol);
 
-			const sourceOnly = data(await call(client, 'next_review'));
+			const start = await call(client, 'review');
+			const [sourceOnly, mixed] = cardsOf(start);
 			expect(sourceOnly).toMatchObject({ prompt: 'Australie', has_hint: false });
-			expect(text(await call(client, 'next_review'))).toContain('Pas d’indice.');
+			expect(mixed).toMatchObject({ prompt: 'Canada', has_hint: true });
+			expect(text(start)).toContain('Pas d’indice.');
 			const none = await call(client, 'get_hint', { review_id: sourceOnly.review_id });
 			expect(data(none)).toEqual({ context: null });
 			expect(text(none)).not.toContain('Canberra');
 			const passed = data(
-				await call(client, 'submit_review', {
-					review_id: sourceOnly.review_id,
-					version: sourceOnly.version,
-					rating: 'good'
+				await call(client, 'review', {
+					answer: answerOf(sourceOnly, 'good'),
+					holding: mixed.review_id
 				})
 			);
-			expect(passed).toMatchObject({ rating: 'good', capped: false });
+			expect(passed.answer).toMatchObject({ rating: 'good', capped: false });
 
-			const mixed = passed.next as Record<string, unknown>;
-			expect(mixed).toMatchObject({ prompt: 'Canada', has_hint: true });
 			const hint = await call(client, 'get_hint', { review_id: mixed.review_id });
 			expect(data(hint)).toEqual({ context: 'Quiz du jeudi' });
 			expect(text(hint)).not.toContain('Ottawa');
 		});
 
-		it('chains the next card after good, and waits for a repetition after again or hard', async () => {
-			await cards.create(alice, aliceDeck, card, 'web', t0);
-			await cards.create(alice, aliceDeck, { sideA: 'chat', sideB: 'cat' }, 'web', at(1));
-			await cards.create(alice, aliceDeck, { sideA: 'chien', sideB: 'dog' }, 'web', at(2));
-			clock = at(3);
-			const client = await connect(alice);
-
-			const first = data(await call(client, 'next_review'));
-			const good = await call(client, 'submit_review', {
-				review_id: first.review_id,
-				version: first.version,
-				rating: 'good'
-			});
-			const second = data(good).next as Record<string, unknown>;
-			expect(second).toMatchObject({ deck: 'Anglais', has_hint: false, remaining: 2 });
-			expect(second.review_id).not.toBe(first.review_id);
-			expect(text(good)).toContain('Carte suivante :\nÀ demander en ');
-			expect(text(good)).toContain('Réponse attendue, à ne pas lire avant sa réponse');
-
-			for (const rating of ['again', 'hard'] as const) {
-				const current = data(await call(client, 'next_review'));
-				const missed = await call(client, 'submit_review', {
-					review_id: current.review_id,
-					version: current.version,
-					rating
-				});
-				expect(data(missed)).toMatchObject({ rating, remaining: rating === 'again' ? 1 : 0 });
-				expect(data(missed)).not.toHaveProperty('next');
-				expect(text(missed)).toContain(
-					'Pas de carte suivante : donne la bonne réponse, invite-le à la répéter une fois à voix haute et attends sa réponse avant next_review.'
+		it('always keeps a card ahead, and waits for a repetition after again or hard', async () => {
+			const created: Awaited<ReturnType<typeof cards.create>>[] = [];
+			for (const [i, sides] of ['un', 'deux', 'trois', 'quatre', 'cinq'].entries()) {
+				created.push(
+					await cards.create(alice, aliceDeck, { sideA: sides, sideB: `${i}` }, 'web', at(i))
 				);
 			}
+			clock = at(5);
+			const client = await connect(alice);
+			/** Numéro (à partir de 1) de la carte de chaque révision renvoyée. */
+			const numbers = (result: CallToolResult) =>
+				cardsOf(result).map(
+					(c) => created.findIndex((card) => card.reviews.some((r) => r.id === c.review_id)) + 1
+				);
+			const byNumber = new Map<number, Entry>();
+			const keep = (result: CallToolResult) => {
+				for (const [i, n] of numbers(result).entries()) byNumber.set(n, cardsOf(result)[i]);
+				return result;
+			};
+			const answer = (n: number, rating = 'good') => answerOf(byNumber.get(n)!, rating);
+			const holding = (n: number) => byNumber.get(n)!.review_id;
+
+			const start = keep(await call(client, 'review'));
+			expect(numbers(start)).toEqual([1, 2]);
+			expect(data(start)).toMatchObject({ remaining: 5, nothing_due: false });
+			expect(text(start)).toMatch(/^Carte à poser maintenant :\nÀ demander en /);
+			expect(text(start)).toContain("Carte d'avance, à garder pour après :\nÀ demander en ");
+			expect(text(start)).toContain('Réponse attendue, à ne pas lire avant sa réponse');
+
+			const third = keep(await call(client, 'review', { answer: answer(1), holding: holding(2) }));
+			expect(numbers(third)).toEqual([3]);
+			expect(data(third)).toMatchObject({ answer: { rating: 'good' }, remaining: 4 });
+			expect(text(third)).toMatch(/^Note retenue : good\./);
+			expect(text(third)).not.toContain('répéter');
+			const fourth = keep(await call(client, 'review', { answer: answer(2), holding: holding(3) }));
+			expect(numbers(fourth)).toEqual([4]);
+			// Claude ne tenait rien : deux cartes, la quatrième de nouveau.
+			const fifth = keep(await call(client, 'review', { answer: answer(3) }));
+			expect(numbers(fifth)).toEqual([4, 5]);
+			expect(data(fifth)).toMatchObject({ remaining: 2 });
+
+			const missed = await call(client, 'review', {
+				answer: answer(4, 'again'),
+				holding: holding(5)
+			});
+			expect(data(missed)).toMatchObject({
+				answer: { rating: 'again' },
+				cards: [],
+				remaining: 1,
+				nothing_due: false
+			});
+			expect(text(missed)).toContain(
+				'Après again ou hard : donne la bonne réponse, invite-le à la répéter une fois à voix haute et attends sa réponse avant de poser la carte que tu tiens.'
+			);
+			expect(text(missed)).toContain("Pas d'autre carte : celle que tu tiens est la dernière.");
+
+			const hard = await call(client, 'review', { answer: answer(5, 'hard') });
+			expect(data(hard)).toMatchObject({ answer: { rating: 'hard' }, nothing_due: true });
+			expect(text(hard)).toContain('invite-le à la répéter une fois');
 		});
 
-		it('closes the session when nothing is due, and chains ahead when asked', async () => {
+		it('ignores an unknown or foreign held card, and refuses a malformed one', async () => {
+			await cards.create(alice, aliceDeck, card, 'web', t0);
+			await cards.create(alice, aliceDeck, { sideA: 'chat', sideB: 'cat' }, 'web', at(1));
+			const foreign = await cards.create(bob, bobDeck, card, 'web', t0);
+			clock = at(2);
+			const client = await connect(alice);
+
+			for (const holding of [foreign.reviews[0].id, '01900000-0000-7000-8000-000000000000']) {
+				expect(cardsOf(await call(client, 'review', { holding }))).toHaveLength(2);
+			}
+			expect((await call(client, 'review', { holding: 'abc' })).isError).toBe(true);
+		});
+
+		it('records nothing on a version conflict, and says the held card stays valid', async () => {
+			await cards.create(alice, aliceDeck, card, 'web', t0);
+			await cards.create(alice, aliceDeck, { sideA: 'chat', sideB: 'cat' }, 'web', at(1));
+			clock = at(2);
+			const client = await connect(alice);
+			const [current, held] = cardsOf(await call(client, 'review'));
+
+			const conflict = await call(client, 'review', {
+				answer: { ...answerOf(current, 'good'), version: t0.toISOString() },
+				holding: held.review_id
+			});
+			expect(conflict.isError).toBe(true);
+			expect(text(conflict)).toContain('Cette révision a été modifiée entre-temps.');
+			expect(text(conflict)).toContain('La carte que tu tiens reste valable.');
+			expect(await db.reviewLog.count()).toBe(0);
+		});
+
+		it('closes the session when nothing is due, and reviews ahead when asked', async () => {
 			for (const [i, sides] of [card, { sideA: 'chat', sideB: 'cat' }].entries()) {
 				const { id } = await cards.create(alice, aliceDeck, sides, 'web', at(i));
 				await db.review.updateMany({ where: { cardId: id }, data: { due: at(3 * DAY + i) } });
 			}
 			const client = await connect(alice);
-			const submit = (review: Record<string, unknown>, ahead?: boolean) =>
-				call(client, 'submit_review', {
-					review_id: review.review_id,
-					version: review.version,
-					rating: 'good',
-					ahead
-				});
 
-			const closed = await submit(data(await call(client, 'next_review', { ahead: true })));
-			expect(data(closed)).not.toHaveProperty('next');
+			const idle = await call(client, 'review');
+			expect(data(idle)).toMatchObject({ nothing_due: true, cards: [] });
+			expect(text(idle)).not.toContain('Session terminée');
+
+			const [first, second] = cardsOf(await call(client, 'review', { ahead: true }));
+			const last = await call(client, 'review', {
+				answer: answerOf(first, 'good'),
+				holding: second.review_id
+			});
+			expect(data(last)).toMatchObject({ cards: [], nothing_due: false });
+			expect(text(last)).toContain("Pas d'autre carte : celle que tu tiens est la dernière.");
+
+			const closed = await call(client, 'review', { answer: answerOf(second, 'good') });
+			expect(data(closed)).toMatchObject({ cards: [], nothing_due: true });
 			expect(text(closed)).toContain(
-				"Session terminée : propose de réviser en avance (next_review avec ahead) et, une fois, d'ajouter une carte tirée de sa journée."
+				"Session terminée : propose de réviser en avance (review avec ahead) et, une fois, d'ajouter une carte tirée de sa journée."
 			);
 
-			const chained = await submit(data(await call(client, 'next_review', { ahead: true })), true);
-			expect(data(chained).next).toMatchObject({ remaining: 0 });
-			expect(text(chained)).toContain('Carte suivante :');
+			const ahead = await call(client, 'review', { ahead: true });
+			expect(data(ahead)).toMatchObject({ nothing_due: false, remaining: 0 });
+			expect(text(ahead)).toContain('Carte à poser maintenant :');
 		});
 
 		it('asks for the face to produce, in its language or by its label', async () => {
 			await cards.create(alice, aliceDeck, card, 'web', t0);
-			const next = await call(await connect(alice), 'next_review');
-			expect(text(next)).toMatch(/^À demander en (anglais|français) : /);
+			const next = await call(await connect(alice), 'review');
+			expect(text(next)).toMatch(
+				/^Carte à poser maintenant :\nÀ demander en (anglais|français) : /
+			);
 
 			const deck = await createDeck(db, bob, capitals);
 			await cards.create(bob, deck.id, { sideA: 'Suisse', sideB: 'Berne' }, 'web', t0);
-			const subject = await call(await connect(bob), 'next_review');
-			expect(data(subject)).toMatchObject({ direction: 'a_to_b', prompt: 'Suisse', remaining: 1 });
+			const subject = await call(await connect(bob), 'review');
+			expect(data(subject)).toMatchObject({
+				cards: [{ direction: 'a_to_b', prompt: 'Suisse' }],
+				remaining: 1
+			});
 			expect(text(subject)).toContain('À demander (Pays → Capitale) : « Suisse ».');
 		});
 
-		it('ignores a replayed submit with a stale version', async () => {
+		it('ignores a replayed answer with the same version', async () => {
 			await cards.create(alice, aliceDeck, card, 'web', t0);
 			const client = await connect(alice);
-			const next = data(await call(client, 'next_review'));
-			const submit = { review_id: next.review_id, version: next.version };
+			const [next] = cardsOf(await call(client, 'review'));
 
-			const first = data(await call(client, 'submit_review', { ...submit, rating: 'good' }));
+			const first = data(await call(client, 'review', { answer: answerOf(next, 'good') }));
 			clock = at(1);
-			const replay = await call(client, 'submit_review', { ...submit, rating: 'again' });
+			const replay = await call(client, 'review', { answer: answerOf(next, 'again') });
 
-			expect(data(replay)).toMatchObject({
+			expect(data(replay).answer).toMatchObject({
 				rating: 'good',
 				replayed: true,
 				capped: false,
-				next_due: first.next_due
+				next_due: (first.answer as Entry).next_due
 			});
 			expect(text(replay)).toContain('Déjà enregistrée');
 			expect(await db.reviewLog.count()).toBe(1);
@@ -897,12 +982,8 @@ describe('MCP server', () => {
 		it('amends the last answer within the hour, and refuses otherwise', async () => {
 			const created = await cards.create(alice, aliceDeck, card, 'web', t0);
 			const client = await connect(alice);
-			const next = data(await call(client, 'next_review'));
-			await call(client, 'submit_review', {
-				review_id: next.review_id,
-				version: next.version,
-				rating: 'good'
-			});
+			const [next] = cardsOf(await call(client, 'review'));
+			await call(client, 'review', { answer: answerOf(next, 'good') });
 
 			clock = at(2);
 			const amended = data(
@@ -939,16 +1020,19 @@ describe('MCP server', () => {
 			await db.review.updateMany({ where: { cardId: id }, data: { due: at(3 * DAY) } });
 			const client = await connect(alice);
 
-			const idle = await call(client, 'next_review');
+			const idle = await call(client, 'review');
 			expect(data(idle)).toEqual({
+				cards: [],
+				remaining: 0,
 				nothing_due: true,
 				next_due: at(3 * DAY).toISOString(),
 				next_due_in: 'dans 3 jours'
 			});
 			expect(text(idle)).toContain('dans 3 jours');
 
-			const ahead = data(await call(client, 'next_review', { ahead: true }));
+			const ahead = data(await call(client, 'review', { ahead: true }));
 			expect(ahead).toMatchObject({ nothing_due: false, remaining: 0 });
+			expect(ahead.cards).toHaveLength(1);
 		});
 
 		it('isolates users from each other', async () => {
@@ -956,13 +1040,13 @@ describe('MCP server', () => {
 			const [review] = other.reviews;
 			const client = await connect(alice);
 
-			expect(data(await call(client, 'next_review', { ahead: true }))).toMatchObject({
+			expect(data(await call(client, 'review', { ahead: true }))).toMatchObject({
 				nothing_due: true,
 				next_due: null
 			});
 			for (const [name, args] of [
 				['get_hint', { review_id: review.id }],
-				['submit_review', { review_id: review.id, version: 'new', rating: 'good' }],
+				['review', { answer: { review_id: review.id, version: 'new', rating: 'good' } }],
 				['amend_review', { review_id: review.id, rating: 'good' }]
 			] as const) {
 				const result = await call(client, name, args);
@@ -997,6 +1081,10 @@ describe('MCP server', () => {
 
 			for (const owner of [alice, subjects, several]) {
 				const instructions = (await connect(owner)).getInstructions()!;
+				expect(instructions).toContain("- Révision, toujours une carte d'avance : ");
+				expect(instructions).toContain(
+					"aucun appel d'outil entre sa réponse et la question suivante"
+				);
 				expect(instructions).toContain('- Correction : après again ou hard');
 				expect(instructions).toContain('« Répète-la une fois ? »');
 				expect(instructions).toContain('jamais la carte suivante dans le même message');
@@ -1059,11 +1147,17 @@ describe('MCP server', () => {
 
 			expect(tools.check_card).toContain("Une carte part d'une situation réelle de l'utilisateur");
 			expect(tools.check_card).not.toContain('recherche web');
-			expect(tools.next_review).toContain('avec indulgence, jamais à la lettre');
-			expect(tools.submit_review).toContain('Après good ou easy, renvoie la carte suivante (next)');
-			expect(tools.submit_review).toContain('Correction : après again ou hard');
-			expect(tools.submit_review).toContain('« Répète-la une fois ? »');
-			expect(tools.submit_review).toContain("propose une fois d'ajouter une carte");
+			expect(tools.review).toContain('avec indulgence, jamais à la lettre');
+			expect(tools.review).toContain(
+				'pose aussitôt la carte que tu tiens, puis appelle review dans le même tour'
+			);
+			expect(tools.review).toContain(
+				"aucun appel d'outil entre sa réponse et la question suivante"
+			);
+			expect(tools.review).toContain('Correction : après again ou hard');
+			expect(tools.review).toContain('« Répète-la une fois ? »');
+			expect(tools.review).toContain("rejoue-le à l'identique");
+			expect(tools.review).toContain("propose une fois d'ajouter une carte");
 		});
 
 		it('has every verifiable fact of a subject card checked against a recent source', async () => {
@@ -1124,17 +1218,17 @@ describe('MCP server', () => {
 
 			const mixed = await prompt(client, 'review');
 			expect(mixed).toMatch(/^On révise\. Lance une session de révision Poj/);
-			expect(mixed).toContain('Appelle next_review sans deck');
-			expect(mixed).toContain('submit_review renvoie la carte suivante (next)');
+			expect(mixed).toContain('Appelle review sans deck');
+			expect(mixed).toContain("Révision, toujours une carte d'avance");
 			expect(mixed).toContain('- Correction : après again ou hard');
 			expect(mixed).toContain('Rien à réviser (nothing_due)');
 			expect(mixed).toContain('« on arrête »');
 			expect(mixed).toContain("propose une fois, en une phrase, d'ajouter une carte");
 
-			expect(await prompt(client, 'review', { deck: ' ' })).toContain('next_review sans deck');
+			expect(await prompt(client, 'review', { deck: ' ' })).toContain('review sans deck');
 			const scoped = await prompt(client, 'review', { deck: 'capitales' });
 			expect(scoped).toMatch(/^On révise le deck « Capitales »\./);
-			expect(scoped).toContain('Appelle next_review avec le deck « Capitales »');
+			expect(scoped).toContain('Appelle review avec le deck « Capitales »');
 		});
 
 		it('captures a card met in a real situation', async () => {
@@ -1194,9 +1288,9 @@ describe('MCP server', () => {
 		const client = new Client({ name: 'test', version: '1.0.0' });
 		await client.connect(transport);
 
-		const next = data(await call(client, 'next_review'));
-		expect(next).toMatchObject({ nothing_due: false, remaining: 1 });
-		expect([card.sideA, card.sideB]).toContain(next.prompt);
+		const next = await call(client, 'review');
+		expect(data(next)).toMatchObject({ nothing_due: false, remaining: 1 });
+		expect([card.sideA, card.sideB]).toContain(cardsOf(next)[0].prompt);
 		await client.close();
 	});
 
@@ -1216,6 +1310,6 @@ describe('MCP server', () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(await response.text()).toContain('submit_review');
+		expect(await response.text()).toContain('"review"');
 	});
 });

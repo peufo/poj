@@ -46,6 +46,8 @@ import {
 	FACT_SOURCE,
 	INSPIRATION_RULE,
 	isLanguage,
+	LAST_CARD_LINE,
+	NOT_RECORDED,
 	OFFER_RULE,
 	quote,
 	RATING_RULE,
@@ -150,7 +152,7 @@ ${ruleList([
 	`Capture : appelle toujours check_card avant create_card. ${checks.join(' ')} Relis-lui toujours la carte finale, avec son deck, et attends sa confirmation explicite avant create_card.`,
 	subjects && FACT_RULE,
 	batchRule(subjects),
-	"Révision : « on révise » mélange tous les decks, appelle next_review sans deck. Ne passe deck que s'il nomme un deck, et repasse le même à submit_review et amend_review.",
+	"Révision : « on révise » mélange tous les decks, appelle review sans deck. Ne passe deck que s'il nomme un deck, et repasse le même à chaque appel de review et à amend_review.",
 	...SHARED_RULES
 ])}`;
 }
@@ -314,9 +316,9 @@ const batchLine = (input: CardInput, index: number) =>
 const BATCH_FAILED =
 	"Le lot n'a pas pu être créé : aucune carte n'a été ajoutée. Rejoue le même appel ; s'il échoue encore, dis-le à l'utilisateur.";
 
-const reviewIdSchema = z.uuid().describe('review_id renvoyé par next_review.');
+const reviewIdSchema = z.uuid().describe('review_id renvoyé par review.');
 
-/** Révision à présenter : sortie de next_review, et next de submit_review. */
+/** Carte à présenter, dans les cards de review. */
 const reviewOutput = z.object({
 	review_id: z.string(),
 	deck: z.string(),
@@ -324,9 +326,18 @@ const reviewOutput = z.object({
 	prompt: z.string(),
 	expected: z.string(),
 	has_hint: z.boolean(),
-	version: z.string(),
-	remaining: z.number()
+	version: z.string()
 });
+
+/** Note enregistrée, dans les sorties de review et amend_review. */
+const answerFields = {
+	review_id: z.string(),
+	rating: ratingSchema,
+	capped: z.boolean(),
+	next_due: z.string(),
+	next_due_in: z.string(),
+	context: z.string().nullable()
+};
 
 const failureLabels: Record<TranslationFailure, string> = {
 	not_configured: "DeepL n'est pas configuré",
@@ -359,18 +370,18 @@ function toolError(text: string): CallToolResult {
 const isToolResult = (value: Deck | CallToolResult | undefined): value is CallToolResult =>
 	value !== undefined && 'content' in value;
 
-const REVIEW_NOT_FOUND =
-	'Révision introuvable (carte supprimée ou identifiant erroné). Appelle next_review pour continuer.';
+const REVIEW_NOT_FOUND = 'Révision introuvable (carte supprimée ou identifiant erroné).';
 
 /** Traduit les erreurs du domaine en résultats d'erreur lisibles par Claude. */
 async function guard(
 	run: () => Promise<CallToolResult>,
-	conflict: string
+	conflict: string,
+	notFound = REVIEW_NOT_FOUND
 ): Promise<CallToolResult> {
 	try {
 		return await run();
 	} catch (error) {
-		if (error instanceof NotFoundError) return toolError(REVIEW_NOT_FOUND);
+		if (error instanceof NotFoundError) return toolError(notFound);
 		if (error instanceof ConflictError) return toolError(conflict);
 		throw error;
 	}
@@ -412,7 +423,7 @@ export function createPojMcpServer({
 	const deckHeader = (deck: Pick<Deck, 'name'>) => (several ? [`Deck ${quote(deck.name)}.`] : []);
 
 	/** Texte d'une révision à présenter : le prompt, et la réponse attendue à ne pas lire. */
-	function reviewLines(review: NextReview, remaining: number): string[] {
+	function reviewLines(review: NextReview): string[] {
 		const { from, to } = directionFaces(review.direction, review.deck);
 		return [
 			...deckHeader(review.deck),
@@ -421,21 +432,19 @@ export function createPojMcpServer({
 				: `À demander (${from.label} → ${to.label}) : ${quote(review.prompt)}.`,
 			`Réponse attendue, à ne pas lire avant sa réponse : ${quote(review.expected)}.`,
 			review.hasHint ? 'Indice disponible.' : 'Pas d’indice.',
-			`Encore ${plural(remaining, 'due')}.`,
 			`review_id : ${review.id} ; version : ${review.version}`
 		];
 	}
 
-	/** Contenu structuré d'une révision à présenter (next_review, et next de submit_review). */
-	const reviewData = (review: NextReview, remaining: number) => ({
+	/** Contenu structuré d'une carte à présenter, dans les cards de review. */
+	const reviewData = (review: NextReview): z.infer<typeof reviewOutput> => ({
 		review_id: review.id,
 		deck: review.deck.name,
 		direction: review.direction,
 		prompt: review.prompt,
 		expected: review.expected,
 		has_hint: review.hasHint,
-		version: review.version,
-		remaining
+		version: review.version
 	});
 
 	const unknownDeck = (name: string) =>
@@ -469,7 +478,7 @@ export function createPojMcpServer({
 		`Nom d'un deck, seulement si l'utilisateur en nomme un : la session se limite alors à ce deck. Sans deck, elle mélange tous les decks (${names}).`
 	);
 	const sessionDeckField = deckNameSchema.describe(
-		"Le deck passé à next_review, s'il y en avait un : remaining est alors compté dans ce deck (tous les decks si le nom est inconnu)."
+		"Le deck passé à review, s'il y en avait un : remaining est alors compté dans ce deck (tous les decks si le nom est inconnu)."
 	);
 
 	server.registerTool(
@@ -789,55 +798,6 @@ export function createPojMcpServer({
 	);
 
 	server.registerTool(
-		'next_review',
-		{
-			title: 'Prochaine révision',
-			description:
-				"Renvoie la prochaine révision due : dis le prompt à l'utilisateur, mais ne lis jamais expected avant sa réponse. Juge ensuite sa réponse avec indulgence, jamais à la lettre : la transcription vocale déforme souvent les mots étrangers. Le contexte n'est pas fourni ici : s'il demande un indice, appelle get_hint. Garde review_id et version pour submit_review. Si rien n'est dû (nothing_due), annonce la prochaine échéance et propose de réviser en avance en rappelant l'outil avec ahead à true ; en fin de session, propose aussi une fois d'ajouter une carte tirée de sa journée. Sans deck, la session mélange tous les decks : ne passe deck que si l'utilisateur en nomme un, et repasse-le à submit_review.",
-			inputSchema: z.object({
-				ahead: z
-					.boolean()
-					.optional()
-					.describe('true pour réviser en avance les prochaines révisions quand rien n’est dû.'),
-				deck: reviewDeckField
-			}),
-			outputSchema: reviewOutput.partial().extend({
-				nothing_due: z.boolean(),
-				next_due: z.string().nullable().optional(),
-				next_due_in: z.string().nullable().optional()
-			}),
-			annotations: { readOnlyHint: true, openWorldHint: false }
-		},
-		async ({ ahead = false, deck: deckName }) => {
-			const scope = deckName === undefined ? undefined : namedDeck(deckName);
-			if (isToolResult(scope)) return scope;
-			const at = now();
-			const next = await reviews.next(ownerId, at, { ahead, deckId: scope?.id });
-
-			if (!next.review) {
-				const nextDueIn = next.nextDue && formatRelative(next.nextDue, at);
-				const where = scope ? ` dans ${quote(scope.name)}` : '';
-				return result(
-					nextDueIn
-						? `Rien à réviser${where} pour l'instant. Prochaine révision ${nextDueIn}.`
-						: `Aucune carte à réviser${where}.`,
-					{
-						nothing_due: true,
-						next_due: next.nextDue?.toISOString() ?? null,
-						next_due_in: nextDueIn
-					}
-				);
-			}
-
-			const { review, remaining } = next;
-			return result(reviewLines(review, remaining).join('\n'), {
-				nothing_due: false,
-				...reviewData(review, remaining)
-			});
-		}
-	);
-
-	server.registerTool(
 		'get_hint',
 		{
 			title: 'Indice',
@@ -856,38 +816,46 @@ export function createPojMcpServer({
 			}, REVIEW_NOT_FOUND)
 	);
 
-	const answerOutput = z.object({
-		review_id: z.string(),
-		rating: ratingSchema,
-		capped: z.boolean(),
-		next_due: z.string(),
-		next_due_in: z.string(),
-		context: z.string().nullable(),
-		remaining: z.number()
-	});
-
-	/** Deck de la session, par son nom : `remaining` y est compté (tous les decks s'il est inconnu). */
-	const sessionDeckId = (name: string | undefined) =>
-		name === undefined ? undefined : findDeckByName(decks, name)?.id;
-
 	server.registerTool(
-		'submit_review',
+		'review',
 		{
-			title: 'Enregistrer la note',
-			description: `Enregistre la note de la révision en cours, avec review_id et version tels que renvoyés par next_review. Propose again, hard ou good d'après la réponse de l'utilisateur, avec indulgence, en tolérant synonymes, approximations et transcription vocale déformée. N'utilise easy que si l'utilisateur le demande explicitement. Après un indice, le serveur plafonne la note à hard. Après good ou easy, renvoie la carte suivante (next) : donne la réponse attendue, la note retenue et le prompt suivant dans le même message, sans lire son expected. ${CORRECTION_RULE} Évoque le contexte en renforcement si c'est utile. Quand plus rien n'est dû, propose une fois d'ajouter une carte tirée de sa journée.`,
+			title: 'Réviser',
+			description: `Révision avec toujours une carte d'avance : renvoie deux cartes si tu n'en tiens aucune (la première à poser maintenant, l'autre à garder pour après), une sinon (la carte d'avance). Dis le prompt à l'utilisateur, mais ne lis jamais expected avant sa réponse. Le contexte n'est pas fourni ici : s'il demande un indice, appelle get_hint. Juge ensuite sa réponse avec indulgence, jamais à la lettre : la transcription vocale déforme souvent les mots étrangers ; tolère synonymes et approximations. Propose again, hard ou good ; n'utilise easy que si l'utilisateur le demande explicitement. Après un indice, le serveur plafonne la note à hard. Après good ou easy : donne la réponse attendue et la note retenue, pose aussitôt la carte que tu tiens, puis appelle review dans le même tour, avec answer (la carte répondue) et holding (la carte que tu viens de poser) : aucun appel d'outil entre sa réponse et la question suivante. ${CORRECTION_RULE} La note est enregistrée avant le choix de la carte d'avance. Si l'appel n'aboutit pas (coupure), rejoue-le à l'identique : une note n'est jamais comptée deux fois, et la carte que tu tiens reste valable. Évoque le contexte renvoyé en renforcement si c'est utile. Si rien n'est dû (nothing_due), annonce la prochaine échéance et propose de réviser en avance (ahead à true, à repasser à chaque appel) ; en fin de session, propose une fois d'ajouter une carte tirée de sa journée. Sans deck, la session mélange tous les decks : ne passe deck que si l'utilisateur en nomme un, et repasse-le à chaque appel.`,
 			inputSchema: z.object({
-				review_id: reviewIdSchema,
-				version: z.string().describe('version renvoyée par next_review.'),
-				rating: ratingSchema,
-				deck: sessionDeckField,
+				answer: z
+					.object({
+						review_id: reviewIdSchema.describe(
+							'review_id de la carte à laquelle il vient de répondre.'
+						),
+						version: z.string().describe('version de cette carte, renvoyée avec elle par review.'),
+						rating: ratingSchema
+					})
+					.optional()
+					.describe(
+						'Sa réponse à la carte précédente, à enregistrer. Absent au début de la session.'
+					),
+				holding: z
+					.uuid()
+					.optional()
+					.describe(
+						"review_id de la carte que tu tiens déjà : celle que tu viens de poser, ou que tu gardes pour après une correction. Ni elle ni l'autre sens de sa carte ne sont renvoyés, et review ne renvoie qu'une carte. Absent si tu ne tiens aucune carte."
+					),
+				deck: reviewDeckField,
 				ahead: z
 					.boolean()
 					.optional()
 					.describe(
-						'true si la session révise en avance (next_review appelé avec ahead) : next est alors cherchée parmi les révisions à venir.'
+						'true pour réviser en avance les prochaines révisions quand rien n’est dû, à repasser à chaque appel de la session.'
 					)
 			}),
-			outputSchema: answerOutput.extend({ replayed: z.boolean(), next: reviewOutput.optional() }),
+			outputSchema: z.object({
+				answer: z.object({ ...answerFields, replayed: z.boolean() }).optional(),
+				cards: z.array(reviewOutput),
+				remaining: z.number(),
+				nothing_due: z.boolean(),
+				next_due: z.string().nullable().optional(),
+				next_due_in: z.string().nullable().optional()
+			}),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -895,47 +863,86 @@ export function createPojMcpServer({
 				openWorldHint: false
 			}
 		},
-		({ review_id, version, rating, deck, ahead = false }) =>
-			guard(async () => {
-				const at = now();
-				const answer = await reviews.answer(
-					ownerId,
-					review_id,
-					{ rating, version, origin: 'claude' },
-					at
-				);
-				const { replayed } = answer;
-				const deckId = sessionDeckId(deck);
-				// Après again ou hard, la carte suivante attend la correction et la répétition.
-				if (answer.rating !== 'good' && answer.rating !== 'easy') {
-					const remaining = await reviews.countDue(ownerId, at, { deckId });
-					return answerResult(answer, rating, at, remaining, { replayed, follow: [RETRY_LINE] });
-				}
-				const next = await reviews.next(ownerId, at, { deckId, ahead });
-				if (!next.review) {
-					return answerResult(answer, rating, at, 0, { replayed, follow: [SESSION_OVER_LINE] });
-				}
-				const { review, remaining } = next;
-				return answerResult(answer, rating, at, remaining, {
-					replayed,
-					follow: ['Carte suivante :', ...reviewLines(review, remaining)],
-					next: reviewData(review, remaining)
-				});
-			}, 'Cette révision a été modifiée entre-temps : rien n’a été enregistré. Appelle next_review pour continuer.')
+		async ({ answer, holding, deck: deckName, ahead = false }) => {
+			const scope = deckName === undefined ? undefined : namedDeck(deckName);
+			if (isToolResult(scope)) return scope;
+			return guard(
+				async () => {
+					const at = now();
+					// La note d'abord : une carte ratée qui doit revenir vite peut être choisie.
+					const recorded =
+						answer &&
+						(await reviews.answer(
+							ownerId,
+							answer.review_id,
+							{ rating: answer.rating, version: answer.version, origin: 'claude' },
+							at
+						));
+					const lead = await reviews.lead(ownerId, at, { ahead, holding, deckId: scope?.id });
+					const nothingDue = lead.reviews.length === 0 && !lead.held;
+
+					const summary =
+						recorded && answerSummary(recorded, answer.rating, at, { replayed: recorded.replayed });
+					const lines = summary?.lines ?? [];
+					if (recorded && (recorded.rating === 'again' || recorded.rating === 'hard')) {
+						lines.push(RETRY_LINE);
+					}
+					lead.reviews.forEach((review, i) => {
+						lines.push(
+							i === 0 && !lead.held
+								? 'Carte à poser maintenant :'
+								: "Carte d'avance, à garder pour après :",
+							...reviewLines(review)
+						);
+					});
+					if (lead.held && lead.reviews.length === 0) lines.push(LAST_CARD_LINE);
+
+					const nextDueIn = lead.nextDue && formatRelative(lead.nextDue, at);
+					if (nothingDue) {
+						const where = scope ? ` dans ${quote(scope.name)}` : '';
+						lines.push(
+							nextDueIn
+								? `Rien à réviser${where} pour l'instant. Prochaine révision ${nextDueIn}.`
+								: `Aucune carte à réviser${where}.`
+						);
+						if (recorded) lines.push(SESSION_OVER_LINE);
+					} else {
+						lines.push(`Encore ${plural(lead.remaining, 'due')}.`);
+					}
+
+					return result(lines.join('\n'), {
+						...(summary && { answer: summary.data }),
+						cards: lead.reviews.map(reviewData),
+						remaining: lead.remaining,
+						nothing_due: nothingDue,
+						...(nothingDue && {
+							next_due: lead.nextDue?.toISOString() ?? null,
+							next_due_in: nextDueIn
+						})
+					});
+				},
+				`Cette révision a été modifiée entre-temps. ${NOT_RECORDED}`,
+				`${REVIEW_NOT_FOUND} ${NOT_RECORDED}`
+			);
+		}
 	);
+
+	/** Deck de la session, par son nom : `remaining` y est compté (tous les decks s'il est inconnu). */
+	const sessionDeckId = (name: string | undefined) =>
+		name === undefined ? undefined : findDeckByName(decks, name)?.id;
 
 	server.registerTool(
 		'amend_review',
 		{
 			title: 'Corriger la dernière note',
 			description:
-				"Remplace la dernière note enregistrée d'une révision, quand l'utilisateur la conteste après submit_review (« non, compte-la fausse »). Seule la dernière réponse est corrigeable, et seulement dans l'heure qui suit. Le plafond à hard après un indice s'applique toujours. N'utilise easy que si l'utilisateur le demande explicitement.",
+				"Remplace la dernière note enregistrée d'une révision, quand l'utilisateur la conteste après son enregistrement par review (« non, compte-la fausse »). Seule la dernière réponse est corrigeable, et seulement dans l'heure qui suit. Le plafond à hard après un indice s'applique toujours. N'utilise easy que si l'utilisateur le demande explicitement.",
 			inputSchema: z.object({
 				review_id: reviewIdSchema,
 				rating: ratingSchema,
 				deck: sessionDeckField
 			}),
-			outputSchema: answerOutput.extend({ changed: z.boolean() }),
+			outputSchema: z.object({ ...answerFields, remaining: z.number(), changed: z.boolean() }),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -948,30 +955,19 @@ export function createPojMcpServer({
 				const at = now();
 				const answer = await reviews.amend(ownerId, review_id, rating, at);
 				const remaining = await reviews.countDue(ownerId, at, { deckId: sessionDeckId(deck) });
-				return answerResult(answer, rating, at, remaining, { changed: answer.changed });
+				const { lines, data } = answerSummary(answer, rating, at, { changed: answer.changed });
+				lines.push(remaining === 0 ? 'Plus rien de dû.' : `Encore ${plural(remaining, 'due')}.`);
+				return result(lines.join('\n'), { ...data, remaining });
 			}, "Impossible de corriger cette note : seule la dernière réponse d'une révision se corrige, dans l'heure qui suit.")
 	);
 
-	function answerResult(
+	/** Texte et contenu structuré d'une note enregistrée (review) ou corrigée (amend_review). */
+	function answerSummary(
 		answer: { reviewId: string; rating: Rating; due: Date; context: string | null },
 		requested: Rating,
 		at: Date,
-		/** Révisions encore dues dans le deck de la session. */
-		remaining: number,
-		{
-			replayed,
-			changed,
-			follow = [],
-			next
-		}: {
-			replayed?: boolean;
-			changed?: boolean;
-			/** Lignes ajoutées en fin de texte : la suite à donner à la session. */
-			follow?: string[];
-			/** Carte suivante, enchaînée par submit_review. */
-			next?: z.infer<typeof reviewOutput>;
-		} = {}
-	): CallToolResult {
+		{ replayed, changed }: { replayed?: boolean; changed?: boolean }
+	) {
 		const capped = !replayed && answer.rating !== requested;
 		const nextDueIn = formatRelative(answer.due, at);
 
@@ -984,22 +980,21 @@ export function createPojMcpServer({
 						? `Note plafonnée à ${answer.rating}, car un indice a été demandé.`
 						: `Note retenue : ${answer.rating}.`,
 			`Prochaine révision ${nextDueIn}.`,
-			...(answer.context ? [`Contexte : ${quote(answer.context)}.`] : []),
-			remaining === 0 ? 'Plus rien de dû.' : `Encore ${plural(remaining, 'due')}.`,
-			...follow
+			...(answer.context ? [`Contexte : ${quote(answer.context)}.`] : [])
 		];
-		return result(lines.join('\n'), {
-			review_id: answer.reviewId,
-			rating: answer.rating,
-			capped,
-			next_due: answer.due.toISOString(),
-			next_due_in: nextDueIn,
-			context: answer.context,
-			remaining,
-			...(replayed !== undefined && { replayed }),
-			...(changed !== undefined && { changed }),
-			...(next && { next })
-		});
+		return {
+			lines,
+			data: {
+				review_id: answer.reviewId,
+				rating: answer.rating,
+				capped,
+				next_due: answer.due.toISOString(),
+				next_due_in: nextDueIn,
+				context: answer.context,
+				...(replayed !== undefined && { replayed }),
+				...(changed !== undefined && { changed })
+			}
+		};
 	}
 
 	return server;

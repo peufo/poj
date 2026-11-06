@@ -409,6 +409,81 @@ describe('reviews service', () => {
 		await expect(reviews.amend(alice, review.id, 'good', t0)).rejects.toBeInstanceOf(NotFoundError);
 	});
 
+	describe('with a card ahead', () => {
+		const cardIds = (result: { reviews: NextReview[] }) => result.reviews.map((r) => r.cardId);
+
+		it('presents two different cards when none is held, never both directions of one', async () => {
+			const a = await createCard(db, alice, { sideA: 'a', sideB: 'a', now: t0 });
+			const b = await createCard(db, alice, { sideA: 'b', sideB: 'b', now: at(1) });
+
+			const lead = await reviews.lead(alice, at(2));
+			expect(cardIds(lead)).toEqual([a.id, b.id]);
+			expect(lead).toMatchObject({ held: false, remaining: 2, nextDue: null });
+		});
+
+		it('presents one card besides the held one, excluding both its directions', async () => {
+			const a = await createCard(db, alice, { sideA: 'a', sideB: 'a', now: t0 });
+			const b = await createCard(db, alice, { sideA: 'b', sideB: 'b', now: at(1) });
+			await createCard(db, alice, { sideA: 'c', sideB: 'c', now: at(2) });
+			expect(a.reviews).toHaveLength(2);
+
+			const lead = await reviews.lead(alice, at(3), { holding: a.reviews[1].id });
+			expect(cardIds(lead)).toEqual([b.id]);
+			// La carte tenue reste à présenter : elle compte dans remaining.
+			expect(lead).toMatchObject({ held: true, remaining: 3 });
+		});
+
+		it('ignores an unknown or foreign held review, but not a deleted card', async () => {
+			const a = await createCard(db, alice, { sideA: 'a', sideB: 'a', now: t0 });
+			await createCard(db, alice, { sideA: 'b', sideB: 'b', now: at(1) });
+			const foreign = await createCard(db, bob, { now: t0 });
+
+			for (const holding of [foreign.reviews[0].id, '01900000-0000-7000-8000-000000000000']) {
+				expect(await reviews.lead(alice, at(2), { holding })).toMatchObject({
+					held: false,
+					reviews: [{ cardId: a.id }, {}]
+				});
+			}
+			await db.card.update({ where: { id: a.id }, data: { deletedAt: at(2) } });
+			const lead = await reviews.lead(alice, at(3), { holding: a.reviews[0].id });
+			expect(lead).toMatchObject({ held: true, remaining: 1 });
+			expect(lead.reviews).toHaveLength(1);
+		});
+
+		it('gives the next due date only when nothing is presented nor held', async () => {
+			const {
+				id,
+				reviews: [held]
+			} = await createCard(db, alice, { now: t0 });
+			await setDue(id, at(DAY));
+
+			expect(await reviews.lead(alice, t0)).toEqual({
+				reviews: [],
+				held: false,
+				remaining: 0,
+				nextDue: at(DAY)
+			});
+			expect(await reviews.lead(alice, t0, { holding: held.id, ahead: true })).toEqual({
+				reviews: [],
+				held: true,
+				remaining: 0,
+				nextDue: null
+			});
+		});
+
+		it('keeps to the session deck and the new cards of the day', async () => {
+			const subject = await createDeck(db, alice, SUBJECT_DECK);
+			await setNewCardsPerDay(db, alice, subject.id, 1, t0);
+			const capital = await createCard(db, alice, { deckId: subject.id, now: t0 });
+			await createCard(db, alice, { deckId: subject.id, now: at(1) });
+			await createCard(db, alice, { now: t0 });
+
+			const lead = await reviews.lead(alice, at(2), { deckId: subject.id });
+			expect(cardIds(lead)).toEqual([capital.id]);
+			expect(lead).toMatchObject({ remaining: 1, nextDue: null });
+		});
+	});
+
 	describe('per deck', () => {
 		it('limits the session, its count and the last answer to one deck', async () => {
 			const subject = await createDeck(db, alice, SUBJECT_DECK);

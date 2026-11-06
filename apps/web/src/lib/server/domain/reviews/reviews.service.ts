@@ -7,7 +7,14 @@ import { applyRating, pickState, previewDue } from './scheduler';
 import { startOfNextDay } from '../time';
 import { opposite, SIBLING_BURY_MS } from './availability';
 import { findNewCards, presentableCard, type NewCards } from './new-cards';
-import type { AmendResult, AnswerResult, LastAnswer, NextResult } from './types';
+import type {
+	AmendResult,
+	AnswerResult,
+	LastAnswer,
+	LeadResult,
+	NextResult,
+	NextReview
+} from './types';
 
 export type ReviewsService = ReturnType<typeof createReviewsService>;
 
@@ -127,6 +134,68 @@ export function createReviewsService(db: Db) {
 		});
 	}
 
+	/**
+	 * Révision présentable la plus en retard, hors cartes `exclude`. Avec `ahead`, les
+	 * révisions à venir sont aussi candidates.
+	 */
+	async function pick(
+		ownerId: string,
+		now: Date,
+		scope: ReviewScope,
+		presentable: Presentability,
+		{ ahead, exclude = [] }: { ahead: boolean; exclude?: readonly string[] }
+	): Promise<NextReview | null> {
+		const available = availableFilter(ownerId, scope, presentable);
+		const review = await db.review.findFirst({
+			where: {
+				...available,
+				...(!ahead && { due: { lte: now } }),
+				...(exclude.length > 0 && { cardId: { notIn: [...exclude] } })
+			},
+			orderBy: [{ due: 'asc' }, { id: 'asc' }],
+			include: withDeck
+		});
+		if (!review) return null;
+
+		const { card } = review;
+		return {
+			id: review.id,
+			cardId: card.id,
+			deck: card.deck,
+			direction: review.direction,
+			prompt: promptOf(review.direction, card),
+			expected: promptOf(opposite[review.direction], card),
+			hasHint: hintOf(card.context) !== null,
+			context: card.context,
+			hintUsed: hintUsedOn(review),
+			isNew: review.state === 'new',
+			due: review.due,
+			preview: previewDue(review, now),
+			version: versionOf(review)
+		};
+	}
+
+	/**
+	 * Prochaine échéance quand rien n'est présentable : la révision à venir la plus proche,
+	 * ou minuit si des cartes neuves attendent (la limite repart alors).
+	 */
+	async function upcoming(
+		ownerId: string,
+		now: Date,
+		scope: ReviewScope,
+		presentable: Presentability
+	): Promise<{ nextDue: Date | null; waiting: number }> {
+		const next = await db.review.findFirst({
+			where: availableFilter(ownerId, scope, presentable),
+			orderBy: { due: 'asc' },
+			select: { due: true }
+		});
+		const waiting = presentable.fresh.held.length;
+		const tomorrow = waiting > 0 ? startOfNextDay(now) : null;
+		const nextDue = next && (!tomorrow || next.due < tomorrow) ? next.due : tomorrow;
+		return { nextDue, waiting };
+	}
+
 	return {
 		/**
 		 * Nombre de révisions à présenter maintenant : dues, hors sens mis de côté et cartes
@@ -150,51 +219,55 @@ export function createReviewsService(db: Db) {
 			{ ahead = false, ...scope }: { ahead?: boolean } & ReviewScope = {}
 		): Promise<NextResult> {
 			const presentable = await presentability(ownerId, now, scope);
-			const available = availableFilter(ownerId, scope, presentable);
-			const dueNow = { ...available, due: { lte: now } };
-
 			const [review, remaining] = await Promise.all([
-				db.review.findFirst({
-					where: ahead ? available : dueNow,
-					orderBy: [{ due: 'asc' }, { id: 'asc' }],
-					include: withDeck
-				}),
+				pick(ownerId, now, scope, presentable, { ahead }),
 				countPresentable(ownerId, now, scope, presentable)
 			]);
+			if (!review) return { review: null, ...(await upcoming(ownerId, now, scope, presentable)) };
+			return { review, remaining };
+		},
 
-			if (!review) {
-				const upcoming = await db.review.findFirst({
-					where: available,
-					orderBy: { due: 'asc' },
-					select: { due: true }
-				});
-				const waiting = presentable.fresh.held.length;
-				// La limite repart à minuit : les cartes en attente viennent au plus tôt demain.
-				const tomorrow = waiting > 0 ? startOfNextDay(now) : null;
-				const nextDue =
-					upcoming && (!tomorrow || upcoming.due < tomorrow) ? upcoming.due : tomorrow;
-				return { review: null, nextDue, waiting };
-			}
-
-			const { card } = review;
-			return {
-				review: {
-					id: review.id,
-					cardId: card.id,
-					deck: card.deck,
-					direction: review.direction,
-					prompt: promptOf(review.direction, card),
-					expected: promptOf(opposite[review.direction], card),
-					hasHint: hintOf(card.context) !== null,
-					context: card.context,
-					hintUsed: hintUsedOn(review),
-					isNew: review.state === 'new',
-					due: review.due,
-					preview: previewDue(review, now),
-					version: versionOf(review)
-				},
-				remaining
+		/**
+		 * Révisions qui gardent une carte d'avance à Claude : deux, de cartes différentes, s'il
+		 * ne tient aucune carte, une sinon (moins s'il n'y en a plus). `holding` est l'id de la
+		 * révision qu'il tient : elle et l'autre sens de sa carte sont exclus. Un id inconnu ou
+		 * d'un autre propriétaire est ignoré. Mêmes règles que `next` pour le reste. À appeler
+		 * après l'enregistrement de la note : une carte ratée qui doit revenir vite le peut.
+		 */
+		async lead(
+			ownerId: string,
+			now = new Date(),
+			{ ahead = false, holding, ...scope }: { ahead?: boolean; holding?: string } & ReviewScope = {}
+		): Promise<LeadResult> {
+			const [held, presentable] = await Promise.all([
+				holding === undefined
+					? null
+					: db.review.findFirst({
+							where: { id: holding, card: { ownerId } },
+							select: { cardId: true }
+						}),
+				presentability(ownerId, now, scope)
+			]);
+			const picks = async () => {
+				const exclude = held ? [held.cardId] : [];
+				const reviews: NextReview[] = [];
+				while (reviews.length < (held ? 1 : 2)) {
+					const review = await pick(ownerId, now, scope, presentable, { ahead, exclude });
+					if (!review) break;
+					reviews.push(review);
+					exclude.push(review.cardId);
+				}
+				return reviews;
 			};
+			const [reviews, remaining] = await Promise.all([
+				picks(),
+				countPresentable(ownerId, now, scope, presentable)
+			]);
+			const nextDue =
+				reviews.length === 0 && !held
+					? (await upcoming(ownerId, now, scope, presentable)).nextDue
+					: null;
+			return { reviews, held: held !== null, remaining, nextDue };
 		},
 
 		/** Cartes neuves en attente (au-delà de la limite du jour de leur deck). */
