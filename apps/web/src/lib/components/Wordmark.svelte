@@ -1,22 +1,27 @@
 <script lang="ts">
-	// La marque : deux cartes décalées (les deux sens d'une carte), puis « poj ».
+	// Le logo : trois barres croissantes, dont la dernière porte un point (le « i » de la
+	// progression), puis « poj ». `size` est la hauteur du logo, en pixels.
 	let { size = 22 }: { size?: number } = $props();
+
+	const width = 210.3;
+	const height = 95;
 </script>
 
-<span class="inline-flex items-center gap-2 text-ink">
-	<svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true" class="shrink-0">
-		<rect
-			x="9.5"
-			y="3.5"
-			width="18"
-			height="20"
-			rx="4"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2.25"
-			class="text-accent-text"
-		/>
-		<rect x="4" y="9" width="18" height="20" rx="4" class="fill-accent" />
-	</svg>
-	<span class="text-[1.0625rem] font-semibold tracking-tight">poj</span>
-</span>
+<svg
+	viewBox="22 13 {width} {height}"
+	width={(size * width) / height}
+	height={size}
+	role="img"
+	aria-label="poj"
+	class="block shrink-0"
+>
+	<rect x="22" y="76" width="24" height="32" rx="7" class="fill-mark" opacity="0.35" />
+	<rect x="52" y="56" width="24" height="52" rx="7" class="fill-mark" opacity="0.65" />
+	<rect x="82" y="34" width="24" height="74" rx="7" class="fill-mark" />
+	<circle cx="94" cy="20" r="7" class="fill-brand" />
+	<path
+		transform="translate(127.66 82.85)"
+		class="fill-ink"
+		d="M5 16.43V-37.63H12.99L13.96 -32.18Q15.16 -33.82 16.84 -35.28Q18.52 -36.74 20.94 -37.63Q23.37 -38.53 26.51 -38.53Q31.81 -38.53 35.88 -35.91Q39.95 -33.3 42.26 -28.86Q44.58 -24.42 44.58 -18.74Q44.58 -13.07 42.22 -8.62Q39.87 -4.18 35.8 -1.64Q31.73 0.9 26.51 0.9Q22.25 0.9 19.08 -0.71Q15.9 -2.31 13.96 -5.3V16.43ZM24.64 -6.87Q27.78 -6.87 30.24 -8.36Q32.7 -9.86 34.09 -12.54Q35.47 -15.23 35.47 -18.74Q35.47 -22.33 34.09 -25.01Q32.7 -27.7 30.24 -29.19Q27.78 -30.69 24.64 -30.69Q21.43 -30.69 19 -29.19Q16.58 -27.7 15.19 -25.01Q13.81 -22.33 13.81 -18.82Q13.81 -15.23 15.19 -12.58Q16.58 -9.93 19 -8.4Q21.43 -6.87 24.64 -6.87ZM68.54 0.9Q63.17 0.9 58.87 -1.61Q54.58 -4.11 52.15 -8.55Q49.73 -12.99 49.73 -18.74Q49.73 -24.64 52.19 -29.08Q54.66 -33.53 58.95 -36.03Q63.24 -38.53 68.62 -38.53Q73.99 -38.53 78.29 -36.03Q82.58 -33.53 85.01 -29.12Q87.43 -24.71 87.43 -18.82Q87.43 -12.92 84.97 -8.51Q82.51 -4.11 78.21 -1.61Q73.92 0.9 68.54 0.9ZM68.54 -6.79Q71.23 -6.79 73.43 -8.14Q75.64 -9.48 76.98 -12.17Q78.33 -14.86 78.33 -18.82Q78.33 -22.77 77.02 -25.42Q75.71 -28.07 73.51 -29.42Q71.31 -30.76 68.62 -30.76Q66.01 -30.76 63.77 -29.42Q61.53 -28.07 60.18 -25.42Q58.84 -22.77 58.84 -18.82Q58.84 -14.86 60.18 -12.17Q61.53 -9.48 63.73 -8.14Q65.93 -6.79 68.54 -6.79ZM86.76 16.43V8.81H89.82Q92.36 8.81 93.41 7.8Q94.45 6.79 94.45 4.33V-37.63H103.41V4.41Q103.41 8.74 101.92 11.39Q100.43 14.04 97.7 15.23Q94.98 16.43 91.17 16.43ZM99.01 -43.61Q96.47 -43.61 94.9 -45.14Q93.33 -46.67 93.33 -48.91Q93.33 -51.22 94.9 -52.68Q96.47 -54.13 99.01 -54.13Q101.47 -54.13 103.04 -52.68Q104.61 -51.22 104.61 -48.91Q104.61 -46.67 103.04 -45.14Q101.47 -43.61 99.01 -43.61Z"
+	/>
+</svg>

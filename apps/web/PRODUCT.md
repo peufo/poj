@@ -50,14 +50,14 @@ Une carte fausse ne doit jamais exister : la fiabilité se joue à la création 
 
 ## Brand Commitments
 
-- Nom : **Poj**, sans signification imposée ; identité entièrement à créer.
+- Nom : **Poj**, sans signification imposée. Identité visuelle fournie le 2026-11-06 : logo (trois barres croissantes, la dernière surmontée d'un point, puis « poj »), favicon et icône d'app, palette teal `#0F766E`, encre `#1E222B`, papier `#F6F5F1`.
 - **Thèmes sombre et clair à égalité**, suivant le système. Le dark mode est l'exigence principale de l'utilisateur : il doit être conçu, pas dérivé.
 - **Le standard du genre, exécuté avec soin**, choisi délibérément plutôt qu'un monde visuel singulier. Barre de finition : **Linear** et **Things 3**.
 - À éviter (confirmé) : le décoratif qui ralentit une révision, et le look back-office.
 
 ## Evidence on Hand
 
-Aucun asset de marque (le favicon actuel est celui du scaffold Svelte). Pas de vraies cartes en base : les maquettes utilisent des cartes d'exemple, signalées comme telles.
+Assets de marque : logo (clair, sombre, blanc), marque seule, favicon et icône d'app. Pas de vraies cartes en base : les maquettes utilisent des cartes d'exemple, signalées comme telles.
 
 ## Product Principles
 

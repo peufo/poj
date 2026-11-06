@@ -2,21 +2,23 @@
 name: Poj
 description: Un échéancier calme de deux sens par carte, pour apprendre le vocabulaire anglais.
 colors:
-  canvas: 'light-dark(oklch(0.99 0.002 265), oklch(0.16 0.006 265))'
-  surface: 'light-dark(oklch(0.968 0.003 265), oklch(0.19 0.007 265))'
-  raised: 'light-dark(oklch(1 0 0), oklch(0.215 0.008 265))'
-  inset: 'light-dark(oklch(0.985 0.002 265), oklch(0.185 0.007 265))'
-  hover: 'light-dark(oklch(0.95 0.004 265), oklch(0.235 0.008 265))'
-  line: 'light-dark(oklch(0.915 0.005 265), oklch(0.265 0.008 265))'
-  line-strong: 'light-dark(oklch(0.85 0.007 265), oklch(0.345 0.01 265))'
-  ink: 'light-dark(oklch(0.23 0.012 265), oklch(0.95 0.004 265))'
-  ink-2: 'light-dark(oklch(0.44 0.013 265), oklch(0.77 0.01 265))'
-  ink-3: 'light-dark(oklch(0.525 0.013 265), oklch(0.635 0.012 265))'
-  accent: 'light-dark(oklch(0.52 0.19 275), oklch(0.555 0.18 275))'
-  accent-hover: 'light-dark(oklch(0.47 0.19 275), oklch(0.6 0.18 275))'
-  on-accent: 'oklch(0.99 0.003 275)'
-  accent-text: 'light-dark(oklch(0.5 0.19 275), oklch(0.78 0.12 275))'
-  accent-soft: 'light-dark(oklch(0.955 0.028 275), oklch(0.265 0.055 275))'
+  brand: 'oklch(0.511 0.086 186.4)'
+  mark: 'light-dark(oklch(0.511 0.086 186.4), oklch(0.97 0.005 95))'
+  canvas: 'light-dark(oklch(0.985 0.004 95), oklch(0.185 0.011 266))'
+  surface: 'light-dark(oklch(0.97 0.005 95), oklch(0.21 0.013 266))'
+  raised: 'light-dark(oklch(1 0 0), oklch(0.24 0.015 266))'
+  inset: 'light-dark(oklch(0.99 0.003 95), oklch(0.2 0.012 266))'
+  hover: 'light-dark(oklch(0.945 0.006 95), oklch(0.26 0.016 266))'
+  line: 'light-dark(oklch(0.91 0.007 95), oklch(0.29 0.015 266))'
+  line-strong: 'light-dark(oklch(0.845 0.009 95), oklch(0.365 0.016 266))'
+  ink: 'light-dark(oklch(0.252 0.018 266), oklch(0.97 0.005 95))'
+  ink-2: 'light-dark(oklch(0.44 0.016 266), oklch(0.8 0.008 95))'
+  ink-3: 'light-dark(oklch(0.52 0.016 266), oklch(0.67 0.01 95))'
+  accent: 'oklch(0.511 0.086 186.4)'
+  accent-hover: 'light-dark(oklch(0.46 0.078 186), oklch(0.55 0.092 186))'
+  on-accent: 'oklch(0.995 0.002 95)'
+  accent-text: 'light-dark(oklch(0.47 0.078 186), oklch(0.8 0.1 182))'
+  accent-soft: 'light-dark(oklch(0.95 0.025 186), oklch(0.27 0.04 186))'
   again: 'light-dark(oklch(0.52 0.19 25), oklch(0.76 0.14 25))'
   again-soft: 'light-dark(oklch(0.962 0.024 25), oklch(0.255 0.05 25))'
   hard: 'light-dark(oklch(0.52 0.12 60), oklch(0.81 0.12 75))'
@@ -29,13 +31,13 @@ colors:
   warn-soft: 'light-dark(oklch(0.97 0.035 88), oklch(0.255 0.04 78))'
   danger: 'light-dark(oklch(0.52 0.2 25), oklch(0.73 0.16 25))'
   danger-soft: 'light-dark(oklch(0.962 0.024 25), oklch(0.255 0.05 25))'
-  focus: 'light-dark(oklch(0.55 0.19 275), oklch(0.72 0.15 275))'
-  selection: 'light-dark(oklch(0.88 0.07 275), oklch(0.38 0.1 275))'
+  focus: 'light-dark(oklch(0.53 0.09 186), oklch(0.74 0.11 184))'
+  selection: 'light-dark(oklch(0.89 0.045 186), oklch(0.37 0.06 186))'
   scrim: 'light-dark(oklch(0.2 0.01 265 / 0.32), oklch(0 0 0 / 0.6))'
-  level-0: 'light-dark(oklch(0.88 0.006 265), oklch(0.34 0.01 265))'
-  level-1: 'light-dark(oklch(0.72 0.01 265), oklch(0.5 0.012 265))'
-  level-2: 'light-dark(oklch(0.52 0.013 265), oklch(0.7 0.01 265))'
-  level-3: 'light-dark(oklch(0.3 0.012 265), oklch(0.9 0.005 265))'
+  level-0: 'light-dark(oklch(0.88 0.007 95), oklch(0.36 0.014 266))'
+  level-1: 'light-dark(oklch(0.72 0.012 266), oklch(0.52 0.012 266))'
+  level-2: 'light-dark(oklch(0.52 0.016 266), oklch(0.72 0.009 95))'
+  level-3: 'light-dark(oklch(0.3 0.018 266), oklch(0.9 0.006 95))'
 typography:
   display:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif"
@@ -205,7 +207,7 @@ components:
 
 **Creative North Star: "L'échéancier en ordre"**
 
-Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres froids à peine teintés de bleu (teinte 265), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent indigo qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.
+Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres tirés de la marque (le papier `#F6F5F1` et l'encre `#1E222B`), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent teal, celui du logo (`#0F766E`), qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.
 
 Le clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme="light|dark"` force un thème sur n'importe quel sous-arbre (aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.
 
@@ -214,8 +216,8 @@ Rejets confirmés par la direction : le tableau de bord gamifié (trophées, con
 **Key Characteristics:**
 
 - Police système (SF sur iPhone et Mac), échelle fixe d'environ 1,2.
-- Neutres froids en paliers : canvas, surface, raised, inset, hover.
-- Un seul accent indigo (teinte 275), jamais décoratif.
+- Neutres en paliers : papier chaud en clair, ardoise de l'encre en sombre (canvas, surface, raised, inset, hover).
+- Un seul accent teal (teinte 186, celui de la marque), jamais décoratif.
 - Quatre teintes réservées aux notes FSRS (Again, Hard, Good, Easy).
 - Maîtrise en rampe d'encre neutre, sans couleur.
 - Filets d'un pixel ; ombres douces seulement sur ce qui flotte.
@@ -223,14 +225,15 @@ Rejets confirmés par la direction : le tableau de bord gamifié (trophées, con
 
 ## Colors
 
-Une palette neutre et froide, à un seul accent, où la couleur porte toujours un sens : agir, être dû, ou noter.
+Une palette tirée de la marque (teal, encre, papier), à un seul accent, où la couleur porte toujours un sens : agir, être dû, ou noter. En clair, le papier fait les fonds et l'encre le texte ; en sombre, les deux échangent leurs rôles : fonds de la famille de l'encre (teinte 266), texte couleur papier (teinte 95).
 
 ### Primary
 
-- **Indigo d'action** (`accent`) : bouton principal, pastille du nombre de révisions dues, barres de l'horizon, jour sélectionné, curseur de saisie et `accent-color` natif. `accent-hover` assombrit en clair et éclaircit en sombre.
-- **Indigo de texte** (`accent-text`) : la variante lisible de l'accent pour le texte et les icônes actives (lien retour, onglet courant, réponse révélée, jour « aujourd'hui »). Toujours préférée à `accent` pour du texte sur fond neutre.
-- **Indigo voilé** (`accent-soft`) : fond des puces d'échéance « à réviser » et « nouvelle », survol des actions en texte d'accent.
-- **Encre sur accent** (`on-accent`) : unique valeur non appariée, le texte sur fond indigo dans les deux thèmes.
+- **Teal d'action** (`accent`) : bouton principal, pastille du nombre de révisions dues, barres de l'horizon, jour sélectionné, curseur de saisie et `accent-color` natif. C'est le teal de la marque, identique dans les deux thèmes (`var(--color-brand)`). `accent-hover` assombrit en clair et éclaircit en sombre.
+- **Teal de texte** (`accent-text`) : la variante lisible de l'accent pour le texte et les icônes actives (lien retour, onglet courant, réponse révélée, jour « aujourd'hui »). Toujours préférée à `accent` pour du texte sur fond neutre.
+- **Teal voilé** (`accent-soft`) : fond des puces d'échéance « à réviser » et « nouvelle », survol des actions en texte d'accent.
+- **Encre sur accent** (`on-accent`) : valeur non appariée, comme `accent` et `brand`, le texte sur fond teal dans les deux thèmes.
+- **Marque** (`brand`, `mark`) : réservés au logo (`Wordmark`). `brand` est le teal fixe du point ; `mark` colore les barres, teal en clair et papier en sombre, comme les versions claire et blanche du logo.
 
 ### Secondary
 
@@ -242,18 +245,18 @@ Une palette neutre et froide, à un seul accent, où la couleur porte toujours u
 
 ### Neutral
 
-- **Canvas** (`canvas`) : fond de page et de la barre d'onglets translucide.
-- **Surface** (`surface`) : barre latérale, panneaux (échéancier, sens d'une carte), fond de `Notice` info, rail du contrôle segmenté.
+- **Canvas** (`canvas`) : fond de page et de la barre d'onglets translucide ; un papier plus clair que celui de la marque.
+- **Surface** (`surface`) : le papier de la marque en clair. Barre latérale, panneaux (échéancier, sens d'une carte), fond de `Notice` info, rail du contrôle segmenté.
 - **Relief** (`raised`) : ce qui est au-dessus : carte de révision, feuille, bouton secondaire, segment actif. Blanc pur en clair.
 - **Creux** (`inset`) : fond des champs de saisie.
 - **Survol** (`hover`) : survol des lignes et des boutons discrets, et état actif de la navigation.
 - **Filet** (`line`) et **filet appuyé** (`line-strong`) : séparateurs de lignes et bordures ; `line-strong` borde les champs, le bouton secondaire et les jours vides de l'horizon.
-- **Encre** (`ink`, `ink-2`, `ink-3`) : texte principal, secondaire (traduction anglaise, descriptions), discret (métadonnées, placeholders, icônes inactives). Toutes trois dépassent 4,5:1 sur canvas et surface.
+- **Encre** (`ink`, `ink-2`, `ink-3`) : texte principal, secondaire (traduction anglaise, descriptions), discret (métadonnées, placeholders, icônes inactives). Toutes trois dépassent 4,5:1 sur canvas, surface et hover. En clair, `ink` est l'encre de la marque ; en sombre, son papier.
 - **Rampe de maîtrise** (`level-0` à `level-3`) : une rampe d'encre neutre, du plus pâle (Nouvelle) au plus contrasté (Solide), qui s'inverse naturellement en sombre.
 
 ### Named Rules
 
-**The One Indigo Rule.** L'indigo ne marque que trois choses : l'action principale, la sélection et ce qui est dû. Jamais un ornement, jamais un niveau de maîtrise, jamais un titre.
+**The One Teal Rule.** Le teal ne marque que trois choses : l'action principale, la sélection et ce qui est dû. Jamais un ornement, jamais un niveau de maîtrise, jamais un titre.
 
 **The Reserved Ratings Rule.** Les teintes again, hard, good et easy n'existent que pour les notes. On ne les réutilise ni pour un succès, ni pour une erreur, ni pour la maîtrise : `danger` et `warn` ont leurs propres tokens.
 
@@ -308,7 +311,7 @@ Poj est plat au repos et construit sa profondeur par paliers tonals : canvas, pu
 
 ## Shapes
 
-Des coins doucement arrondis, croissants avec la taille de l'objet. 0,375rem (`sm`) pour l'anneau de focus et les petits badges ; 0,5rem (`md`) pour les puces, les petits boutons et les segments ; 0,625rem (`lg`, le rayon de référence de 10 px) pour les boutons moyens, les champs, les lignes et la navigation ; 0,875rem (`xl`) pour les grands boutons, les boutons de note et les notices ; 1,25rem (`2xl`) pour les panneaux, la carte de révision et la feuille. `full` est réservé aux pastilles de compteur, aux points de légende et aux barres de maîtrise. Les bordures sont toujours d'un pixel. Les icônes suivent un trait de 1,75 sur une grille de 24, extrémités arrondies ; la marque est deux cartes décalées, les deux sens d'une carte.
+Des coins doucement arrondis, croissants avec la taille de l'objet. 0,375rem (`sm`) pour l'anneau de focus et les petits badges ; 0,5rem (`md`) pour les puces, les petits boutons et les segments ; 0,625rem (`lg`, le rayon de référence de 10 px) pour les boutons moyens, les champs, les lignes et la navigation ; 0,875rem (`xl`) pour les grands boutons, les boutons de note et les notices ; 1,25rem (`2xl`) pour les panneaux, la carte de révision et la feuille. `full` est réservé aux pastilles de compteur, aux points de légende et aux barres de maîtrise. Les bordures sont toujours d'un pixel. Les icônes suivent un trait de 1,75 sur une grille de 24, extrémités arrondies ; la marque est trois barres croissantes, la dernière surmontée d'un point (un « i » de progression).
 
 ## Components
 
@@ -345,8 +348,8 @@ Nets et sobres, une seule action pleine par zone.
 
 ### Navigation
 
-- **Barre latérale :** éléments de 2,25rem, coins `lg`, 0,875rem medium ; inactif en `ink-2` avec icône `ink-3`, actif sur `hover` en `ink` avec icône `accent-text`. Le compteur de révisions dues devient une pastille indigo quand il est non nul.
-- **Barre d'onglets :** icônes de 22 px sur libellé de 11 px ; actif en `accent-text`, inactif en `ink-3`. Pastille indigo cerclée de `canvas` sur Réviser.
+- **Barre latérale :** éléments de 2,25rem, coins `lg`, 0,875rem medium ; inactif en `ink-2` avec icône `ink-3`, actif sur `hover` en `ink` avec icône `accent-text`. Le compteur de révisions dues devient une pastille teal quand il est non nul.
+- **Barre d'onglets :** icônes de 22 px sur libellé de 11 px ; actif en `accent-text`, inactif en `ink-3`. Pastille teal cerclée de `canvas` sur Réviser.
 - **En-tête d'écran (`PageHeader`) :** lien retour en `accent-text` avec chevron, grand titre Headline et total en `ink-3`, actions à droite. En mode `compact`, une barre seule (retour et actions) : le titre reste dans un `h1` masqué, le contenu fait office de titre.
 
 ### Horizon (signature)
@@ -384,7 +387,7 @@ Encadré `xl` sans bordure, icône à 18 px : `info` sur `surface`, `warn` sur `
 ### Do:
 
 - **Do** déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme`.
-- **Do** réserver l'indigo à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte indigo.
+- **Do** réserver le teal à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte teal.
 - **Do** séparer par paliers de surface et filets d'un pixel avant de recourir à une ombre.
 - **Do** mettre les nombres en chiffres tabulaires.
 - **Do** limiter le mouvement aux changements d'état, entre 150 et 220 ms, en ease-out ; respecter `prefers-reduced-motion`.
@@ -394,7 +397,7 @@ Encadré `xl` sans bordure, icône à 18 px : `info` sur `surface`, `warn` sur `
 ### Don't:
 
 - **Don't** utiliser les teintes de note (again, hard, good, easy) pour autre chose qu'une note.
-- **Don't** colorer la maîtrise en indigo ou avec les teintes de note : elle reste une rampe d'encre neutre.
+- **Don't** colorer la maîtrise en teal ou avec les teintes de note : elle reste une rampe d'encre neutre.
 - **Don't** ajouter badges, trophées, confettis ou autre mécanique de tableau de bord gamifié. La série de la journée Poj est la seule série admise : un nombre, son record, un calendrier et un bref message quand la journée devient complète.
 - **Don't** composer l'écran comme une table grise de back-office.
 - **Don't** utiliser une valeur de couleur, de rayon, d'ombre ou de police hors des tokens : les échelles par défaut de Tailwind sont désactivées.

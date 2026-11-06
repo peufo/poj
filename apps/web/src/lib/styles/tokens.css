@@ -12,26 +12,34 @@
 @theme {
 	--color-*: initial;
 
-	/* Surfaces, du fond vers l'avant */
-	--color-canvas: light-dark(oklch(0.99 0.002 265), oklch(0.16 0.006 265));
-	--color-surface: light-dark(oklch(0.968 0.003 265), oklch(0.19 0.007 265));
-	--color-raised: light-dark(oklch(1 0 0), oklch(0.215 0.008 265));
-	--color-inset: light-dark(oklch(0.985 0.002 265), oklch(0.185 0.007 265));
-	--color-hover: light-dark(oklch(0.95 0.004 265), oklch(0.235 0.008 265));
-	--color-line: light-dark(oklch(0.915 0.005 265), oklch(0.265 0.008 265));
-	--color-line-strong: light-dark(oklch(0.85 0.007 265), oklch(0.345 0.01 265));
+	/* Marque : le teal du logo et l'encre de ses barres (teal en clair, papier en sombre).
+	   Réservés au logo ; l'interface passe par l'accent. */
+	--color-brand: oklch(0.511 0.086 186.4);
+	--color-mark: light-dark(var(--color-brand), oklch(0.97 0.005 95));
 
-	/* Encre : texte principal, secondaire, discret (≥ 4,5:1 sur canvas et surface) */
-	--color-ink: light-dark(oklch(0.23 0.012 265), oklch(0.95 0.004 265));
-	--color-ink-2: light-dark(oklch(0.44 0.013 265), oklch(0.77 0.01 265));
-	--color-ink-3: light-dark(oklch(0.525 0.013 265), oklch(0.635 0.012 265));
+	/* Surfaces, du fond vers l'avant. En clair, le papier de la marque (#F6F5F1) ; en
+	   sombre, la famille de son encre (#1E222B). Le `theme-color` d'app.html reprend canvas. */
+	--color-canvas: light-dark(oklch(0.985 0.004 95), oklch(0.185 0.011 266));
+	--color-surface: light-dark(oklch(0.97 0.005 95), oklch(0.21 0.013 266));
+	--color-raised: light-dark(oklch(1 0 0), oklch(0.24 0.015 266));
+	--color-inset: light-dark(oklch(0.99 0.003 95), oklch(0.2 0.012 266));
+	--color-hover: light-dark(oklch(0.945 0.006 95), oklch(0.26 0.016 266));
+	--color-line: light-dark(oklch(0.91 0.007 95), oklch(0.29 0.015 266));
+	--color-line-strong: light-dark(oklch(0.845 0.009 95), oklch(0.365 0.016 266));
 
-	/* Accent : action principale, sélection, « dû ». Jamais décoratif. */
-	--color-accent: light-dark(oklch(0.52 0.19 275), oklch(0.555 0.18 275));
-	--color-accent-hover: light-dark(oklch(0.47 0.19 275), oklch(0.6 0.18 275));
-	--color-on-accent: oklch(0.99 0.003 275);
-	--color-accent-text: light-dark(oklch(0.5 0.19 275), oklch(0.78 0.12 275));
-	--color-accent-soft: light-dark(oklch(0.955 0.028 275), oklch(0.265 0.055 275));
+	/* Encre : texte principal, secondaire, discret (≥ 4,5:1 sur canvas, surface et hover).
+	   L'encre de la marque en clair, son papier en sombre : les deux échangent leurs rôles. */
+	--color-ink: light-dark(oklch(0.252 0.018 266), oklch(0.97 0.005 95));
+	--color-ink-2: light-dark(oklch(0.44 0.016 266), oklch(0.8 0.008 95));
+	--color-ink-3: light-dark(oklch(0.52 0.016 266), oklch(0.67 0.01 95));
+
+	/* Accent : le teal de la marque, dans les deux thèmes. Action principale, sélection, « dû ».
+	   Jamais décoratif. */
+	--color-accent: var(--color-brand);
+	--color-accent-hover: light-dark(oklch(0.46 0.078 186), oklch(0.55 0.092 186));
+	--color-on-accent: oklch(0.995 0.002 95);
+	--color-accent-text: light-dark(oklch(0.47 0.078 186), oklch(0.8 0.1 182));
+	--color-accent-soft: light-dark(oklch(0.95 0.025 186), oklch(0.27 0.04 186));
 
 	/* Notes FSRS : réservées aux notes, jamais réutilisées ailleurs */
 	--color-again: light-dark(oklch(0.52 0.19 25), oklch(0.76 0.14 25));
@@ -48,16 +56,16 @@
 	--color-warn-soft: light-dark(oklch(0.97 0.035 88), oklch(0.255 0.04 78));
 	--color-danger: light-dark(oklch(0.52 0.2 25), oklch(0.73 0.16 25));
 	--color-danger-soft: light-dark(oklch(0.962 0.024 25), oklch(0.255 0.05 25));
-	--color-focus: light-dark(oklch(0.55 0.19 275), oklch(0.72 0.15 275));
-	--color-selection: light-dark(oklch(0.88 0.07 275), oklch(0.38 0.1 275));
+	--color-focus: light-dark(oklch(0.53 0.09 186), oklch(0.74 0.11 184));
+	--color-selection: light-dark(oklch(0.89 0.045 186), oklch(0.37 0.06 186));
 	--color-scrim: light-dark(oklch(0.2 0.01 265 / 0.32), oklch(0 0 0 / 0.6));
 
-	/* Maîtrise : une rampe neutre, de « Nouvelle » à « Solide ». Pas d'indigo : l'accent
+	/* Maîtrise : une rampe neutre, de « Nouvelle » à « Solide ». Pas de teal : l'accent
 	   reste réservé à l'action, à la sélection et à ce qui est dû. */
-	--color-level-0: light-dark(oklch(0.88 0.006 265), oklch(0.34 0.01 265));
-	--color-level-1: light-dark(oklch(0.72 0.01 265), oklch(0.5 0.012 265));
-	--color-level-2: light-dark(oklch(0.52 0.013 265), oklch(0.7 0.01 265));
-	--color-level-3: light-dark(oklch(0.3 0.012 265), oklch(0.9 0.005 265));
+	--color-level-0: light-dark(oklch(0.88 0.007 95), oklch(0.36 0.014 266));
+	--color-level-1: light-dark(oklch(0.72 0.012 266), oklch(0.52 0.012 266));
+	--color-level-2: light-dark(oklch(0.52 0.016 266), oklch(0.72 0.009 95));
+	--color-level-3: light-dark(oklch(0.3 0.018 266), oklch(0.9 0.006 95));
 
 	/* Typographie : police système (SF sur iPhone et Mac), échelle fixe ≈ 1,2 */
 	--font-*: initial;

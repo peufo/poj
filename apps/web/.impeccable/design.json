@@ -4,30 +4,40 @@
 	"title": "Design System: Poj",
 	"extensions": {
 		"colorMeta": {
+			"brand": {
+				"role": "primary",
+				"displayName": "Teal de la marque",
+				"canonical": "oklch(0.511 0.086 186.4)"
+			},
+			"mark": {
+				"role": "primary",
+				"displayName": "Barres du logo",
+				"canonical": "light-dark(oklch(0.511 0.086 186.4), oklch(0.97 0.005 95))"
+			},
 			"accent": {
 				"role": "primary",
-				"displayName": "Indigo d'action",
-				"canonical": "light-dark(oklch(0.52 0.19 275), oklch(0.555 0.18 275))",
+				"displayName": "Teal d'action",
+				"canonical": "oklch(0.511 0.086 186.4)",
 				"tonalRamp": [
-					"oklch(0.15 0.08 275)",
-					"oklch(0.27 0.13 275)",
-					"oklch(0.39 0.17 275)",
-					"oklch(0.52 0.19 275)",
-					"oklch(0.64 0.15 275)",
-					"oklch(0.76 0.1 275)",
-					"oklch(0.88 0.06 275)",
-					"oklch(0.95 0.028 275)"
+					"oklch(0.2 0.035 186)",
+					"oklch(0.3 0.055 186)",
+					"oklch(0.4 0.07 186)",
+					"oklch(0.511 0.086 186.4)",
+					"oklch(0.62 0.1 185)",
+					"oklch(0.74 0.11 184)",
+					"oklch(0.86 0.065 184)",
+					"oklch(0.95 0.025 186)"
 				]
 			},
 			"accent-text": {
 				"role": "primary",
-				"displayName": "Indigo de texte",
-				"canonical": "light-dark(oklch(0.5 0.19 275), oklch(0.78 0.12 275))"
+				"displayName": "Teal de texte",
+				"canonical": "light-dark(oklch(0.47 0.078 186), oklch(0.8 0.1 182))"
 			},
 			"accent-soft": {
 				"role": "primary",
-				"displayName": "Indigo voilé",
-				"canonical": "light-dark(oklch(0.955 0.028 275), oklch(0.265 0.055 275))"
+				"displayName": "Teal voilé",
+				"canonical": "light-dark(oklch(0.95 0.025 186), oklch(0.27 0.04 186))"
 			},
 			"again": {
 				"role": "secondary",
@@ -102,97 +112,97 @@
 			"focus": {
 				"role": "tertiary",
 				"displayName": "Anneau de focus",
-				"canonical": "light-dark(oklch(0.55 0.19 275), oklch(0.72 0.15 275))"
+				"canonical": "light-dark(oklch(0.53 0.09 186), oklch(0.74 0.11 184))"
 			},
 			"canvas": {
 				"role": "neutral",
 				"displayName": "Canvas",
-				"canonical": "light-dark(oklch(0.99 0.002 265), oklch(0.16 0.006 265))",
+				"canonical": "light-dark(oklch(0.985 0.004 95), oklch(0.185 0.011 266))",
 				"tonalRamp": [
-					"oklch(0.16 0.006 265)",
-					"oklch(0.19 0.007 265)",
-					"oklch(0.215 0.008 265)",
-					"oklch(0.265 0.008 265)",
-					"oklch(0.85 0.007 265)",
-					"oklch(0.915 0.005 265)",
-					"oklch(0.968 0.003 265)",
-					"oklch(0.99 0.002 265)"
+					"oklch(0.185 0.011 266)",
+					"oklch(0.21 0.013 266)",
+					"oklch(0.24 0.015 266)",
+					"oklch(0.29 0.015 266)",
+					"oklch(0.845 0.009 95)",
+					"oklch(0.91 0.007 95)",
+					"oklch(0.97 0.005 95)",
+					"oklch(0.985 0.004 95)"
 				]
 			},
 			"surface": {
 				"role": "neutral",
 				"displayName": "Surface",
-				"canonical": "light-dark(oklch(0.968 0.003 265), oklch(0.19 0.007 265))"
+				"canonical": "light-dark(oklch(0.97 0.005 95), oklch(0.21 0.013 266))"
 			},
 			"raised": {
 				"role": "neutral",
 				"displayName": "Relief",
-				"canonical": "light-dark(oklch(1 0 0), oklch(0.215 0.008 265))"
+				"canonical": "light-dark(oklch(1 0 0), oklch(0.24 0.015 266))"
 			},
 			"inset": {
 				"role": "neutral",
 				"displayName": "Creux",
-				"canonical": "light-dark(oklch(0.985 0.002 265), oklch(0.185 0.007 265))"
+				"canonical": "light-dark(oklch(0.99 0.003 95), oklch(0.2 0.012 266))"
 			},
 			"hover": {
 				"role": "neutral",
 				"displayName": "Survol",
-				"canonical": "light-dark(oklch(0.95 0.004 265), oklch(0.235 0.008 265))"
+				"canonical": "light-dark(oklch(0.945 0.006 95), oklch(0.26 0.016 266))"
 			},
 			"line": {
 				"role": "neutral",
 				"displayName": "Filet",
-				"canonical": "light-dark(oklch(0.915 0.005 265), oklch(0.265 0.008 265))"
+				"canonical": "light-dark(oklch(0.91 0.007 95), oklch(0.29 0.015 266))"
 			},
 			"line-strong": {
 				"role": "neutral",
 				"displayName": "Filet appuyé",
-				"canonical": "light-dark(oklch(0.85 0.007 265), oklch(0.345 0.01 265))"
+				"canonical": "light-dark(oklch(0.845 0.009 95), oklch(0.365 0.016 266))"
 			},
 			"ink": {
 				"role": "neutral",
 				"displayName": "Encre",
-				"canonical": "light-dark(oklch(0.23 0.012 265), oklch(0.95 0.004 265))",
+				"canonical": "light-dark(oklch(0.252 0.018 266), oklch(0.97 0.005 95))",
 				"tonalRamp": [
-					"oklch(0.23 0.012 265)",
-					"oklch(0.3 0.012 265)",
-					"oklch(0.44 0.013 265)",
-					"oklch(0.525 0.013 265)",
-					"oklch(0.635 0.012 265)",
-					"oklch(0.72 0.01 265)",
-					"oklch(0.88 0.006 265)",
-					"oklch(0.95 0.004 265)"
+					"oklch(0.252 0.018 266)",
+					"oklch(0.3 0.018 266)",
+					"oklch(0.44 0.016 266)",
+					"oklch(0.52 0.016 266)",
+					"oklch(0.67 0.01 95)",
+					"oklch(0.72 0.009 95)",
+					"oklch(0.8 0.008 95)",
+					"oklch(0.97 0.005 95)"
 				]
 			},
 			"ink-2": {
 				"role": "neutral",
 				"displayName": "Encre secondaire",
-				"canonical": "light-dark(oklch(0.44 0.013 265), oklch(0.77 0.01 265))"
+				"canonical": "light-dark(oklch(0.44 0.016 266), oklch(0.8 0.008 95))"
 			},
 			"ink-3": {
 				"role": "neutral",
 				"displayName": "Encre discrète",
-				"canonical": "light-dark(oklch(0.525 0.013 265), oklch(0.635 0.012 265))"
+				"canonical": "light-dark(oklch(0.52 0.016 266), oklch(0.67 0.01 95))"
 			},
 			"level-0": {
 				"role": "neutral",
 				"displayName": "Maîtrise : Nouvelle",
-				"canonical": "light-dark(oklch(0.88 0.006 265), oklch(0.34 0.01 265))"
+				"canonical": "light-dark(oklch(0.88 0.007 95), oklch(0.36 0.014 266))"
 			},
 			"level-1": {
 				"role": "neutral",
 				"displayName": "Maîtrise : En cours",
-				"canonical": "light-dark(oklch(0.72 0.01 265), oklch(0.5 0.012 265))"
+				"canonical": "light-dark(oklch(0.72 0.012 266), oklch(0.52 0.012 266))"
 			},
 			"level-2": {
 				"role": "neutral",
 				"displayName": "Maîtrise : Acquise",
-				"canonical": "light-dark(oklch(0.52 0.013 265), oklch(0.7 0.01 265))"
+				"canonical": "light-dark(oklch(0.52 0.016 266), oklch(0.72 0.009 95))"
 			},
 			"level-3": {
 				"role": "neutral",
 				"displayName": "Maîtrise : Solide",
-				"canonical": "light-dark(oklch(0.3 0.012 265), oklch(0.9 0.005 265))"
+				"canonical": "light-dark(oklch(0.3 0.018 266), oklch(0.9 0.006 95))"
 			}
 		},
 		"typographyMeta": {
@@ -321,7 +331,7 @@
 			"name": "Navigation latérale",
 			"kind": "nav",
 			"refersTo": "nav-item-active",
-			"description": "Barre latérale sur grand écran ; pastille indigo pour les révisions dues.",
+			"description": "Barre latérale sur grand écran ; pastille teal pour les révisions dues.",
 			"html": "<nav class=\"ds-nav\"><a class=\"ds-nav-i\" href=\"#\"><span>Réviser</span><span class=\"ds-nav-badge\">12</span></a><a class=\"ds-nav-i\" aria-current=\"page\" href=\"#\"><span>Cartes</span><span class=\"ds-nav-count\">148</span></a><a class=\"ds-nav-i\" href=\"#\"><span>Nouvelle carte</span></a></nav>",
 			"css": ".ds-nav { display: flex; flex-direction: column; gap: 0.125rem; width: 13rem; padding: 0.75rem; background: var(--color-surface); font-family: var(--font-sans); } .ds-nav-i { display: flex; align-items: center; gap: 0.625rem; height: 2.25rem; padding: 0 0.625rem; border-radius: var(--radius-lg); font-size: 0.875rem; font-weight: 500; color: var(--color-ink-2); text-decoration: none; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); } .ds-nav-i span:first-child { flex: 1; } .ds-nav-i:hover, .ds-nav-i[aria-current] { background: var(--color-hover); color: var(--color-ink); } .ds-nav-i:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; } .ds-nav-badge { border-radius: 9999px; background: var(--color-accent); color: var(--color-on-accent); padding: 1px 0.375rem; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; } .ds-nav-count { font-size: 0.75rem; color: var(--color-ink-3); font-variant-numeric: tabular-nums; }"
 		},
@@ -352,11 +362,11 @@
 	],
 	"narrative": {
 		"northStar": "L'échéancier en ordre",
-		"overview": "Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres froids à peine teintés de bleu (teinte 265), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent indigo qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.\n\nLe clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme=\"light|dark\"` force un thème sur n'importe quel sous-arbre (aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.\n\nRejets confirmés par la direction : le tableau de bord gamifié (séries, trophées, confettis) et la table grise de back-office.",
+		"overview": "Poj se lit comme un échéancier calme : chaque carte a deux sens, chaque sens a sa date, et l'écran sert d'abord à voir que tout est en ordre. Le système suit le canon du genre, au niveau de finition de Linear et de Things 3 : police système, neutres tirés de la marque (le papier `#F6F5F1` et l'encre `#1E222B`), paliers de surfaces plutôt qu'ombres, filets d'un pixel, et un seul accent teal, celui du logo (`#0F766E`), qui ne sert qu'à agir, à sélectionner et à signaler ce qui est dû. La densité est celle d'un outil qu'on manie (mode Operate) : lignes serrées, chiffres tabulaires, peu de décor.\n\nLe clair et le sombre ont le même soin. Chaque couleur est une paire `light-dark()` conçue côte à côte ; aucun thème n'est dérivé de l'autre. Le thème suit le système (`color-scheme: light dark`), et `data-theme=\"light|dark\"` force un thème sur n'importe quel sous-arbre (aperçus côte à côte). Le mouvement est réservé aux changements d'état : 150 à 220 ms, ease-out.\n\nRejets confirmés par la direction : le tableau de bord gamifié (séries, trophées, confettis) et la table grise de back-office.",
 		"keyCharacteristics": [
 			"Police système (SF sur iPhone et Mac), échelle fixe d'environ 1,2.",
-			"Neutres froids en paliers : canvas, surface, raised, inset, hover.",
-			"Un seul accent indigo (teinte 275), jamais décoratif.",
+			"Neutres en paliers : papier chaud en clair, ardoise de l'encre en sombre (canvas, surface, raised, inset, hover).",
+			"Un seul accent teal (teinte 186, celui de la marque), jamais décoratif.",
 			"Quatre teintes réservées aux notes FSRS (Again, Hard, Good, Easy).",
 			"Maîtrise en rampe d'encre neutre, sans couleur.",
 			"Filets d'un pixel ; ombres douces seulement sur ce qui flotte.",
@@ -364,8 +374,8 @@
 		],
 		"rules": [
 			{
-				"name": "The One Indigo Rule",
-				"body": "L'indigo ne marque que trois choses : l'action principale, la sélection et ce qui est dû. Jamais un ornement, jamais un niveau de maîtrise, jamais un titre.",
+				"name": "The One Teal Rule",
+				"body": "Le teal ne marque que trois choses : l'action principale, la sélection et ce qui est dû. Jamais un ornement, jamais un niveau de maîtrise, jamais un titre.",
 				"section": "colors"
 			},
 			{
@@ -396,7 +406,7 @@
 		],
 		"dos": [
 			"Do déclarer chaque couleur en paire `light-dark()` dans `tokens.css` et vérifier les deux thèmes avec `data-theme` dans le bac à sable.",
-			"Do réserver l'indigo à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte indigo.",
+			"Do réserver le teal à l'action principale, à la sélection et à ce qui est dû ; utiliser `accent-text` pour le texte teal.",
 			"Do séparer par paliers de surface et filets d'un pixel avant de recourir à une ombre.",
 			"Do mettre les nombres en chiffres tabulaires.",
 			"Do limiter le mouvement aux changements d'état, entre 150 et 220 ms, en ease-out ; respecter `prefers-reduced-motion`.",
@@ -405,7 +415,7 @@
 		],
 		"donts": [
 			"Don't utiliser les teintes de note (again, hard, good, easy) pour autre chose qu'une note.",
-			"Don't colorer la maîtrise en indigo ou avec les teintes de note : elle reste une rampe d'encre neutre.",
+			"Don't colorer la maîtrise en teal ou avec les teintes de note : elle reste une rampe d'encre neutre.",
 			"Don't ajouter séries, trophées, confettis ou autre mécanique de tableau de bord gamifié.",
 			"Don't composer l'écran comme une table grise de back-office.",
 			"Don't utiliser une valeur de couleur, de rayon, d'ombre ou de police hors des tokens : les échelles par défaut de Tailwind sont désactivées.",
