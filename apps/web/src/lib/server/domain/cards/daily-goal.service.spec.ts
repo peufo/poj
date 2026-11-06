@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
 import { createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
 import { createReviewsService } from '../reviews/reviews.service';
@@ -54,6 +54,23 @@ async function addReviewable(ownerId: string, at: Date, n = 2): Promise<string[]
 	return ids;
 }
 
+type Ids = string[];
+
+/**
+ * Deux cartes révisables ajoutées chacun des cinq derniers jours, de la plus ancienne à
+ * aujourd'hui, et rendues par ancienneté (0 : aujourd'hui).
+ */
+async function addReviewableDays(ownerId: string): Promise<[Ids, Ids, Ids, Ids, Ids]> {
+	const [four, three, two, one, today] = [
+		await addReviewable(ownerId, daysAgo(4)),
+		await addReviewable(ownerId, daysAgo(3)),
+		await addReviewable(ownerId, daysAgo(2)),
+		await addReviewable(ownerId, daysAgo(1)),
+		await addReviewable(ownerId, daysAgo(0))
+	];
+	return [today, one, two, three, four];
+}
+
 /** Répond Easy (la carte s'éloigne de plusieurs jours) à chacune des cartes, à l'instant `at`. */
 async function answerAll(ownerId: string, cardIds: string[], at: Date) {
 	for (const cardId of cardIds) {
@@ -77,7 +94,7 @@ describe('progress', () => {
 		expect(progress.today.add).toEqual({ count: 0, goal: 2, reached: false });
 		expect(progress.streak).toBe(0);
 		expect(progress.days).toHaveLength(7);
-		expect(progress.days[0].date).toEqual(new Date('2026-01-05T23:00:00Z')); // mardi 6, minuit
+		expect(progress.days[0]).toMatchObject({ date: new Date('2026-01-05T23:00:00Z') }); // mardi 6, minuit
 		expect(progress.days[6]).toBe(progress.today);
 		expect(progress.today.date).toEqual(new Date('2026-01-11T23:00:00Z')); // lundi 12, minuit
 	});
@@ -103,10 +120,11 @@ describe('progress', () => {
 	it('counts deleted cards on the day they were created', async () => {
 		await addCards(alice, daysAgo(1), 2);
 		const [card] = await db.card.findMany({ where: { ownerId: alice } });
+		assert.exists(card);
 		await cards.softDelete(alice, card.id);
 
 		const { days, streak } = await goals.progress(alice, now, 2);
-		expect(days[0].add).toMatchObject({ count: 2, reached: true });
+		expect(days[0]).toMatchObject({ add: { count: 2, reached: true } });
 		expect(streak).toBe(1);
 	});
 
@@ -214,8 +232,7 @@ describe('the Poj day', () => {
 	});
 
 	it('tolerates one day that is not full, and keeps the record', async () => {
-		const added = [];
-		for (let n = 4; n >= 0; n -= 1) added[n] = await addReviewable(alice, daysAgo(n));
+		const added = await addReviewableDays(alice);
 		await answerAll(alice, added[4], morningOf(3));
 		// Avant-hier, rien n'est révisé ; hier, tout le retard l'est.
 		await answerAll(alice, [...added[3], ...added[2]], morningOf(1));
@@ -237,8 +254,7 @@ describe('the Poj day', () => {
 	});
 
 	it('stops the streak after two days that are not full', async () => {
-		const added = [];
-		for (let n = 4; n >= 0; n -= 1) added[n] = await addReviewable(alice, daysAgo(n));
+		const added = await addReviewableDays(alice);
 		await answerAll(alice, added[4], morningOf(3));
 		await answerAll(alice, [...added[3], ...added[2], ...added[1]], now);
 

@@ -1,6 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { InMemoryTransport, type CallToolResult } from '@modelcontextprotocol/server';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../testing/db';
 import { createDeck, createUser } from '../testing/factories';
 import {
@@ -215,7 +215,8 @@ describe('MCP server', () => {
 		it('names the faces after the languages of the deck', async () => {
 			const client = await connect(alice);
 			const { tools } = await client.listTools();
-			const check = tools.find((t) => t.name === 'check_card')!;
+			const check = tools.find((t) => t.name === 'check_card');
+			assert.exists(check);
 
 			expect(client.getInstructions()).toContain('expressions en anglais');
 			expect(client.getInstructions()).toContain('le français (side_a), l’anglais (side_b)');
@@ -243,7 +244,7 @@ describe('MCP server', () => {
 			expect(client.getInstructions()).toContain('« Pays » (side_a), « Capitale » (side_b)');
 			expect(client.getInstructions()).toContain('pas de second avis DeepL');
 			expect(client.getInstructions()).toContain('de « Pays » vers « Capitale » seulement');
-			expect(tools.find((t) => t.name === 'create_card')!.description).toContain(
+			expect(tools.find((t) => t.name === 'create_card')?.description).toContain(
 				'sa révision, due immédiatement'
 			);
 
@@ -560,7 +561,8 @@ describe('MCP server', () => {
 
 		it('tells Claude to deduce the deck or ask, DeepL for a language deck only', async () => {
 			const client = await connect(alice);
-			const instructions = client.getInstructions()!;
+			const instructions = client.getInstructions();
+			assert.exists(instructions);
 
 			expect(instructions).toContain(
 				'- « Anglais » (langue) : le français (side_a), l’anglais (side_b), révisé dans les deux sens.'
@@ -576,8 +578,10 @@ describe('MCP server', () => {
 			expect(instructions).toContain('« on révise » mélange tous les decks');
 
 			const { tools } = await client.listTools();
-			const check = tools.find((t) => t.name === 'check_card')!;
-			const create = tools.find((t) => t.name === 'create_card')!;
+			const check = tools.find((t) => t.name === 'check_card');
+			const create = tools.find((t) => t.name === 'create_card');
+			assert.exists(check);
+			assert.exists(create);
 			expect(check.annotations?.openWorldHint).toBe(true);
 			expect(check.description).toContain('Deck de sujet : pas de second avis DeepL');
 			expect(create.description).toContain('relis-lui la carte finale (deck, faces, contexte)');
@@ -655,7 +659,7 @@ describe('MCP server', () => {
 			const client = await connect(bob);
 			const { tools } = await client.listTools();
 			expect(
-				tools.find((t) => t.name === 'create_card')!.inputSchema.properties?.deck
+				tools.find((t) => t.name === 'create_card')?.inputSchema.properties?.deck
 			).toMatchObject({ description: expect.stringContaining("n'a qu'un deck") });
 
 			expect(data(await call(client, 'create_card', args))).toMatchObject({ created: true });
@@ -683,6 +687,7 @@ describe('MCP server', () => {
 			});
 			expect(text(scoped)).toMatch(/^Carte à poser maintenant :\nDeck « Capitales »\.\n/);
 			const [capital] = cardsOf(scoped);
+			assert.exists(capital);
 
 			// remaining est compté dans le deck de la session.
 			const answer = await call(client, 'review', {
@@ -729,9 +734,10 @@ describe('MCP server', () => {
 			let [current, held] = start.cards as (Entry | undefined)[];
 			let last: Entry = start;
 			for (let i = 10; i > 0; i -= 1) {
+				assert.exists(current);
 				last = data(
 					await call(client, 'review', {
-						answer: answerOf(current!, 'easy'),
+						answer: answerOf(current, 'easy'),
 						holding: held?.review_id
 					})
 				);
@@ -753,6 +759,7 @@ describe('MCP server', () => {
 			// Un seul sens de la carte : l'autre ne peut pas être la carte d'avance.
 			expect(data(start)).toMatchObject({ nothing_due: false, remaining: 1 });
 			const [next] = cardsOf(start);
+			assert.exists(next);
 			expect(cardsOf(start)).toHaveLength(1);
 			expect(next).toMatchObject({ has_hint: true });
 			expect(JSON.stringify(data(start))).not.toContain('réunion budget');
@@ -803,6 +810,8 @@ describe('MCP server', () => {
 
 			const start = await call(client, 'review');
 			const [sourceOnly, mixed] = cardsOf(start);
+			assert.exists(sourceOnly);
+			assert.exists(mixed);
 			expect(sourceOnly).toMatchObject({ prompt: 'Australie', has_hint: false });
 			expect(mixed).toMatchObject({ prompt: 'Canada', has_hint: true });
 			expect(text(start)).toContain('Pas d’indice.');
@@ -832,17 +841,21 @@ describe('MCP server', () => {
 			clock = at(5);
 			const client = await connect(alice);
 			/** Numéro (à partir de 1) de la carte de chaque révision renvoyée. */
-			const numbers = (result: CallToolResult) =>
-				cardsOf(result).map(
-					(c) => created.findIndex((card) => card.reviews.some((r) => r.id === c.review_id)) + 1
-				);
+			const numberOf = (c: Entry) =>
+				created.findIndex((card) => card.reviews.some((r) => r.id === c.review_id)) + 1;
+			const numbers = (result: CallToolResult) => cardsOf(result).map(numberOf);
 			const byNumber = new Map<number, Entry>();
 			const keep = (result: CallToolResult) => {
-				for (const [i, n] of numbers(result).entries()) byNumber.set(n, cardsOf(result)[i]);
+				for (const entry of cardsOf(result)) byNumber.set(numberOf(entry), entry);
 				return result;
 			};
-			const answer = (n: number, rating = 'good') => answerOf(byNumber.get(n)!, rating);
-			const holding = (n: number) => byNumber.get(n)!.review_id;
+			const shown = (n: number) => {
+				const entry = byNumber.get(n);
+				assert.exists(entry, `card ${n} was never presented`);
+				return entry;
+			};
+			const answer = (n: number, rating = 'good') => answerOf(shown(n), rating);
+			const holding = (n: number) => shown(n).review_id;
 
 			const start = keep(await call(client, 'review'));
 			expect(numbers(start)).toEqual([1, 2]);
@@ -890,7 +903,10 @@ describe('MCP server', () => {
 			clock = at(2);
 			const client = await connect(alice);
 
-			for (const holding of [foreign.reviews[0].id, '01900000-0000-7000-8000-000000000000']) {
+			const [foreignReview] = foreign.reviews;
+			assert.exists(foreignReview);
+
+			for (const holding of [foreignReview.id, '01900000-0000-7000-8000-000000000000']) {
 				expect(cardsOf(await call(client, 'review', { holding }))).toHaveLength(2);
 			}
 			expect((await call(client, 'review', { holding: 'abc' })).isError).toBe(true);
@@ -902,6 +918,8 @@ describe('MCP server', () => {
 			clock = at(2);
 			const client = await connect(alice);
 			const [current, held] = cardsOf(await call(client, 'review'));
+			assert.exists(current);
+			assert.exists(held);
 
 			const conflict = await call(client, 'review', {
 				answer: { ...answerOf(current, 'good'), version: t0.toISOString() },
@@ -925,6 +943,8 @@ describe('MCP server', () => {
 			expect(text(idle)).not.toContain('Session terminée');
 
 			const [first, second] = cardsOf(await call(client, 'review', { ahead: true }));
+			assert.exists(first);
+			assert.exists(second);
 			const last = await call(client, 'review', {
 				answer: answerOf(first, 'good'),
 				holding: second.review_id
@@ -964,6 +984,7 @@ describe('MCP server', () => {
 			await cards.create(alice, aliceDeck, card, 'web', t0);
 			const client = await connect(alice);
 			const [next] = cardsOf(await call(client, 'review'));
+			assert.exists(next);
 
 			const first = data(await call(client, 'review', { answer: answerOf(next, 'good') }));
 			clock = at(1);
@@ -983,6 +1004,7 @@ describe('MCP server', () => {
 			const created = await cards.create(alice, aliceDeck, card, 'web', t0);
 			const client = await connect(alice);
 			const [next] = cardsOf(await call(client, 'review'));
+			assert.exists(next);
 			await call(client, 'review', { answer: answerOf(next, 'good') });
 
 			clock = at(2);
@@ -1007,7 +1029,8 @@ describe('MCP server', () => {
 			expect(late.isError).toBe(true);
 			expect(text(late)).toContain("dans l'heure");
 
-			const other = created.reviews.find((r) => r.id !== next.review_id)!;
+			const other = created.reviews.find((r) => r.id !== next.review_id);
+			assert.exists(other);
 			const unanswered = await call(client, 'amend_review', {
 				review_id: other.id,
 				rating: 'good'
@@ -1038,6 +1061,7 @@ describe('MCP server', () => {
 		it('isolates users from each other', async () => {
 			const other = await cards.create(bob, bobDeck, { ...card, context: 'secret' }, 'web', t0);
 			const [review] = other.reviews;
+			assert.exists(review);
 			const client = await connect(alice);
 
 			expect(data(await call(client, 'review', { ahead: true }))).toMatchObject({
@@ -1080,7 +1104,8 @@ describe('MCP server', () => {
 			await createDeck(db, several, capitals);
 
 			for (const owner of [alice, subjects, several]) {
-				const instructions = (await connect(owner)).getInstructions()!;
+				const instructions = (await connect(owner)).getInstructions();
+				assert.exists(instructions);
 				expect(instructions).toContain("- Révision, toujours une carte d'avance : ");
 				expect(instructions).toContain(
 					"aucun appel d'outil entre sa réponse et la question suivante"
@@ -1115,7 +1140,8 @@ describe('MCP server', () => {
 
 			for (const owner of [alice, several]) {
 				const client = await connect(owner);
-				const instructions = client.getInstructions()!;
+				const instructions = client.getInstructions();
+				assert.exists(instructions);
 				expect(instructions).toContain(
 					`- Ajout en lot : pour beaucoup de cartes tirées d'une source`
 				);
@@ -1193,9 +1219,11 @@ describe('MCP server', () => {
 		/** Texte du message que le prompt met dans la bouche de l'utilisateur. */
 		async function prompt(client: Client, name: string, args: Record<string, string> = {}) {
 			const { messages } = await client.getPrompt({ name, arguments: args });
+			const [message] = messages;
 			expect(messages).toHaveLength(1);
-			expect(messages[0].role).toBe('user');
-			const { content } = messages[0];
+			assert.exists(message);
+			expect(message.role).toBe('user');
+			const { content } = message;
 			return content.type === 'text' ? content.text : '';
 		}
 
@@ -1208,7 +1236,7 @@ describe('MCP server', () => {
 			]);
 			for (const { arguments: params } of prompts) {
 				expect(params).toHaveLength(1);
-				expect(params![0].required).toBeFalsy();
+				expect(params?.[0]?.required).toBeFalsy();
 			}
 		});
 
@@ -1290,7 +1318,9 @@ describe('MCP server', () => {
 
 		const next = await call(client, 'review');
 		expect(data(next)).toMatchObject({ nothing_due: false, remaining: 1 });
-		expect([card.sideA, card.sideB]).toContain(cardsOf(next)[0].prompt);
+		const [presented] = cardsOf(next);
+		assert.exists(presented);
+		expect([card.sideA, card.sideB]).toContain(presented.prompt);
 		await client.close();
 	});
 

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { oauthProviderAuthServerMetadata } from '@better-auth/oauth-provider';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MCP_SCOPE, mcpResource } from '../auth-config';
 import type { Jwks } from '../db/generated/prisma/client';
 import {
@@ -136,6 +136,12 @@ const cookiesOf = (headers: Headers) =>
 		.map((c) => c.split(';')[0])
 		.join('; ');
 
+/** `value`, ou un échec du test qui nomme ce qui manque (`what`). */
+function required<T>(value: T | null | undefined, what: string): T {
+	assert.exists(value, `${what} missing`);
+	return value;
+}
+
 /** Requête POST d'un formulaire de la page `page` (navigateur, éventuellement connecté). */
 const formPost = (page: URL, cookie?: string) =>
 	new Request(page, { method: 'POST', headers: cookie ? { cookie } : {} });
@@ -149,7 +155,7 @@ async function signIn(login: URL) {
 		returnHeaders: true
 	});
 	return {
-		next: new URL(oauthRedirect(result.response)!, TEST_ORIGIN),
+		next: new URL(required(oauthRedirect(result.response), 'oauth redirect'), TEST_ORIGIN),
 		cookie: cookiesOf(result.headers)
 	};
 }
@@ -157,10 +163,10 @@ async function signIn(login: URL) {
 /** Action de `/oauth/consent` : `oauth2Consent` avec la requête signée. */
 async function decide(consent: URL, cookie: string, accept: boolean) {
 	const result = await auth.api.oauth2Consent({
-		body: { accept, oauth_query: oauthQuery(consent)! },
+		body: { accept, oauth_query: required(oauthQuery(consent), 'oauth query') },
 		...oauthApiContext(formPost(consent, cookie))
 	});
-	return new URL(oauthRedirect(result)!);
+	return new URL(required(oauthRedirect(result), 'oauth redirect'));
 }
 
 /** Parcours navigateur : authorize → /login → /oauth/consent → redirection avec le code. */
@@ -171,7 +177,7 @@ async function authorizeInBrowser(
 ) {
 	const authorize = await get(authorizePath(clientId, challenge, { redirectUri }));
 	expect(authorize.status).toBe(302);
-	const login = new URL(authorize.headers.get('location')!, TEST_ORIGIN);
+	const login = new URL(required(authorize.headers.get('location'), 'location'), TEST_ORIGIN);
 	expect(login.pathname).toBe('/login');
 
 	const { next: consent, cookie } = await signIn(login);
@@ -180,7 +186,7 @@ async function authorizeInBrowser(
 	// Page de consentement : le client affiché est celui enregistré par DCR.
 	const query = new URLSearchParams(oauthQuery(consent));
 	const client = await auth.api.getOAuthClientPublic({
-		query: { client_id: query.get('client_id')! },
+		query: { client_id: required(query.get('client_id'), 'client_id') },
 		headers: new Headers({ cookie })
 	});
 	expect(client.client_name).toBe(clientName);
@@ -215,7 +221,11 @@ async function connectClaude() {
 	const { client_id } = await register();
 	const { verifier, challenge } = pkce();
 	const { callback } = await authorizeInBrowser(client_id, challenge);
-	const tokens = await exchangeCode(client_id, callback.searchParams.get('code')!, verifier);
+	const tokens = await exchangeCode(
+		client_id,
+		required(callback.searchParams.get('code'), 'code'),
+		verifier
+	);
 	return { clientId: client_id, tokens };
 }
 
@@ -325,9 +335,9 @@ describe('/mcp without a valid token', () => {
 		const { client_id } = await register();
 		const { verifier, challenge } = pkce();
 		const authorize = await get(authorizePath(client_id, challenge, { scope: 'openid' }));
-		const login = new URL(authorize.headers.get('location')!, TEST_ORIGIN);
+		const login = new URL(required(authorize.headers.get('location'), 'location'), TEST_ORIGIN);
 		const { next: consent, cookie } = await signIn(login);
-		const code = (await decide(consent, cookie, true)).searchParams.get('code')!;
+		const code = required((await decide(consent, cookie, true)).searchParams.get('code'), 'code');
 		const tokens = await exchangeCode(client_id, code, verifier);
 
 		const response = await mcpPost({ authorization: `Bearer ${tokens.access_token}` });
@@ -353,7 +363,7 @@ describe('Claude connector flow', () => {
 		expect(callback.searchParams.get('iss')).toBe(`${TEST_ORIGIN}/api/auth`);
 
 		// Sans le bon `code_verifier`, le code est refusé (PKCE).
-		const code = callback.searchParams.get('code')!;
+		const code = required(callback.searchParams.get('code'), 'code');
 		const stolen = await postForm('/api/auth/oauth2/token', {
 			grant_type: 'authorization_code',
 			code,
@@ -369,12 +379,12 @@ describe('Claude connector flow', () => {
 		const second = pkce();
 		const again = await get(authorizePath(client_id, second.challenge), { cookie });
 		expect(again.status).toBe(302);
-		const location = new URL(again.headers.get('location')!);
+		const location = new URL(required(again.headers.get('location'), 'location'));
 		expect(`${location.origin}${location.pathname}`).toBe(CLAUDE_CALLBACK);
 
 		const tokens = await exchangeCode(
 			client_id,
-			location.searchParams.get('code')!,
+			required(location.searchParams.get('code'), 'code'),
 			second.verifier
 		);
 		expect(tokens).toMatchObject({ token_type: 'Bearer' });
@@ -429,7 +439,7 @@ describe('Claude connector flow', () => {
 	it('lets the user deny access', async () => {
 		const { client_id } = await register();
 		const authorize = await get(authorizePath(client_id, pkce().challenge));
-		const login = new URL(authorize.headers.get('location')!, TEST_ORIGIN);
+		const login = new URL(required(authorize.headers.get('location'), 'location'), TEST_ORIGIN);
 		const { next: consent, cookie } = await signIn(login);
 
 		const callback = await decide(consent, cookie, false);

@@ -25,8 +25,8 @@ describe('presentations', () => {
 	it('presents the most overdue direction first', () => {
 		const result = presentations([slot('a', 'a_to_b', at(-1)), slot('b', 'b_to_a', at(-48))], now);
 
-		expect(result.get('b')!.at).toEqual(at(-48));
-		expect(result.get('a')!.at).toEqual(at(24));
+		expect(result.get('b')).toMatchObject({ at: at(-48) });
+		expect(result.get('a')).toMatchObject({ at: at(24) });
 	});
 
 	it('defers a buried direction to the end of its burial, while still due', () => {
@@ -59,7 +59,7 @@ describe('presentations', () => {
 	it('pushes the second direction 24 hours after the first, even in the future', () => {
 		const result = presentations([slot('a', 'a_to_b', at(48)), slot('b', 'b_to_a', at(50))], now);
 
-		expect(result.get('a')!.at).toEqual(at(48));
-		expect(result.get('b')!.at).toEqual(at(72));
+		expect(result.get('a')).toMatchObject({ at: at(48) });
+		expect(result.get('b')).toMatchObject({ at: at(72) });
 	});
 });

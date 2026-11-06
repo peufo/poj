@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
 	ConflictError,
 	createAccountsService,
@@ -105,7 +105,9 @@ describe('sandbox seed', () => {
 			expect(listed.some((c) => c.context !== null)).toBe(true);
 			expect(new Set(listed.map((c) => c.origin))).toEqual(new Set(['web', 'claude']));
 
-			const duplicates = await cards.findDuplicates(owner, listed[0].deck, {
+			const [first] = listed;
+			assert.exists(first);
+			const duplicates = await cards.findDuplicates(owner, first.deck, {
 				sideA: 'x',
 				sideB: 'a match'
 			});
@@ -192,10 +194,11 @@ describe('sandbox seed', () => {
 
 			const pending = await review('rattraper son retard', 'a_to_b');
 			expect(pending.hintRequestedAt).toEqual(at(-5));
+			assert.exists(pending.lastReview);
 			const answered = await reviews.answer(
 				owner,
 				pending.id,
-				{ rating: 'good', version: pending.lastReview!.toISOString(), origin: 'web' },
+				{ rating: 'good', version: pending.lastReview.toISOString(), origin: 'web' },
 				now
 			);
 			expect(answered.rating).toBe('hard');

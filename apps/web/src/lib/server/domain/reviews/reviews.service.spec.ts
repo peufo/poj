@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
 import {
 	createCard,
@@ -169,6 +169,7 @@ describe('reviews service', () => {
 			hintUsed: false,
 			reviewedAt: t0
 		});
+		assert.exists(log);
 		expect(pickState(log)).toEqual(pickState(before));
 	});
 
@@ -187,10 +188,11 @@ describe('reviews service', () => {
 
 		// La réponse suivante, sans nouvel indice, n'est plus plafonnée.
 		const stored = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+		assert.exists(stored.lastReview);
 		const free = await reviews.answer(
 			alice,
 			review.id,
-			{ rating: 'good', version: stored.lastReview!.toISOString(), origin: 'web' },
+			{ rating: 'good', version: stored.lastReview.toISOString(), origin: 'web' },
 			at(20)
 		);
 		expect(free.rating).toBe('good');
@@ -253,10 +255,11 @@ describe('reviews service', () => {
 			t0
 		);
 		const afterFirst = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+		assert.exists(afterFirst.lastReview);
 		await reviews.answer(
 			alice,
 			review.id,
-			{ rating: 'good', version: afterFirst.lastReview!.toISOString(), origin: 'web' },
+			{ rating: 'good', version: afterFirst.lastReview.toISOString(), origin: 'web' },
 			at(20)
 		);
 
@@ -275,7 +278,9 @@ describe('reviews service', () => {
 			['good', null],
 			['again', at(25)]
 		]);
-		expect(pickState(logs[1])).toEqual(pickState(afterFirst));
+		const [, amendedLog] = logs;
+		assert.exists(amendedLog);
+		expect(pickState(amendedLog)).toEqual(pickState(afterFirst));
 	});
 
 	it('leaves everything untouched when the amended rating is the one already recorded', async () => {
@@ -307,7 +312,8 @@ describe('reviews service', () => {
 	it('refuses to amend after an hour, without an answer, or after a reset', async () => {
 		const card = await createCard(db, alice, { now: t0 });
 		const review = presented(await reviews.next(alice, t0));
-		const other = card.reviews.find((r) => r.id !== review.id)!;
+		const other = card.reviews.find((r) => r.id !== review.id);
+		assert.exists(other);
 		await reviews.answer(
 			alice,
 			review.id,
@@ -384,7 +390,8 @@ describe('reviews service', () => {
 			reviewedAt: t0,
 			due: answered.due
 		});
-		expect(last!.preview).toEqual(review.preview);
+		assert.exists(last);
+		expect(last.preview).toEqual(review.preview);
 
 		const amended = await reviews.amend(alice, review.id, 'again', at(6));
 		expect(await reviews.lastAnswer(alice, at(7))).toMatchObject({
@@ -401,6 +408,7 @@ describe('reviews service', () => {
 	it('hides other users’ reviews', async () => {
 		const card = await createCard(db, bob, { context: 'x', now: t0 });
 		const [review] = card.reviews;
+		assert.exists(review);
 
 		await expect(reviews.requestHint(alice, review.id, t0)).rejects.toBeInstanceOf(NotFoundError);
 		await expect(
@@ -426,8 +434,10 @@ describe('reviews service', () => {
 			const b = await createCard(db, alice, { sideA: 'b', sideB: 'b', now: at(1) });
 			await createCard(db, alice, { sideA: 'c', sideB: 'c', now: at(2) });
 			expect(a.reviews).toHaveLength(2);
+			const [, held] = a.reviews;
+			assert.exists(held);
 
-			const lead = await reviews.lead(alice, at(3), { holding: a.reviews[1].id });
+			const lead = await reviews.lead(alice, at(3), { holding: held.id });
 			expect(cardIds(lead)).toEqual([b.id]);
 			// La carte tenue reste à présenter : elle compte dans remaining.
 			expect(lead).toMatchObject({ held: true, remaining: 3 });
@@ -437,15 +447,19 @@ describe('reviews service', () => {
 			const a = await createCard(db, alice, { sideA: 'a', sideB: 'a', now: t0 });
 			await createCard(db, alice, { sideA: 'b', sideB: 'b', now: at(1) });
 			const foreign = await createCard(db, bob, { now: t0 });
+			const [foreignReview] = foreign.reviews;
+			assert.exists(foreignReview);
 
-			for (const holding of [foreign.reviews[0].id, '01900000-0000-7000-8000-000000000000']) {
+			for (const holding of [foreignReview.id, '01900000-0000-7000-8000-000000000000']) {
 				expect(await reviews.lead(alice, at(2), { holding })).toMatchObject({
 					held: false,
 					reviews: [{ cardId: a.id }, {}]
 				});
 			}
 			await db.card.update({ where: { id: a.id }, data: { deletedAt: at(2) } });
-			const lead = await reviews.lead(alice, at(3), { holding: a.reviews[0].id });
+			const [deleted] = a.reviews;
+			assert.exists(deleted);
+			const lead = await reviews.lead(alice, at(3), { holding: deleted.id });
 			expect(lead).toMatchObject({ held: true, remaining: 1 });
 			expect(lead.reviews).toHaveLength(1);
 		});
@@ -455,6 +469,7 @@ describe('reviews service', () => {
 				id,
 				reviews: [held]
 			} = await createCard(db, alice, { now: t0 });
+			assert.exists(held);
 			await setDue(id, at(DAY));
 
 			expect(await reviews.lead(alice, t0)).toEqual({
@@ -592,6 +607,7 @@ describe('reviews service', () => {
 		it('leaves the cards already seen and the other decks alone', async () => {
 			// Vue hier, de nouveau due : la limite d'aujourd'hui ne la concerne pas.
 			const [seen] = await addCards(subject, 1, at(-DAY));
+			assert.exists(seen);
 			await answerNext(at(-DAY));
 			await setDue(seen, t0);
 			await addCards(subject, 15);
@@ -656,6 +672,7 @@ describe('reviews service', () => {
 		it('presents an edited card again, whatever the limit', async () => {
 			await setNewCardsPerDay(db, alice, subject, 1, t0);
 			const [edited] = await addCards(subject, 2);
+			assert.exists(edited);
 			await answerNext(at(1));
 			await cards.update(alice, edited, { sideA: 'q0 bis', sideB: 'r0' }, at(2));
 

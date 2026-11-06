@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { TranslatorError } from '#lib/server/domain/index.js';
 import { createDeeplTranslator, deeplBaseUrl, deeplSource, deeplTarget } from './deepl';
 
@@ -41,7 +41,9 @@ describe('DeepL translator', () => {
 		});
 
 		expect(texts).toEqual(['to take for granted']);
-		const [{ url, init }] = fetch.calls;
+		const [call] = fetch.calls;
+		assert.exists(call);
+		const { url, init } = call;
 		expect(url).toBe('https://api-free.deepl.com/v2/translate');
 		expect(init.headers).toMatchObject({ Authorization: 'DeepL-Auth-Key key:fx' });
 		expect(JSON.parse(init.body as string)).toEqual({
@@ -60,7 +62,9 @@ describe('DeepL translator', () => {
 			to: 'fr'
 		});
 
-		expect(JSON.parse(fetch.calls[0].init.body as string)).toEqual({
+		const [call] = fetch.calls;
+		assert.exists(call);
+		expect(JSON.parse(call.init.body as string)).toEqual({
 			text: ['hello'],
 			source_lang: 'EN',
 			target_lang: 'FR'
@@ -186,8 +190,9 @@ describe('DeepL translator', () => {
 				await new Promise((resolve) => setTimeout(resolve, 1));
 				inFlight -= 1;
 				// Chaque texte reçoit un 429 à sa première requête.
-				if (!seen.has(text[0])) {
-					seen.add(text[0]);
+				const [first = ''] = text;
+				if (!seen.has(first)) {
+					seen.add(first);
 					return tooMany('0');
 				}
 				return json({ translations: text.map((t) => ({ text: t.toUpperCase() })) });

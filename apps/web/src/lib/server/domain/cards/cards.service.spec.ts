@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
 import { createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
 import { createDecksService } from '../decks/decks.service';
@@ -205,7 +205,10 @@ describe('cards service', () => {
 				['chat', null],
 				['chien', null]
 			]);
-			expect(created[1].createdAt.getTime()).toBeGreaterThan(created[0].createdAt.getTime());
+			const [first, second] = created;
+			assert.exists(first);
+			assert.exists(second);
+			expect(second.createdAt.getTime()).toBeGreaterThan(first.createdAt.getTime());
 			expect(created.every((c) => c.reviews.length === 2 && c.deckId === aliceDeck)).toBe(true);
 		});
 
@@ -492,7 +495,7 @@ describe('cards service', () => {
 			{ date: new Date('2026-01-05T23:00:00Z'), count: 2 },
 			{ date: new Date('2026-01-06T23:00:00Z'), count: 0 }
 		]);
-		expect(days[0].count).toBe((await cards.stats(alice, now)).dueToday);
+		expect(days[0]).toMatchObject({ count: (await cards.stats(alice, now)).dueToday });
 	});
 
 	it('hides other users’ cards', async () => {
@@ -535,7 +538,9 @@ describe('cards service', () => {
 				bothDirections: false
 			});
 
-			expect((await cards.list(alice))[0].reviews.map((r) => r.direction)).toEqual(['a_to_b']);
+			const [listed] = await cards.list(alice);
+			assert.exists(listed);
+			expect(listed.reviews.map((r) => r.direction)).toEqual(['a_to_b']);
 			expect((await cards.get(alice, id)).reviews.map((r) => r.direction)).toEqual(['a_to_b']);
 			expect((await cards.horizon(alice, now, 2)).map((d) => d.count)).toEqual([1, 0]);
 			expect(await db.review.count({ where: { cardId: id } })).toBe(2);

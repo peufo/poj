@@ -89,6 +89,12 @@ Il n'y a aucune form action : tous les formulaires, auth et OAuth compris, sont 
 - **Schémas prêts pour les remote functions** (`form(schema, fn)`) : ils lisent l'objet que SvelteKit tire du formulaire. Un champ absent n'y figure pas, un nombre arrive en `number` (champ `n:`), et un booléen doit être optionnel (`z.boolean().default(false)`), car une case non cochée n'est pas envoyée.
 - **Messages en français :** chaque règle visible par l'utilisateur porte son message explicite. `hooks.server.ts` règle `z.config(z.locales.fr())` pour les autres (types invalides, API, MCP).
 
+### Typage
+
+- **Réglages :** `strict` et `noUncheckedIndexedAccess` dans `apps/web/tsconfig.json` (un accès indexé `t[i]`, `record[clé]` est typé `T | undefined`), et `@typescript-eslint/no-non-null-assertion` en erreur. Les specs suivent les mêmes règles.
+- **Garder un accès plutôt que l'affirmer :** déstructuration suivie d'une garde (`const [first] = items; if (!first) …`), `Map.get` testé, `?.` avec un repli explicite dans l'affichage. Un tableau aligné par construction sur un autre (un jour par date, un résultat par requête) se lit par `at(items, i)` (`domain/arrays.ts`), qui lève une `RangeError` explicite. Dans une spec : `assert.exists(x)` de Vitest, `toMatchObject`.
+- **Interdits :** `!` et les casts (`as T`) qui ne servent qu'à faire taire le compilateur ; si l'absence est impossible, une erreur explicite le dit.
+
 ### Requêtes et authentification
 
 - **`hooks.server.ts` :**

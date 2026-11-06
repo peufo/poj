@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createTranslationService, diverges } from './translation.service';
 import { TranslatorError, type TranslateRequest, type Translator } from './translator';
 
@@ -73,7 +73,11 @@ describe('translation service', () => {
 			dog: 'chien',
 			house: 'maison'
 		};
-		const translator = fakeTranslator((text) => dictionary[text]);
+		const translator = fakeTranslator((text) => {
+			const translation = dictionary[text];
+			assert.exists(translation, `no translation for ${text}`);
+			return translation;
+		});
 		const service = createTranslationService(translator);
 
 		const checks = await service.checkAll(pair, [

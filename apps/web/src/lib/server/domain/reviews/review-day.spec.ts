@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../testing/db';
 import { createDeck, createUser, setNewCardsPerDay, SUBJECT_DECK } from '../../testing/factories';
 import { createCardsService } from '../cards/cards.service';
@@ -49,9 +49,12 @@ async function addCards(at: Date, n = 1, deckId = subject): Promise<string[]> {
 	return ids;
 }
 
-/** Répond à un sens d'une carte à l'instant `at`. `easy` l'éloigne de plusieurs jours. */
+/**
+ * Répond à un sens d'une carte à l'instant `at`. `easy` l'éloigne de plusieurs jours. La carte
+ * vient souvent d'une déstructuration de `addCards` : son absence fait échouer le test.
+ */
 async function answer(
-	cardId: string,
+	cardId: string | undefined,
 	at: Date,
 	{
 		rating = 'easy',
@@ -59,6 +62,7 @@ async function answer(
 		direction = 'a_to_b'
 	}: { rating?: Rating; origin?: Origin; direction?: Direction } = {}
 ) {
+	assert.exists(cardId, 'no card to answer');
 	const review = await db.review.findUniqueOrThrow({
 		where: { cardId_direction: { cardId, direction } }
 	});
@@ -196,6 +200,8 @@ describe('review days', () => {
 
 	it('drops a card deleted before the end of the day, but keeps its answers', async () => {
 		const [kept, dropped, answered] = await addCards(on(2), 3);
+		assert.exists(dropped);
+		assert.exists(answered);
 		await answer(answered, on(1, 8));
 		await answer(kept, on(1, 9));
 		await db.card.updateMany({
@@ -267,6 +273,7 @@ describe('review days', () => {
 			on(2)
 		);
 		const [review] = card.reviews;
+		assert.exists(review);
 		await reviews.answer(
 			bob,
 			review.id,
