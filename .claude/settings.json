@@ -16,11 +16,7 @@
   "worktree": {
     "baseRef": "head"
   },
-  "agent": "ork:lead",
-  "statusLine": {
-    "type": "command",
-    "command": "sh /Users/jonasvoisard/.claude/skills/ork/scripts/statusline.sh"
-  },
+  "outputStyle": "ork:ork",
   "permissions": {
     "deny": ["Agent(fork)"]
   }
