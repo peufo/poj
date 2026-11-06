@@ -32,7 +32,7 @@ Remarque d'origine (2026-10-31) : « si les premières révisions des cartes son
 
 ## Questions ouvertes
 
-- Atomicité d'un lot rejoué après une erreur partielle : tranchée au plan de t31.
+- (close) Atomicité d'un lot rejoué : tranchée par t31 — tout ou rien en une transaction, rejeu sans effet.
 
 ## Décisions remises en cause
 
