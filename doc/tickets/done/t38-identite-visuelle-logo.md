@@ -86,3 +86,5 @@ Captures (16) : `doc/tickets/captures/t38-identite-visuelle/revue/{login,cards,r
 - 2026-11-06 — DONE (opus, high). Relecture requise : in-review, 3 points. Captures versées dans `captures/t38-identite-visuelle/revue/`.
 - 2026-11-06 — déploiement dev → main reporté par le développeur après l'intégration de t38.
 - 2026-11-06 — relecture : palette ok, point du logo gardé tel quel, Horizon laissé (va changer). Intégré dans dev par avance rapide (2 commits, jusqu'à ab65443, sans conflit).
+- 2026-11-06 — worktree et branche supprimés, worktree:prune lancé.
+- 2026-11-06 — le développeur annonce le déploiement, mais origin/main est encore à 14a5541 (dev à ad8ef2c) : push non constaté.

@@ -95,3 +95,5 @@ DONE le 2026-11-06. 9 fichiers · +630 −370 · 1 commit (7577902). Worktree `.
 - 2026-11-06 — plan validé par le développeur sans correction. Même ouvrier en EXECUTION MODE (opus, high), AUTO REVIEW /simplify.
 - 2026-11-06 — DONE (opus, high). Passé par un plan : in-review, 2 points à relire.
 - 2026-11-06 — point 2 validé (découpage `lead`/`next` gardé) ; « ok intègre ». Intégré dans dev par avance rapide (7577902, sans conflit).
+- 2026-11-06 — worktree et branche supprimés, worktree:prune lancé.
+- 2026-11-06 — le développeur annonce le déploiement, mais origin/main est encore à 14a5541 (dev à ad8ef2c) : push non constaté.

@@ -37,4 +37,4 @@ Rapport DONE du 2026-10-30 : `CARD_LIMITS` (300/300/1000) déplacé dans `domain
 ## Log
 - 2026-10-30 — créé depuis la relecture de t12 (remaining de la revue auto). Part après l'intégration de t12. Ni plan ni relecture (MCP).
 - 2026-10-30 — t12 et t18 intégrés ; lancé en EXECUTION MODE (sonnet, medium), AUTO REVIEW /simplify, en parallèle de t20.
-- 2026-10-30 — DONE puis intégré sans relecture (revue auto propre, rien de signalé), avance rapide 1 commit. [deferred] intégré sans relecture.
+- 2026-10-30 — DONE puis intégré sans relecture (revue auto propre, rien de signalé), avance rapide 1 commit. [delivered] intégré sans relecture.

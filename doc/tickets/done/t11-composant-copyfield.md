@@ -36,4 +36,4 @@ Rapport DONE du 2026-10-31 : `CopyField` (label + champ readonly + bouton Copier
 ## Log
 - 2026-10-29 — créé depuis la relecture de t7 (point 1). Part après l'intégration de t7.
 - 2026-10-31 — lancé en EXECUTION MODE (sonnet, medium), AUTO REVIEW /simplify, en parallèle de t21.
-- 2026-10-31 — DONE puis intégré sans relecture (point signalé cosmétique), avance rapide. [deferred] intégré sans relecture.
+- 2026-10-31 — DONE puis intégré sans relecture (point signalé cosmétique), avance rapide. [delivered] intégré sans relecture.

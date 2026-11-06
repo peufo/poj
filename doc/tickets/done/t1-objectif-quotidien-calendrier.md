@@ -1,20 +1,21 @@
 ---
-id: T-0001
-titre: Objectif quotidien d'ajout de cartes, série et calendrier sur le web
-statut: en-cours
-priorite: normale
+id: t1
+title: Objectif quotidien d'ajout de cartes, série et calendrier sur le web
+status: done
+priority: normal
 story: doc/story/ajout-quotidien.md
-plan_requis: true
-modele: opus
+plan_required: true
+review:
+model: opus
 effort: high
 zones: [apps/web/prisma, apps/web/src/lib/server/domain/cards, apps/web/src/lib/server/auth-config.ts, apps/web/src/routes/(app), apps/web/src/lib/components]
-branche: ticket/T-0001-objectif-quotidien
+branch: ticket/T-0001-objectif-quotidien
 agent: af811b014503f65e9
-cree: 2026-10-29
-maj: 2026-10-29
+created: 2026-10-29
+updated: 2026-10-29
 ---
 
-## Contexte
+## Context
 Le but est de gamifier l'ajout de cartes avec un objectif quotidien et un calendrier d'accomplissement sur le web. C'est une gratification purement visuelle : Claude n'annonce rien. Voir la story `doc/story/ajout-quotidien.md`.
 
 L'enquête préalable a établi les points suivants :
@@ -30,7 +31,7 @@ L'enquête préalable a établi les points suivants :
 - **Série :** elle compte les jours réussis consécutifs. Un jour manqué est toléré et la série continue. Deux jours manqués d'affilée l'arrêtent.
 - **Aujourd'hui :** tant que la journée n'est pas finie, elle ne compte pas comme manquée.
 
-## Critères de fin
+## Done criteria
 - [ ] L'objectif quotidien est stocké par utilisateur (2 par défaut), via une migration qui suit les conventions du schéma.
 - [ ] L'objectif est modifiable depuis le web.
 - [ ] Un service du domaine calcule, sur une période donnée, le compte par jour, l'atteinte de l'objectif et la série en cours. Il est couvert par des tests Vitest : jour toléré, deux jours manqués, cartes supprimées, limite de jour en Europe/Zurich, aujourd'hui en cours.
@@ -85,8 +86,29 @@ L'enquête préalable a établi les points suivants :
 
 ## Questions
 
-## Journal
+## Review
+- **Revue auto :** aucune n'a été lancée, car le ticket a été exécuté avant la mise à jour du plugin.
+- **À relire en premier** (worktree `.claude/worktrees/T-0001`) :
+  - `apps/web/src/lib/server/domain/cards/daily-goal.service.ts` : la règle de série dans `summarizeDailyGoal`. On part d'hier, et aujourd'hui ne compte que s'il est réussi.
+  - `apps/web/src/lib/components/GoalCalendar.svelte` : le rendu, et le `<details>` qui reste ouvert quand la saisie est refusée.
+  - `apps/web/DESIGN.md:212` et `:394` : la formulation de l'amendement.
+
+## Log
 - 2026-10-29 — créé depuis la story ajout-quotidien
 - 2026-10-29 — ouvrier lancé en MODE PLAN (opus, high)
 - 2026-10-29 — plan prêt, en attente de validation (contradiction DESIGN.md à trancher)
 - 2026-10-29 — plan validé (toutes les recommandations, amendement DESIGN.md accepté : série sobre, ni trophées ni confettis) ; MODE EXÉCUTION
+- 2026-10-29 — **TERMINÉ.** Rebasé sur dev (792fe0b), sans conflit. Vérifications : check, lint, test (130/130) et api:check au vert.
+  - Ce qui a été fait :
+    - table `daily_goals`, migration `20261029101005_daily_goals` ;
+    - `createDailyGoalService` et `summarizeDailyGoal` (fonction pure) ;
+    - `GoalCalendar.svelte` en tête de `/cards` ;
+    - `<details>` avec l'action `?/goal`, où l'objectif doit être compris entre 1 et 20 ;
+    - DESIGN.md amendé (l. 212 et 394).
+  - Migration écrite avec `migrate diff`, car `migrate dev` ne joignait pas la base depuis le bac à sable.
+  - Le worktree d'origine avait disparu : il a été recréé sur la branche.
+  - À relire en priorité : `summarizeDailyGoal`, `GoalCalendar.svelte` et l'amendement de DESIGN.md.
+  - Pour le développeur : `bun run db:migrate` après l'intégration.
+- 2026-10-29 — relecture guidée terminée (4 points ok), intégration demandée ; ouvrier relancé en INTEGRATION MODE (dev avancé à 263d12b)
+- 2026-10-29 — rebasé sur dev 263d12b (fb60dc1, d01976b, ffdc10f), sans conflit, 130/130 ; pose en attente : doc/kanban.base modifié dans le checkout principal
+- 2026-10-29 — **intégré dans dev** par avance rapide (b664edd, 637eac2, 9f801a4 : 3 commits, sans conflit, 130/130). Worktree laissé au développeur, car la session courante y tourne.

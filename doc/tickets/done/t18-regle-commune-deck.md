@@ -41,4 +41,4 @@ Rapport DONE du 2026-10-30 : `resolveDeck(decks, { id } | { name })` dans le dom
 ## Log
 - 2026-10-30 — créé depuis la relecture de t5 (suggestions de /simplify)
 - 2026-10-30 — lancé en EXECUTION MODE (opus, effort par défaut), AUTO REVIEW /simplify, en parallèle du plan de t17.
-- 2026-10-30 — DONE puis intégré sans relecture (ticket MCP, points restants évidents), avance rapide 1 commit. [deferred] intégré sans relecture.
+- 2026-10-30 — DONE puis intégré sans relecture (ticket MCP, points restants évidents), avance rapide 1 commit. [delivered] intégré sans relecture.

@@ -96,3 +96,5 @@ Correction du 2026-11-06 (commit 4c7e52f, 334 tests verts). Limite de 4 requête
 - 2026-11-06 — DONE de la correction (limite DeepL dans le client). in-review : 1 point à trancher (nouvelle tentative sur 429).
 - 2026-11-06 — rebasé sur dev 9cb267a (de3921a + fd6bd0a), sans conflit, 334 tests verts. Prêt à poser, attend la réponse sur le 429.
 - 2026-11-06 — le développeur choisit d'intégrer tel quel ; la nouvelle tentative sur 429 part dans t37. Intégré dans dev par avance rapide (de3921a, fd6bd0a ; sans conflit).
+- 2026-11-06 — t31 intégré, worktree supprimé, worktree:prune lancé.
+- 2026-11-06 — le développeur annonce le déploiement, mais origin/main est encore à 14a5541 (dev à ad8ef2c) : push non constaté.

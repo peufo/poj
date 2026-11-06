@@ -1,20 +1,21 @@
 ---
-id: T-0003
-titre: Ouvrir le modèle à plusieurs decks (champs et sens génériques, paire non écrite en dur)
-statut: pret
-priorite: normale
+id: t3
+title: Ouvrir le modèle à plusieurs decks (champs et sens génériques, paire non écrite en dur)
+status: done
+priority: normal
 story: doc/story/decks.md
-plan_requis: true
-modele: opus
+plan_required: true
+review:
+model: opus
 effort: high
 zones: [apps/web/prisma, apps/web/src/lib/server/domain/cards, apps/web/src/lib/server/domain/reviews, apps/web/src/lib/server/domain/translation, apps/web/src/lib/server/mcp, apps/web/src/routes, apps/web/src/lib/components, apps/web/src/lib/format, apps/web/src/lib/server/testing]
-branche: ticket/T-0003-decks-generiques
+branch: ticket/T-0003-decks-generiques
 agent: a65de7b8fb5660b83
-cree: 2026-10-29
-maj: 2026-10-29
+created: 2026-10-29
+updated: 2026-10-29
 ---
 
-## Contexte
+## Context
 Aujourd'hui, tout est construit pour le seul français → anglais. Le développeur veut pouvoir ajouter plus tard d'autres decks : une autre langue, ou un sujet qui n'est pas une langue (jamais un simple thème). Il ne veut plus de choses écrites en dur. On ouvre donc le **modèle** maintenant. Le **comportement** ne change pas, et il n'y a pas d'interface multi-decks.
 
 L'enquête préalable a établi les points suivants :
@@ -27,7 +28,7 @@ L'enquête préalable a établi les points suivants :
 - `ReviewLog.stateBefore` est un état FSRS sans langue ni sens, il n'y a rien à migrer ;
 - il n'existe qu'une seule migration.
 
-## Critères de fin
+## Done criteria
 - [ ] Une entité Deck existe, avec un type (seul le type langue est géré pour l'instant) et une paire de langues. Chaque carte appartient à un deck.
 - [ ] Une migration crée le deck par défaut « Français → Anglais » de chaque utilisateur et y rattache les cartes existantes, sans perte de données ni d'historique de révision.
 - [ ] Les champs de carte et les sens de révision sont génériques, sans référence au français ni à l'anglais dans le schéma.
@@ -44,7 +45,7 @@ L'enquête préalable a établi les points suivants :
    - `Deck` : name, kind, languageA et languageB (BCP 47, nullables), labelA et labelB (nullables), bothDirections (vrai par défaut), deletedAt.
    - `Card` : deckId obligatoire, `sideA`/`sideB`.
    - `Direction` : `a_to_b`/`b_to_a`.
-2. **Migration :** une nouvelle migration, générée après le rebase sur T-0001.
+2. **Migration :** une nouvelle migration, générée après le rebase sur t1.
    - Elle commence par `TRUNCATE cards, reviews, review_logs`. Les utilisateurs sont gardés.
    - Elle ne crée aucun deck.
    - Un CHECK impose que `kind = language` si et seulement si les deux langues sont renseignées.
@@ -71,12 +72,12 @@ L'enquête préalable a établi les points suivants :
 - Changer l'option des deux sens :
   - de vrai à faux, les révisions b_to_a sont conservées mais filtrées ;
   - de faux à vrai, les b_to_a existantes reprennent leur état et les manquantes sont créées neuves.
-  - Ce sera codé dans T-0004, puisque T-0003 n'offre aucun moyen de basculer l'option.
+  - Ce sera codé dans t4, puisque t3 n'offre aucun moyen de basculer l'option.
 - « Parle français » reste en dur : c'est la langue de l'interface.
 
 **Risques :**
 - Le TRUNCATE efface aussi les cartes de prod au déploiement, ce qui est voulu.
-- La migration doit être générée après l'intégration de T-0001.
+- La migration doit être générée après l'intégration de t1.
 - Le diff touche environ 45 fichiers.
 - Les decks de sujet ne sont testés qu'au niveau domaine et MCP.
 
@@ -87,18 +88,35 @@ L'enquête préalable a établi les points suivants :
   - On ne réécrit pas les migrations existantes, déjà appliquées en prod : on en ajoute une nouvelle.
   - La vérification sur la sandbox se réduit à `sandbox:reset` sur le nouveau schéma.
 - 2026-10-29 — Ajout : mettre à jour `doc/specs/mcp.md` (french/english, deepl_french_to_english).
-- 2026-10-29 — L'interface multi-decks est sortie de ce ticket : elle fera l'objet de T-0004.
+- 2026-10-29 — L'interface multi-decks est sortie de ce ticket : elle fera l'objet de t4.
 - 2026-10-29 — **Élargissement : les sujets qui ne sont pas des langues entrent dans le modèle.**
   - Le type « sujet » s'ajoute à `language`, et languageA/languageB deviennent nullables.
   - DeepL ne s'applique qu'aux decks de langue. Pour un sujet, la relecture par Claude reste obligatoire.
   - Chaque deck nomme ses deux faces, « Question » / « Réponse » par défaut. Pour une langue, ce sont les noms des langues.
   - Une option « réviser dans les deux sens » existe, vraie par défaut pour une langue.
-  - Les outils MCP de choix du deck relèvent de T-0005.
+  - Les outils MCP de choix du deck relèvent de t5.
 
-## Journal
+## Review
+- **Revue auto `/simplify` :** faite, `remaining: none`.
+  - *Corrigé :* face() simplifiée, `capitalize` et `baseLanguage` réutilisés, `duplicateWarning` factorisé, deck résolu passé explicitement, lecture sans verrou dans `ensureDefault`, `Face.same` réutilisé dans le MCP, lab tiré du deck.
+  - *Écarté :* `duplicateSide` côté client, centralisation des capacités du deck, map des decks dans /cards, mémoïsation de `faces()`, chargement allégé de translate, `duplicateKey` côté client. Coût négligeable, ou relève de t4.
+- **À relire en premier** (worktree `.claude/worktrees/T-0003`) :
+  - `apps/web/prisma/migrations/20261029110243_decks/migration.sql:5` : le TRUNCATE, qui vide aussi la prod au déploiement ;
+  - `apps/web/prisma/migrations/20261029110243_decks/migration.sql:58` : le CHECK `decks_language_pair` ;
+  - `apps/web/src/lib/server/mcp/server.ts:37` et `:67` : consignes et schémas rendus selon le type et les faces du deck ;
+  - `apps/web/src/lib/server/domain/decks/decks.service.ts:55` et `:78` : `resolveDeck` sous verrou, et `ensureDefault` qui se contente d'une lecture quand le deck existe.
+
+## Log
 - 2026-10-29 — créé depuis la story decks. Le développeur ouvre le modèle maintenant, contre la recommandation d'attendre.
 - 2026-10-29 — ouvrier lancé en MODE PLAN (opus, high)
 - 2026-10-29 — plan prêt, en attente de validation
 - 2026-10-29 — plan renvoyé en révision (aucune donnée à préserver, decks de sujet, libellés des faces, option des deux sens)
 - 2026-10-29 — plan révisé prêt, en attente de validation
-- 2026-10-29 — plan révisé validé ; attend l'intégration de T-0001 pour passer en MODE EXÉCUTION (même ouvrier)
+- 2026-10-29 — plan révisé validé ; attend l'intégration de t1 pour passer en MODE EXÉCUTION (même ouvrier)
+- 2026-10-29 — t1 intégré. Même ouvrier relancé en EXECUTION MODE (opus, high), avec AUTO REVIEW: /simplify
+- 2026-10-29 — **DONE**, branche `ticket/T-0003-decks-generiques`, rebasée sur dev 9f801a4 sans conflit.
+  - *Vérifications :* check, lint et test au vert (149 tests), api:check à jour, `migrate diff` sans dérive. `sandbox:reset` donne 1 deck fr/en-GB et 26 cartes, et l'essai manuel sur la sandbox est OK.
+  - *Ce qui change :* les clés MCP passent à `side_a`/`side_b`/`deepl_*`, des exemples de saisie s'ajoutent par langue (`EXAMPLES`), et la spec de t1 est adaptée.
+  - *Worktree :* recréé sur la branche.
+  - *Pour le développeur :* `bun run db:migrate` (vide la base de dev). Le TRUNCATE s'appliquera aussi en prod au prochain déploiement.
+- 2026-10-29 — relecture guidée (3 points ok). **Intégré dans dev** par avance rapide (f2c0ef5, 604730e, 1a21beb : 3 commits, sans conflit). Worktree et branche supprimés.
