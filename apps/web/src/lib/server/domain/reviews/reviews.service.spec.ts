@@ -75,7 +75,7 @@ describe('reviews service', () => {
 			direction: 'b_to_a',
 			prompt: 'old',
 			expected: 'ancien',
-			hasHint: true,
+			hint: 'ctx',
 			version: 'new'
 		});
 		// Un sens par carte : répondre à l'un mettra l'autre de côté.
@@ -210,6 +210,32 @@ describe('reviews service', () => {
 			t0
 		);
 		expect(result.rating).toBe('good');
+	});
+
+	it('offers no hint and does not cap the rating when the context is only a source', async () => {
+		await createCard(db, alice, { context: 'Source : fr.wikipedia.org, 2026-11-01', now: t0 });
+		const review = presented(await reviews.next(alice, t0));
+
+		expect(review.hint).toBeNull();
+		expect(review.context).toBe('Source : fr.wikipedia.org, 2026-11-01');
+		expect(await reviews.requestHint(alice, review.id, t0)).toEqual({ context: null });
+		const result = await reviews.answer(
+			alice,
+			review.id,
+			{ rating: 'easy', version: review.version, origin: 'web' },
+			t0
+		);
+		expect(result.rating).toBe('easy');
+	});
+
+	it('strips the source line from the hint of a mixed context', async () => {
+		await createCard(db, alice, {
+			context: 'Vu en cours\nSource : fr.wikipedia.org, 2026-11-01',
+			now: t0
+		});
+		const review = presented(await reviews.next(alice, t0));
+
+		expect(review.hint).toBe('Vu en cours');
 	});
 
 	it('ignores a replayed answer with a stale version', async () => {

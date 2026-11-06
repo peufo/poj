@@ -45,6 +45,7 @@ export const load: PageServerLoad = async (event) => {
 			prompt: current.prompt,
 			expected: current.expected,
 			context: current.context,
+			hint: current.hint,
 			hintUsed: current.hintUsed,
 			isNew: current.isNew,
 			preview: current.preview,

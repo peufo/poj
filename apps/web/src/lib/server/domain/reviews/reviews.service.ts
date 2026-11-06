@@ -165,7 +165,7 @@ export function createReviewsService(db: Db) {
 			direction: review.direction,
 			prompt: promptOf(review.direction, card),
 			expected: promptOf(opposite[review.direction], card),
-			hasHint: hintOf(card.context) !== null,
+			hint: hintOf(card.context),
 			context: card.context,
 			hintUsed: hintUsedOn(review),
 			isNew: review.state === 'new',

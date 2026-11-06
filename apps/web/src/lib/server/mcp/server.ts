@@ -433,7 +433,7 @@ export function createPojMcpServer({
 				? `À demander en ${to.name} : ${quote(review.prompt)}.`
 				: `À demander (${from.label} → ${to.label}) : ${quote(review.prompt)}.`,
 			`Réponse attendue, à ne pas lire avant sa réponse : ${quote(review.expected)}.`,
-			review.hasHint ? 'Indice disponible.' : 'Pas d’indice.',
+			review.hint !== null ? 'Indice disponible.' : 'Pas d’indice.',
 			`review_id : ${review.id} ; version : ${review.version}`
 		];
 	}
@@ -445,7 +445,7 @@ export function createPojMcpServer({
 		direction: review.direction,
 		prompt: review.prompt,
 		expected: review.expected,
-		has_hint: review.hasHint,
+		has_hint: review.hint !== null,
 		version: review.version
 	});
 

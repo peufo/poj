@@ -33,6 +33,8 @@
 	let revealedFor: string | null = $state(data.revealed ? key : null);
 	const revealed = $derived(key !== null && revealedFor === key);
 	const hintShown = $derived(current?.hintUsed ?? false);
+	// Avant la réponse, l'indice sans mention de source ; une fois révélée, le contexte entier.
+	const shownContext = $derived(revealed ? current?.context : hintShown ? current?.hint : null);
 
 	let answered = $state(0);
 	let amending = $state(false);
@@ -101,7 +103,7 @@
 		if (!revealed && (event.key === ' ' || event.key === 'Enter')) {
 			event.preventDefault();
 			revealedFor = key;
-		} else if (!revealed && event.key.toLowerCase() === 'h' && current.context && !hintShown) {
+		} else if (!revealed && event.key.toLowerCase() === 'h' && current.hint && !hintShown) {
 			hintElement?.requestSubmit();
 		} else if (revealed) {
 			const rating = keyRatings.get(event.key);
@@ -158,13 +160,13 @@
 							{current.prompt}
 						</p>
 
-						{#if (hintShown || revealed) && current.context}
+						{#if shownContext}
 							<p
 								in:fade={{ duration: 160 }}
 								class="flex max-w-[60ch] gap-2 text-[0.9375rem] text-ink-2"
 							>
 								<Icon name="hint" size={17} class="mt-0.5 shrink-0 text-ink-3" />
-								{current.context}
+								{shownContext}
 							</p>
 						{/if}
 
@@ -184,7 +186,7 @@
 						{/if}
 					</div>
 
-					{#if !revealed && current.context && !hintShown}
+					{#if !revealed && current.hint && !hintShown}
 						<form {...hintEnhanced} bind:this={hintElement} class="self-start">
 							<input {...hint.fields.reviewId.as('hidden', current.id)} />
 							<FormIssues issues={hint.fields.allIssues()} />
