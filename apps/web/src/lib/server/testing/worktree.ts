@@ -95,8 +95,11 @@ const linkedWorktrees = new Map<string, Worktree | null>();
  * dans le checkout principal ou hors de git (image Docker). Mémorisé par processus.
  */
 export function linkedWorktree(cwd = process.cwd()): Worktree | null {
-	if (!linkedWorktrees.has(cwd)) linkedWorktrees.set(cwd, findLinkedWorktree(cwd));
-	return linkedWorktrees.get(cwd)!;
+	const known = linkedWorktrees.get(cwd);
+	if (known !== undefined) return known;
+	const found = findLinkedWorktree(cwd);
+	linkedWorktrees.set(cwd, found);
+	return found;
 }
 
 function findLinkedWorktree(cwd: string): Worktree | null {
@@ -105,6 +108,7 @@ function findLinkedWorktree(cwd: string): Worktree | null {
 			['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-dir', '--git-common-dir'],
 			cwd
 		).split('\n');
+		if (!root || !gitDir || !commonDir) return null;
 		return gitDir === commonDir ? null : { root, mainRoot: dirname(commonDir) };
 	} catch {
 		return null;

@@ -52,7 +52,10 @@ export const newDeckSchema = z
 			ctx.addIssue({ code: 'custom', path: [path], message, input: deck[path] });
 		if (deck.kind === 'subject') {
 			const named = name.safeParse(deck.name);
-			if (!named.success) issue('name', named.error.issues[0].message);
+			if (!named.success) {
+				const [first] = named.error.issues;
+				issue('name', first?.message ?? 'Nom invalide.');
+			}
 			for (const path of ['labelA', 'labelB'] as const) {
 				if (deck[path].trim().length > DECK_LIMITS.label) issue(path, tooLong(DECK_LIMITS.label));
 			}

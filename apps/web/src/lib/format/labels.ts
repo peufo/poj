@@ -73,8 +73,8 @@ export const formatWeekday = (date: Date) => weekdayFormat.format(date);
 
 /** Numéro du jour civil (Europe/Zurich) d'un instant, pour comparer des jours. */
 export function dayNumber(date: Date): number {
-	const [year, month, day] = dayKeyFormat.format(date).split('-').map(Number);
-	return Date.UTC(year, month - 1, day) / 86_400_000;
+	// « 2026-10-26 » (en-CA) : une date ISO seule, lue comme minuit UTC.
+	return Date.parse(dayKeyFormat.format(date)) / 86_400_000;
 }
 
 /** Vrai si les deux instants tombent le même jour civil (Europe/Zurich). */

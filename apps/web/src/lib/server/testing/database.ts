@@ -133,9 +133,9 @@ export async function migrationsUpToDate(url: string): Promise<boolean> {
 
 	const db = createPrismaClient(url);
 	try {
-		const [{ exists }] = await db.$queryRaw<{ exists: boolean }[]>`
+		const [table] = await db.$queryRaw<{ exists: boolean }[]>`
 			SELECT to_regclass('_prisma_migrations') IS NOT NULL AS exists`;
-		if (!exists) return false;
+		if (!table?.exists) return false;
 		const applied = await db.$queryRaw<{ migration_name: string; checksum: string }[]>`
 			SELECT migration_name, checksum FROM _prisma_migrations
 			WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`;

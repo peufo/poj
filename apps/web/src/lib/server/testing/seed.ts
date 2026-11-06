@@ -387,8 +387,9 @@ let passwordHash: Promise<string> | undefined;
  * autre que `poj_sandbox` ou `poj_test` (ou leurs variantes de worktree).
  */
 export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } = {}) {
-	const [{ name }] = await db.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;
-	assertDisposableName(name);
+	const [database] = await db.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;
+	if (!database) throw new Error('current_database() returned no row');
+	assertDisposableName(database.name);
 	await resetDatabase(db);
 
 	const at = (ago: number) => new Date(now.getTime() - ago * 60_000);
@@ -462,7 +463,8 @@ export async function seedSandbox(db: Db, { now = new Date() }: { now?: Date } =
 		const events: { ago: number; run: () => Promise<unknown> }[] = (seed.answers ?? []).map(
 			(a) => ({ ago: a.ago, run: () => answer(a) })
 		);
-		if (seed.edit) events.push({ ago: seed.edit.ago, run: () => edit(seed.edit!) });
+		const change = seed.edit;
+		if (change) events.push({ ago: change.ago, run: () => edit(change) });
 		if (seed.pendingHint) {
 			const { dir, ago } = seed.pendingHint;
 			events.push({ ago, run: () => reviews.requestHint(user.id, reviewId[dir], at(ago)) });

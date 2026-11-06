@@ -29,8 +29,12 @@
 		day === null ? data.cards : data.cards.filter((c) => c.reviews.some((r) => r.day === day))
 	);
 
-	const dayLabel = (i: number) =>
-		i === 0 ? "aujourd'hui" : i === 1 ? 'demain' : formatWeekday(data.horizon[i].date);
+	function dayLabel(i: number) {
+		if (i === 0) return "aujourd'hui";
+		if (i === 1) return 'demain';
+		const day = data.horizon[i];
+		return day ? formatWeekday(day.date) : '';
+	}
 
 	const countLabel = $derived(
 		plural(visible.length, 'carte') +

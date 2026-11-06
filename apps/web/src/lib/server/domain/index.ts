@@ -1,3 +1,4 @@
+export * from './arrays';
 export * from './errors';
 export type { Db } from './db';
 export * from './time';

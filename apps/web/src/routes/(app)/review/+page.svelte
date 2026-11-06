@@ -74,6 +74,14 @@
 		if (await submit()) amending = false;
 	});
 
+	/** Raccourcis clavier des notes, une fois la réponse affichée. */
+	const keyRatings = new Map<string, Rating>([
+		['1', 'again'],
+		['2', 'hard'],
+		['3', 'good'],
+		['4', 'easy']
+	]);
+
 	function rate(rating: Rating) {
 		const button = answerElement?.querySelector<HTMLButtonElement>(
 			`button[type="submit"][value="${rating}"]`
@@ -95,8 +103,9 @@
 			revealedFor = key;
 		} else if (!revealed && event.key.toLowerCase() === 'h' && current.context && !hintShown) {
 			hintElement?.requestSubmit();
-		} else if (revealed && ['1', '2', '3', '4'].includes(event.key)) {
-			rate((['again', 'hard', 'good', 'easy'] as const)[Number(event.key) - 1]);
+		} else if (revealed) {
+			const rating = keyRatings.get(event.key);
+			if (rating) rate(rating);
 		}
 	}
 </script>

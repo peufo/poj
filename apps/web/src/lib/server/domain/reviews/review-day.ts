@@ -1,6 +1,7 @@
 // Moitié « révision » de la journée Poj (doc/story/ajout-quotidien.md, « Suite ») : un jour
 // est réussi quand chaque carte due à son ouverture a reçu au moins une réponse, ou quand
 // 30 révisions ont été faites. Fonctions pures, plus le chargement de l'historique.
+import { at } from '../arrays';
 import type { Db } from '../db';
 import type { Direction } from '../cards/types';
 import { startOfDay } from '../time';
@@ -61,14 +62,14 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 	const span = days.length;
 	const starts = days.map((date) => date.getTime());
 	const tomorrow = startOfDay(now, 1).getTime();
-	const endOf = (ago: number) => (ago === 0 ? tomorrow : starts[ago - 1]);
+	const endOf = (ago: number) => (ago === 0 ? tomorrow : at(starts, ago - 1));
 	/** Ancienneté du jour qui contient `t` : -1 après aujourd'hui, `span` avant la période. */
 	const dayOf = (t: number) => {
 		if (t >= tomorrow) return -1;
 		let [lo, hi] = [0, span];
 		while (lo < hi) {
 			const mid = (lo + hi) >> 1;
-			if (starts[mid] <= t) hi = mid;
+			if (at(starts, mid) <= t) hi = mid;
 			else lo = mid + 1;
 		}
 		return lo;
@@ -79,18 +80,21 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 		return ago < span && starts[ago] === t ? ago : ago - 1;
 	};
 
-	const reviews = Array.from({ length: span }, () => 0);
-	const answered = Array.from({ length: span }, () => new Set<string>());
-	const due = Array.from({ length: span }, () => new Set<string>());
-	/** Cartes neuves échues à minuit, avant application de la limite de leur deck. */
-	const fresh = Array.from({ length: span }, () => new Map<string, ReviewTrack>());
+	const tallies = days.map((date) => ({
+		date,
+		reviews: 0,
+		answered: new Set<string>(),
+		due: new Set<string>(),
+		/** Cartes neuves échues à minuit, avant application de la limite de leur deck. */
+		fresh: new Map<string, ReviewTrack>()
+	}));
 
 	for (const track of tracks) {
-		for (const { at } of track.logs) {
-			const ago = dayOf(at.getTime());
-			if (ago < 0 || ago >= span) continue;
-			reviews[ago] += 1;
-			answered[ago].add(track.cardId);
+		for (const log of track.logs) {
+			const day = tallies[dayOf(log.at.getTime())];
+			if (!day) continue;
+			day.reviews += 1;
+			day.answered.add(track.cardId);
 		}
 	}
 
@@ -108,46 +112,48 @@ export function summarizeReviewDays(tracks: ReviewTrack[], now: Date, days: Date
 			?.find((other) => other.reviewed && other.direction === opposite[track.direction]);
 		/** Le sens inverse a été répondu dans les 24 h qui précèdent `t` : mis de côté. */
 		const buried = (t: number) =>
-			sibling?.logs.some(({ at }) => at.getTime() < t && at.getTime() > t - SIBLING_BURY_MS);
+			sibling?.logs.some((log) => log.at.getTime() < t && log.at.getTime() > t - SIBLING_BURY_MS);
 		const deletedAt = track.deletedAt?.getTime() ?? NEVER;
 		const firstAnswer = track.firstAnswer?.getTime() ?? NEVER;
 		// Entre deux réponses, l'échéance est celle qui précédait la seconde.
 		for (let i = 0; i <= track.logs.length; i += 1) {
-			const from = i === 0 ? -NEVER : track.logs[i - 1].at.getTime();
-			const until = i < track.logs.length ? track.logs[i].at.getTime() : NEVER;
-			const dueAt = (i < track.logs.length ? track.logs[i].dueBefore : track.due).getTime();
+			const previous = track.logs[i - 1];
+			const next = track.logs[i];
+			const from = previous ? previous.at.getTime() : -NEVER;
+			const until = next ? next.at.getTime() : NEVER;
+			const dueAt = (next ? next.dueBefore : track.due).getTime();
 			for (let ago = firstDayFrom(Math.max(from, dueAt)); ago >= 0; ago -= 1) {
-				const start = starts[ago];
+				const start = at(starts, ago);
 				if (start >= until) break;
 				if (deletedAt < endOf(ago) || buried(start)) continue;
-				if (firstAnswer >= start) fresh[ago].set(track.cardId, track);
-				else due[ago].add(track.cardId);
+				const day = at(tallies, ago);
+				if (firstAnswer >= start) day.fresh.set(track.cardId, track);
+				else day.due.add(track.cardId);
 			}
 		}
 	}
 
-	fresh.forEach((tracks, ago) => {
-		const cards = [...tracks.values()]
+	for (const day of tallies) {
+		const fresh = [...day.fresh.values()];
+		const cards = fresh
 			.map((track) => ({ id: track.cardId, deckId: track.deckId, createdAt: track.createdAt }))
 			.sort(byCreation);
-		const limits = new Map(
-			[...tracks.values()].map((track) => [track.deckId, track.newCardsLimits])
-		);
+		const limits = new Map(fresh.map((track) => [track.deckId, track.newCardsLimits]));
 		const { released } = splitNewCards(cards, (deckId) =>
-			limitOn(limits.get(deckId) ?? [], days[ago])
+			limitOn(limits.get(deckId) ?? [], day.date)
 		);
-		for (const cardId of released) due[ago].add(cardId);
-	});
+		for (const cardId of released) day.due.add(cardId);
+	}
 
-	return due.map((cards, ago) => {
-		const done = [...cards].filter((cardId) => answered[ago].has(cardId)).length;
-		const reached = reviews[ago] >= REVIEWS_CAP || (cards.size > 0 && done === cards.size);
+	return tallies.map(({ due, answered, reviews }) => {
+		const done = [...due].filter((cardId) => answered.has(cardId)).length;
+		const reached = reviews >= REVIEWS_CAP || (due.size > 0 && done === due.size);
 		return {
-			due: cards.size,
+			due: due.size,
 			answered: done,
-			reviews: reviews[ago],
+			reviews,
 			reached,
-			done: reached || cards.size === 0
+			done: reached || due.size === 0
 		};
 	});
 }

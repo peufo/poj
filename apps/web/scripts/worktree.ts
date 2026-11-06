@@ -53,9 +53,10 @@ function setup() {
 	}
 	const content = readFileSync(envPath, 'utf8');
 	const env = parse(content);
-	for (const key of ['DATABASE_URL_TEST', 'DATABASE_URL_SANDBOX'] as const) {
-		if (!env[key]) fail(`${key} manque dans ${envPath} (voir apps/web/.env.example)`);
-	}
+	const required = (key: string) =>
+		env[key] || fail(`${key} manque dans ${envPath} (voir apps/web/.env.example)`);
+	const testUrl = required('DATABASE_URL_TEST');
+	const sandboxUrl = required('DATABASE_URL_SANDBOX');
 
 	const slug = worktreeSlug(worktree.root);
 	const testDb = worktreeDatabaseName('test', slug);
@@ -65,8 +66,8 @@ function setup() {
 		.map((root) => appPorts(readEnvFile(join(root, ENV_FILE)).ORIGIN).dev);
 	const dev = pickDevPort(env.ORIGIN ? appPorts(env.ORIGIN).dev : undefined, used);
 	const values = {
-		DATABASE_URL_TEST: withDatabase(env.DATABASE_URL_TEST, testDb),
-		DATABASE_URL_SANDBOX: withDatabase(env.DATABASE_URL_SANDBOX, sandboxDb),
+		DATABASE_URL_TEST: withDatabase(testUrl, testDb),
+		DATABASE_URL_SANDBOX: withDatabase(sandboxUrl, sandboxDb),
 		ORIGIN: `http://localhost:${dev}`
 	};
 	writeFileSync(envPath, setEnvValues(content, values));

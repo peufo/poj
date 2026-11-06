@@ -10,6 +10,7 @@ import {
 } from '#lib/format/decks.js';
 import { plural } from '#lib/format/labels.js';
 import {
+	at,
 	CARD_LIMITS,
 	ConflictError,
 	directionsOf,
@@ -209,11 +210,12 @@ const fieldOf = (face: Face) =>
  */
 function captureDeckField(decks: readonly Deck[], of: 'card' | 'batch' = 'card') {
 	const [what, from] = of === 'card' ? ['de la carte', 'de la carte'] : ['du lot', 'des cartes'];
+	const [only] = decks;
 	const description =
 		decks.length > 1
 			? `Nom du deck ${what}, obligatoire : l'utilisateur a plusieurs decks. Déduis-le ${from} (langue de l'expression, sujet), ou demande-le en cas de doute. Decks : ${decks.map((deck) => `${quote(deck.name)} : ${sidesOf(deck)}`).join(' ; ')}.`
-			: decks.length === 1
-				? `Nom du deck ${what}, facultatif : l'utilisateur n'a qu'un deck, ${quote(decks[0].name)}.`
+			: only
+				? `Nom du deck ${what}, facultatif : l'utilisateur n'a qu'un deck, ${quote(only.name)}.`
 				: `Nom du deck ${what}.`;
 	return deckNameSchema.describe(description);
 }
@@ -651,36 +653,38 @@ export function createPojMcpServer({
 			if (isToolResult(deck)) return deck;
 			const batch = input.cards.map(toCardInput);
 			const entries = await cards.checkBatch(ownerId, deck, batch, now());
+			const items = batch.map((card, i) => ({ i, card, entry: at(entries, i) }));
 			// DeepL ne vérifie que les cartes qui seraient créées.
-			const fresh = entries.flatMap((entry, i) => (entry.status === 'new' ? [i] : []));
+			const fresh = items.filter(({ entry }) => entry.status === 'new');
 			const pair = languagePair(deck);
 			const checks = pair
 				? await translation.checkAll(
 						pair,
-						fresh.map((i) => batch[i])
+						fresh.map(({ card }) => card)
 					)
 				: [];
 			const deeplError = deeplErrorOf(checks.flatMap(({ aToB, bToA }) => [aToB, bToA]));
-			const divergent = checks.flatMap((check, k) =>
-				diverges(batch[fresh[k]], check) ? [{ i: fresh[k], check }] : []
-			);
+			const divergent = checks.flatMap((check, k) => {
+				const { i, card } = at(fresh, k);
+				return diverges(card, check) ? [{ i, card, check }] : [];
+			});
 
-			const alreadyCreated = entries.flatMap((entry, i) =>
-				entry.status === 'existing' ? [{ ...batchCard(batch[i], i), card_id: entry.card.id }] : []
+			const alreadyCreated = items.flatMap(({ i, card, entry }) =>
+				entry.status === 'existing' ? [{ ...batchCard(card, i), card_id: entry.card.id }] : []
 			);
-			const duplicates = entries.flatMap((entry, i) =>
+			const duplicates = items.flatMap(({ i, card, entry }) =>
 				entry.status === 'duplicate' || entry.status === 'duplicate_in_batch'
 					? [
 							{
-								...batchCard(batch[i], i),
+								...batchCard(card, i),
 								same_as: entry.status === 'duplicate_in_batch' ? entry.of + 1 : null,
 								existing: entry.status === 'duplicate' ? entry.duplicates.map(cardOutput) : []
 							}
 						]
 					: []
 			);
-			const lines = entries.flatMap((entry, i) => {
-				const line = batchLine(batch[i], i);
+			const lines = items.flatMap(({ i, card, entry }) => {
+				const line = batchLine(card, i);
 				switch (entry.status) {
 					case 'existing':
 						return [`${line} : déjà créée il y a moins de 10 minutes.`];
@@ -695,9 +699,9 @@ export function createPojMcpServer({
 				}
 			});
 			const { a, b } = faces(deck);
-			for (const { i, check } of divergent) {
+			for (const { i, card, check } of divergent) {
 				lines.push(
-					`${batchLine(batch[i], i)} : DeepL propose ${quote(check.aToB.text)} (${a.name} vers ${b.name}) et ${quote(check.bToA.text)} (${b.name} vers ${a.name}).`
+					`${batchLine(card, i)} : DeepL propose ${quote(check.aToB.text)} (${a.name} vers ${b.name}) et ${quote(check.bToA.text)} (${b.name} vers ${a.name}).`
 				);
 			}
 			if (!pair) lines.push('Pas de second avis DeepL pour ce deck.');
@@ -716,8 +720,8 @@ export function createPojMcpServer({
 				count: batch.length,
 				already_created: alreadyCreated,
 				duplicates,
-				divergences: divergent.map(({ i, check }) => ({
-					...batchCard(batch[i], i),
+				divergences: divergent.map(({ i, card, check }) => ({
+					...batchCard(card, i),
 					deepl_a_to_b: check.aToB.text,
 					deepl_b_to_a: check.bToA.text
 				})),
@@ -770,9 +774,9 @@ export function createPojMcpServer({
 					? [{ position: i + 1, card_id: entry.card.id, created: entry.status === 'created' }]
 					: []
 			);
-			const skippedAt = results.flatMap((entry, i) =>
+			const skipped = results.flatMap((entry, i) =>
 				entry.status === 'duplicate' || entry.status === 'duplicate_in_batch'
-					? [{ i, reason: entry.status }]
+					? [{ i, card: at(batch, i), reason: entry.status }]
 					: []
 			);
 			const created = saved.filter((card) => card.created).length;
@@ -782,8 +786,8 @@ export function createPojMcpServer({
 				`${plural(created, 'carte créée', 'cartes créées')}${inDeck(deck)}.`,
 				alreadyCreated > 0 &&
 					`${plural(alreadyCreated, 'carte déjà créée', 'cartes déjà créées')} il y a moins de 10 minutes, rien d'ajouté pour elles.`,
-				skippedAt.length > 0 &&
-					`Doublons non créés : ${skippedAt.map(({ i }) => batchLine(batch[i], i)).join(' ; ')}.`,
+				skipped.length > 0 &&
+					`Doublons non créés : ${skipped.map(({ i, card }) => batchLine(card, i)).join(' ; ')}.`,
 				created > 0 &&
 					'Les nouvelles cartes viendront en révision au fil des jours, dans la limite du deck.'
 			];
@@ -791,7 +795,7 @@ export function createPojMcpServer({
 				deck: deck.name,
 				created,
 				already_created: alreadyCreated,
-				skipped: skippedAt.map(({ i, reason }) => ({ ...batchCard(batch[i], i), reason })),
+				skipped: skipped.map(({ i, card, reason }) => ({ ...batchCard(card, i), reason })),
 				cards: saved
 			});
 		}

@@ -48,7 +48,8 @@
 		accent?: boolean;
 	};
 
-	const shownDeck = $derived(activeDeck ?? (decks.length === 1 ? decks[0].id : null));
+	const onlyDeck = $derived(decks.length === 1 ? decks[0] : undefined);
+	const shownDeck = $derived(activeDeck ?? onlyDeck?.id ?? null);
 	const deckQuery = $derived(shownDeck ? `?deck=${shownDeck}` : '');
 
 	const review = $derived<Item>({

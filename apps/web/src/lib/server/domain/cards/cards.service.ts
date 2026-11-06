@@ -1,3 +1,4 @@
+import { at } from '../arrays';
 import type { Db, Tx } from '../db';
 import { directionsOf, findOwnedDeck, lockOwner, reviewedDirections } from '../decks/decks.service';
 import type { Deck } from '../decks/types';
@@ -225,11 +226,13 @@ export function createCardsService(db: Db) {
 				await lockOwner(tx, ownerId);
 				const deck = await findOwnedDeck(tx, ownerId, deckId);
 				const entries = classifyBatch(deck, await deckCards(tx, ownerId, deck.id), inputs, now);
-				const fresh = entries.flatMap((entry, i) => (entry.status === 'new' ? [i] : []));
+				const fresh = entries.flatMap((entry, i) =>
+					entry.status === 'new' ? [at(inputs, i)] : []
+				);
 				// Deux requêtes pour tout le lot, sous le verrou du propriétaire.
 				const created = await tx.card.createManyAndReturn({
-					data: fresh.map((i, k) => ({
-						...clean(inputs[i]),
+					data: fresh.map((input, k) => ({
+						...clean(input),
 						origin,
 						ownerId,
 						deckId: deck.id,
@@ -244,11 +247,12 @@ export function createCardsService(db: Db) {
 				// Les horodatages, tous distincts, rendent à chaque carte sa place dans le lot.
 				const byTime = new Map(created.map((card) => [card.createdAt.getTime(), card]));
 				let k = 0;
-				return entries.map((entry): BatchResult =>
-					entry.status === 'new'
-						? { status: 'created', card: byTime.get(now.getTime() + k++)! }
-						: entry
-				);
+				return entries.map((entry): BatchResult => {
+					if (entry.status !== 'new') return entry;
+					const card = byTime.get(now.getTime() + k++);
+					if (!card) throw new Error('createBatch: a created card is missing from the batch');
+					return { status: 'created', card };
+				});
 			});
 		},
 
@@ -394,8 +398,10 @@ export function createCardsService(db: Db) {
 			const slots = await reviewSlots(ownerId, now, deckId);
 			const end = startOfDay(now, days).getTime();
 			const counts = Array.from({ length: days }, () => 0);
-			for (const { at } of presentations(slots, now).values()) {
-				if (at.getTime() < end) counts[Math.max(0, calendarDaysBetween(now, at))] += 1;
+			for (const { at: presentedAt } of presentations(slots, now).values()) {
+				if (presentedAt.getTime() >= end) continue;
+				const day = Math.max(0, calendarDaysBetween(now, presentedAt));
+				counts[day] = at(counts, day) + 1;
 			}
 			return counts.map((count, i) => ({ date: startOfDay(now, i), count }));
 		}

@@ -1,3 +1,4 @@
+import { at } from '../arrays';
 import type { Db } from '../db';
 import { calendarDaysBetween, startOfDay } from '../time';
 import { loadReviewTracks, summarizeReviewDays, type ReviewTrack } from '../reviews/review-day';
@@ -91,14 +92,14 @@ export function summarizeDailyGoal(
 	// Du plus ancien jour à aujourd'hui.
 	const all = summarizeReviewDays(tracks, now, dates)
 		.map((review, ago): GoalDay => {
-			const date = dates[ago];
+			const date = at(dates, ago);
 			const count = counts.get(ago) ?? 0;
 			const goal = goalOn(sorted, date);
 			const add = { count, goal, reached: count >= goal };
 			return { date, add, review, level: levelOf(add, review) };
 		})
 		.reverse();
-	const today = all[all.length - 1];
+	const today = at(all, all.length - 1);
 
 	return {
 		goal: today.add.goal,

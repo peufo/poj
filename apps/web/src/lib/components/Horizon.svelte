@@ -29,19 +29,26 @@
 		onselect?.(selected);
 	}
 
-	function dayName(index: number) {
+	/** Jour survolé ou sélectionné, avec son rang. */
+	const focused = $derived.by(() => {
+		if (focus === null) return null;
+		const day = days[focus];
+		return day ? { day, index: focus } : null;
+	});
+
+	function dayName(index: number, date: Date) {
 		if (index === 0) return "Aujourd'hui";
 		if (index === 1) return 'Demain';
-		const label = formatWeekday(days[index].date);
+		const label = formatWeekday(date);
 		return label.charAt(0).toUpperCase() + label.slice(1);
 	}
 </script>
 
 <section class="flex flex-col gap-3" aria-label="Révisions à venir">
 	<p class="flex items-baseline justify-between gap-3 text-sm" aria-live="polite">
-		{#if focus !== null}
-			<span class="font-medium text-ink">{dayName(focus)}</span>
-			<span class="text-ink-2 tabular-nums">{plural(days[focus].count, 'révision')}</span>
+		{#if focused}
+			<span class="font-medium text-ink">{dayName(focused.index, focused.day.date)}</span>
+			<span class="text-ink-2 tabular-nums">{plural(focused.day.count, 'révision')}</span>
 		{:else}
 			<span class="font-medium text-ink">{days.length} prochains jours</span>
 			<span class="text-ink-2 tabular-nums">{plural(total, 'révision')}</span>
@@ -57,7 +64,7 @@
 			<button
 				type="button"
 				aria-pressed={active}
-				aria-label="{dayName(i)} : {plural(day.count, 'révision')}"
+				aria-label="{dayName(i, day.date)} : {plural(day.count, 'révision')}"
 				onclick={() => toggle(i)}
 				onpointerenter={() => (hovered = i)}
 				onpointerleave={() => (hovered = null)}

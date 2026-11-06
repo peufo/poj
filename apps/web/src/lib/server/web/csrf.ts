@@ -24,7 +24,8 @@ const FORM_CONTENT_TYPES = new Set([
 function isFormContentType(request: Request): boolean {
 	const header = request.headers.get('content-type');
 	if (!header) return true;
-	return FORM_CONTENT_TYPES.has(header.split(';', 1)[0].trim().toLowerCase());
+	const [mediaType = ''] = header.split(';', 1);
+	return FORM_CONTENT_TYPES.has(mediaType.trim().toLowerCase());
 }
 
 /**

@@ -109,7 +109,8 @@ export function resolveDeck<T extends Pick<Deck, 'id' | 'name'>, R extends DeckR
 ): DeckChoice<T, R> {
 	if (decks.length === 0) return { status: 'none' };
 	if (request === undefined) {
-		return decks.length === 1 ? { status: 'found', deck: decks[0] } : { status: 'several' };
+		const [only] = decks;
+		return decks.length === 1 && only ? { status: 'found', deck: only } : { status: 'several' };
 	}
 	const deck =
 		'id' in request ? decks.find((d) => d.id === request.id) : findDeckByName(decks, request.name);

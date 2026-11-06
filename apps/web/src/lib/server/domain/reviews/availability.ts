@@ -66,6 +66,7 @@ export function presentations(reviews: ReviewSlot[], now: Date): Map<string, Pre
 			.sort(byPresentation);
 
 		const [first, second] = slots;
+		if (!first) continue;
 		result.set(first.review.id, { buriedUntil: first.buried, at: first.at });
 		if (second) {
 			// Répondre au premier sens mettra le second de côté pendant 24 h.

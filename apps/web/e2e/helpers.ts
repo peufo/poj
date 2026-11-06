@@ -26,6 +26,14 @@ export async function expectRemoteSubmission(page: Page) {
 	await expect(page).not.toHaveURL(/\/remote=/);
 }
 
+/** `value`, ou une erreur qui dit ce qui manque (`what`) dans la page. */
+function required<T>(value: T | null | undefined, what: string): T {
+	if (value === null || value === undefined || value === '') {
+		throw new Error(`${what} introuvable dans la page`);
+	}
+	return value;
+}
+
 /** Connexion au compte de la seed (formulaire `/login`). */
 export async function signIn(page: Page) {
 	await open(page, '/login');
@@ -47,7 +55,8 @@ export async function languageDeckId(page: Page) {
 		.getByRole('link', { name: /^Anglais/ })
 		.first()
 		.getAttribute('href');
-	return new URL(href!, page.url()).searchParams.get('deck')!;
+	const url = new URL(required(href, 'Lien du deck « Anglais »'), page.url());
+	return required(url.searchParams.get('deck'), 'Id du deck « Anglais »');
 }
 
 /** Nom unique d'un lancement à l'autre et d'un test à l'autre. */
@@ -60,7 +69,7 @@ export async function createSubjectDeck(page: Page, name = unique('Sujet')) {
 	await page.getByLabel('Nom').fill(name);
 	await page.getByRole('button', { name: 'Créer le deck' }).click();
 	await expect(page).toHaveURL(/\/cards\?deck=/);
-	return new URL(page.url()).searchParams.get('deck')!;
+	return required(new URL(page.url()).searchParams.get('deck'), 'Id du deck créé');
 }
 
 /** Crée une carte dans le deck de sujet `deckId` et renvoie son id. */
@@ -75,5 +84,5 @@ export async function createCard(page: Page, deckId: string, question: string, a
 		.first()
 		.click();
 	await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}$/);
-	return page.url().split('/').pop()!;
+	return required(page.url().split('/').pop(), 'Id de la carte créée');
 }

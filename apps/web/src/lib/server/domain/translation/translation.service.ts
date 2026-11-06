@@ -1,3 +1,4 @@
+import { at } from '../arrays';
 import type { CardInput, Direction } from '../cards/types';
 import type { LanguagePair } from '../decks/decks.service';
 import { comparisonKey } from '../text';
@@ -62,8 +63,9 @@ export function createTranslationService(translator: Translator | null) {
 			request.texts.map((): Suggestion => ({ ok: false, reason }));
 		if (!translator) return failed('not_configured');
 		try {
+			// Le traducteur rend une traduction par texte : une réponse trop courte est un bogue.
 			const texts = await translator.translate(request);
-			return texts.map((text) => ({ ok: true, text }));
+			return request.texts.map((_, i) => ({ ok: true, text: at(texts, i) }));
 		} catch (error) {
 			if (error instanceof TranslatorError) return failed(error.reason);
 			console.error(error);
@@ -81,13 +83,13 @@ export function createTranslationService(translator: Translator | null) {
 		cards: readonly CardInput[]
 	): Promise<Suggestion[]> {
 		const side = direction === 'a_to_b' ? 'sideA' : 'sideB';
-		const byContext = Map.groupBy(cards.keys(), (i) => cards[i].context?.trim() ?? '');
+		const byContext = Map.groupBy(cards.entries(), ([, card]) => card.context?.trim() ?? '');
 		const suggestions: Suggestion[] = [];
 		await Promise.all(
-			[...byContext].map(async ([context, indexes]) => {
-				const texts = indexes.map((i) => cards[i][side]);
+			[...byContext].map(async ([context, group]) => {
+				const texts = group.map(([, card]) => card[side]);
 				const results = await suggestAll(requestFor(pair, direction, texts, context || null));
-				indexes.forEach((i, k) => (suggestions[i] = results[k]));
+				group.forEach(([i], k) => (suggestions[i] = at(results, k)));
 			})
 		);
 		return suggestions;
@@ -99,7 +101,7 @@ export function createTranslationService(translator: Translator | null) {
 			translateFaces(pair, 'a_to_b', cards),
 			translateFaces(pair, 'b_to_a', cards)
 		]);
-		return cards.map((_, i) => ({ aToB: aToB[i], bToA: bToA[i] }));
+		return cards.map((_, i) => ({ aToB: at(aToB, i), bToA: at(bToA, i) }));
 	}
 
 	return {
@@ -113,13 +115,11 @@ export function createTranslationService(translator: Translator | null) {
 			text: string,
 			context?: string | null
 		): Promise<Suggestion> {
-			const [suggestion] = await suggestAll(requestFor(pair, direction, [text], context));
-			return suggestion;
+			return at(await suggestAll(requestFor(pair, direction, [text], context)), 0);
 		},
 
 		async check(pair: LanguagePair, card: CardInput): Promise<CardCheck> {
-			const [check] = await checkAll(pair, [card]);
-			return check;
+			return at(await checkAll(pair, [card]), 0);
 		},
 
 		checkAll
