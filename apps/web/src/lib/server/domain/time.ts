@@ -1,17 +1,29 @@
 /** Fuseau de référence pour « aujourd'hui » (doc/plans/jalon-1.md). */
 export const TIME_ZONE = 'Europe/Zurich';
 
+/** Un formateur par fuseau, créé une fois : en construire un coûte cher. */
+const formats = new Map<string, Intl.DateTimeFormat>();
+
+function formatIn(timeZone: string): Intl.DateTimeFormat {
+	let format = formats.get(timeZone);
+	if (!format) {
+		format = new Intl.DateTimeFormat('en-US', {
+			timeZone,
+			hourCycle: 'h23',
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit'
+		});
+		formats.set(timeZone, format);
+	}
+	return format;
+}
+
 function localParts(date: Date, timeZone: string) {
-	const parts = new Intl.DateTimeFormat('en-US', {
-		timeZone,
-		hourCycle: 'h23',
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit'
-	}).formatToParts(date);
+	const parts = formatIn(timeZone).formatToParts(date);
 	const get = (type: string) => {
 		const part = parts.find((p) => p.type === type);
 		if (!part) throw new Error(`Intl.DateTimeFormat gave no ${type} for ${timeZone}`);
