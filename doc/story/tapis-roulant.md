@@ -1,6 +1,6 @@
 # Story : le tapis roulant des révisions
 
-Statut : en idéation depuis le 2026-11-01, en pause depuis le 2026-11-05, sauf t33 (vélocités) réalisé le 2026-11-06. t34 et t35 restent en `idea`.
+Statut : en idéation depuis le 2026-11-01, en pause du 2026-11-05 au 2026-11-06. t33 (vélocités) réalisé le 2026-11-06, t34 repris en plan le 2026-11-06, t35 reste en `idea`.
 
 ## Le problème
 
@@ -48,5 +48,15 @@ Une piste : une vue tournée vers l'avenir, à échelle logarithmique, où les c
 - **2026-11-06 : `new_cards_limits` reste une table d'historique**, bien que seule la limite du jour soit encore lue.
   - *Raison :* une seconde migration de données n'apporte rien à t33. À reprendre par un ticket à part si le besoin apparaît.
 - **2026-11-01 : la densité est un défi de design assumé** (rendre lisible et joli des centaines de cartes sur le tapis).
+- **2026-11-06 : disposition du tapis (retours sur l'aperçu de t34).** Le tapis est tout en haut de `/cards`, et son axe croît de gauche à droite depuis maintenant. Dessous : la boîte des prêtes collée à gauche, puis celle des neuves, et « Réviser » collé à droite. Les marques sont teintées selon la maîtrise. Le titre « N dues aujourd'hui » et le sous-titre « N maintenant, N plus tard » disparaissent.
+  - *Effet recherché :* les cartes semblent tomber dans la boîte des prêtes quand elles arrivent au bout du tapis ; elles restent donc représentées de bout en bout.
+  - *Raison :* un sens de lecture plus chronologique, et moins de chiffres redondants : le tapis les montre déjà.
+- **2026-11-06 : toucher le tapis affiche une simple ligne et le nombre de cartes de maintenant jusqu'à cette date.**
+  - *Raison :* une période découpée, comme 7 à 30 jours, n'a aucun intérêt.
+  - *Rejeté :* les tranches cliquables.
+- **2026-11-06 : la distribution des cartes acquises quitte `/cards`**, pour une autre page (`t35-page-velocites`).
+- **2026-11-06 : chaque carte est dessinée indépendamment sur le tapis**, sans blocs regroupés.
+- **2026-11-06 : le tapis porte une ligne d'estimation du nombre de révisions par unité de temps.**
+  - *Raison :* les cartes seules ne représentent pas les révisions à venir, et le cumul sous-estime le travail à long terme.
 
 ## Hors périmètre
