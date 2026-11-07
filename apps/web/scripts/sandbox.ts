@@ -12,7 +12,7 @@
  * pour le garde-fou) et `ORIGIN` (ports) sont lues. Le `.env` n'est jamais modifié.
  */
 import { spawn } from 'node:child_process';
-import { createCardsService, createReviewsService, type Db } from '../src/lib/server/domain/index';
+import { createCardsService, type Db } from '../src/lib/server/domain/index';
 import {
 	assertDisposableDatabase,
 	createPrismaClient,
@@ -50,19 +50,18 @@ async function seed() {
 }
 
 async function summarize(db: Db, userId: string, now: Date) {
-	const [stats, next, deleted, newReviews, answers] = await Promise.all([
-		createCardsService(db).stats(userId, now),
-		createReviewsService(db).next(userId, now),
+	const [belt, cards, deleted, newReviews, answers] = await Promise.all([
+		createCardsService(db).belt(userId, now),
+		db.card.count({ where: { ownerId: userId, deletedAt: null } }),
 		db.card.count({ where: { deletedAt: { not: null } } }),
 		db.review.count({ where: { state: 'new', card: { deletedAt: null } } }),
 		db.reviewLog.count()
 	]);
-	const dueNow = next.review ? next.remaining : 0;
 	console.log(`
 ✓ Bac à sable prêt (${databaseName(url)})
   compte       ${SANDBOX_ACCOUNT.email} / ${SANDBOX_ACCOUNT.password}
-  cartes       ${stats.totalCards} (+ ${deleted} supprimée)
-  révisions    ${dueNow} à présenter maintenant, ${stats.dueToday} dues aujourd'hui, ${newReviews} neuves
+  cartes       ${cards} (+ ${deleted} supprimée) : ${belt.due} prêtes, ${belt.tokens.length} en route, ${belt.stock} en attente
+  révisions    ${newReviews} neuves
   historique   ${answers} réponses`);
 }
 

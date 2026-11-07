@@ -106,7 +106,9 @@ describe('sandbox seed', () => {
 		it('covers contexts, a duplicate, a deleted card, an edit, an amendment and both origins', async () => {
 			const listed = await cards.list(owner);
 			expect(listed).toHaveLength(SANDBOX_CARDS.length - 1);
-			expect(await cards.stats(owner, now)).toMatchObject({ totalCards: listed.length });
+			// Sur le tapis, chaque carte une fois : en attente, prête ou en route.
+			const belt = await cards.belt(owner, now);
+			expect(belt.stock + belt.due + belt.tokens.length).toBe(listed.length);
 			expect(listed.some((c) => c.context === null)).toBe(true);
 			expect(listed.some((c) => c.context !== null)).toBe(true);
 			expect(new Set(listed.map((c) => c.origin))).toEqual(new Set(['web', 'claude']));

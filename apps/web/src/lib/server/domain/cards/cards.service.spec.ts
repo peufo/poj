@@ -3,13 +3,17 @@ import { useTestDatabase } from '../../testing/db';
 import { createDeck, createUser, SUBJECT_DECK } from '../../testing/factories';
 import { createDecksService } from '../decks/decks.service';
 import { NotFoundError } from '../errors';
+import { DEFAULT_NEW_CARDS_PER_DAY } from '../reviews/new-cards';
+import { createReviewsService } from '../reviews/reviews.service';
 import { applyRating, pickState } from '../reviews/scheduler';
+import { DAY } from '../time';
 import { createCardsService, resetsProgress } from './cards.service';
 
 const db = useTestDatabase();
 const cards = createCardsService(db);
 
 const now = new Date('2026-01-05T08:00:00Z');
+const HOUR = 60 * 60 * 1000;
 const input = { sideA: 'tenir pour acquis', sideB: 'to take for granted' };
 
 let alice: string;
@@ -404,52 +408,64 @@ describe('cards service', () => {
 
 		expect(await cards.list(alice)).toEqual([]);
 		await expect(cards.get(alice, id)).rejects.toBeInstanceOf(NotFoundError);
-		expect(await cards.stats(alice, now)).toEqual({ totalCards: 0, dueToday: 0 });
+		expect(await cards.belt(alice, now)).toEqual({ stock: 0, due: 0, tokens: [] });
 	});
 
-	it('counts cards and reviews due before the end of the Zurich day', async () => {
+	it('puts each card on the belt once, at the first of its presentations', async () => {
 		const due = await cards.create(alice, aliceDeck, input, 'web', now);
-		const notDue = await cards.create(alice, aliceDeck, { sideA: 'b', sideB: 'b' }, 'web', now);
-		const lateToday = await cards.create(alice, aliceDeck, { sideA: 'c', sideB: 'c' }, 'web', now);
-		// Échéance à 23:30 heure de Zurich le jour même : due aujourd'hui
+		const later = await cards.create(alice, aliceDeck, { sideA: 'b', sideB: 'b' }, 'web', now);
+		const deleted = await cards.create(alice, aliceDeck, { sideA: 'c', sideB: 'c' }, 'web', now);
+		await cards.softDelete(alice, deleted.id);
+		await cards.create(bob, bobDeck, input, 'web', now);
 		await db.review.updateMany({
-			where: { cardId: lateToday.id, direction: 'a_to_b' },
-			data: { due: new Date('2026-01-05T22:30:00Z') }
+			where: { cardId: later.id, direction: 'a_to_b' },
+			data: { due: new Date(now.getTime() + 2 * DAY), state: 'review', stability: 40 }
 		});
 		await db.review.updateMany({
-			where: { cardId: lateToday.id, direction: 'b_to_a' },
-			data: { due: new Date('2026-01-20T09:00:00Z') }
-		});
-		// Échéance le lendemain : pas due aujourd'hui
-		await db.review.updateMany({
-			where: { cardId: notDue.id },
-			data: { due: new Date('2026-01-06T09:00:00Z') }
+			where: { cardId: later.id, direction: 'b_to_a' },
+			data: { due: new Date(now.getTime() + 30 * DAY) }
 		});
 
-		// `due` : un seul sens aujourd'hui, l'autre sera mis de côté jusqu'à demain.
-		expect(await cards.stats(alice, now)).toEqual({ totalCards: 3, dueToday: 2 });
+		// `due` : ses deux sens sont dus, mais un seul sera présenté, l'autre mis de côté.
+		expect(await cards.belt(alice, now)).toEqual({
+			stock: 0,
+			due: 1,
+			tokens: [{ delayMs: 2 * DAY, state: 'review', stability: 40 }]
+		});
+		expect(await createReviewsService(db).countDue(alice, now)).toBe(1);
 		expect(due.reviews).toHaveLength(2);
 	});
 
-	it('leaves buried directions out of today until their burial ends', async () => {
+	it('places a buried direction at the end of its burial', async () => {
 		const answered = await cards.create(alice, aliceDeck, input, 'web', now);
-		const fresh = await cards.create(alice, aliceDeck, { sideA: 'b', sideB: 'b' }, 'web', now);
+		await cards.create(alice, aliceDeck, { sideA: 'b', sideB: 'b' }, 'web', now);
 		// Le français → anglais de `answered` a été noté il y a 2 h : l'autre sens, dû,
-		// est mis de côté jusqu'à demain 6 h UTC.
-		const twoHoursAgo = new Date(now.getTime() - 2 * 3_600_000);
+		// est mis de côté encore 22 h.
 		await db.review.updateMany({
 			where: { cardId: answered.id, direction: 'a_to_b' },
-			data: { lastReview: twoHoursAgo, state: 'review', due: new Date('2026-01-15T09:00:00Z') }
+			data: {
+				lastReview: new Date(now.getTime() - 2 * HOUR),
+				state: 'review',
+				due: new Date(now.getTime() + 10 * DAY)
+			}
 		});
 
-		const stats = await cards.stats(alice, now);
-		const days = await cards.horizon(alice, now, 3);
+		expect(await cards.belt(alice, now)).toEqual({
+			stock: 0,
+			due: 1,
+			tokens: [{ delayMs: 22 * HOUR, state: 'new', stability: 0 }]
+		});
+	});
 
-		// Aujourd'hui : un seul sens de `fresh` ; demain : l'autre sens de `fresh`, et le sens
-		// de `answered` à la fin de sa mise de côté.
-		expect(stats.dueToday).toBe(1);
-		expect(days.map((d) => d.count)).toEqual([1, 2, 0]);
-		expect(fresh.reviews).toHaveLength(2);
+	it('keeps the new cards beyond the daily limit apart, as a stock', async () => {
+		for (let i = 0; i < DEFAULT_NEW_CARDS_PER_DAY + 2; i += 1) {
+			await cards.create(alice, aliceDeck, { sideA: `q${i}`, sideB: `r${i}` }, 'web', now);
+		}
+
+		const belt = await cards.belt(alice, now);
+		expect(belt).toEqual({ stock: 2, due: DEFAULT_NEW_CARDS_PER_DAY, tokens: [] });
+		expect(belt.stock + belt.due + belt.tokens.length).toBe((await cards.list(alice)).length);
+		expect(await createReviewsService(db).countDue(alice, now)).toBe(belt.due);
 	});
 
 	it('tells whether an edit resets progress, after cleaning the input', () => {
@@ -461,41 +477,18 @@ describe('cards service', () => {
 		expect(resetsProgress(existing, { sideA: 'le devis', sideB: 'a quote' })).toBe(true);
 	});
 
-	it('spreads due reviews over the next Zurich days, overdue ones today', async () => {
+	it('counts an overdue card as due, its other direction coming later', async () => {
 		const overdue = await cards.create(alice, aliceDeck, input, 'web', now);
-		const later = await cards.create(alice, aliceDeck, { sideA: 'b', sideB: 'b' }, 'web', now);
-		const deleted = await cards.create(alice, aliceDeck, { sideA: 'c', sideB: 'c' }, 'web', now);
-		await cards.softDelete(alice, deleted.id);
-		await cards.create(bob, bobDeck, input, 'web', now);
 		await db.review.updateMany({
 			where: { cardId: overdue.id, direction: 'a_to_b' },
-			data: { due: new Date('2026-01-01T09:00:00Z') }
+			data: { due: new Date(now.getTime() - 4 * DAY) }
 		});
 		await db.review.updateMany({
 			where: { cardId: overdue.id, direction: 'b_to_a' },
-			// 23:30 à Zurich : encore aujourd'hui
-			data: { due: new Date('2026-01-05T22:30:00Z') }
-		});
-		await db.review.updateMany({
-			where: { cardId: later.id, direction: 'a_to_b' },
-			// 00:30 à Zurich le lendemain
-			data: { due: new Date('2026-01-05T23:30:00Z') }
-		});
-		await db.review.updateMany({
-			where: { cardId: later.id, direction: 'b_to_a' },
-			data: { due: new Date('2026-01-20T09:00:00Z') }
+			data: { due: new Date(now.getTime() + HOUR) }
 		});
 
-		const days = await cards.horizon(alice, now, 3);
-
-		// `overdue` : un sens aujourd'hui, l'autre demain (mis de côté après la réponse) ;
-		// `later` : un sens demain, l'autre au-delà de l'horizon.
-		expect(days).toEqual([
-			{ date: new Date('2026-01-04T23:00:00Z'), count: 1 },
-			{ date: new Date('2026-01-05T23:00:00Z'), count: 2 },
-			{ date: new Date('2026-01-06T23:00:00Z'), count: 0 }
-		]);
-		expect(days[0]).toMatchObject({ count: (await cards.stats(alice, now)).dueToday });
+		expect(await cards.belt(alice, now)).toMatchObject({ due: 1, tokens: [] });
 	});
 
 	it('hides other users’ cards', async () => {
@@ -504,11 +497,11 @@ describe('cards service', () => {
 		await expect(cards.get(alice, id)).rejects.toBeInstanceOf(NotFoundError);
 		await expect(cards.update(alice, id, input)).rejects.toBeInstanceOf(NotFoundError);
 		await expect(cards.softDelete(alice, id)).rejects.toBeInstanceOf(NotFoundError);
-		expect(await cards.stats(alice, now)).toEqual({ totalCards: 0, dueToday: 0 });
+		expect(await cards.belt(alice, now)).toEqual({ stock: 0, due: 0, tokens: [] });
 	});
 
 	describe('per deck', () => {
-		it('lists, counts and spreads the cards of one deck only', async () => {
+		it('lists the cards of one deck only, and puts only them on the belt', async () => {
 			const subject = await createDeck(db, alice, SUBJECT_DECK);
 			const english = await cards.create(alice, aliceDeck, input, 'web', now);
 			const capital = await cards.create(
@@ -525,14 +518,17 @@ describe('cards service', () => {
 			expect((await cards.list(alice, { deckId: aliceDeck })).map((c) => c.id)).toEqual([
 				english.id
 			]);
-			expect(await cards.stats(alice, now, scope)).toEqual({ totalCards: 1, dueToday: 1 });
-			expect((await cards.horizon(alice, now, 2, scope)).map((d) => d.count)).toEqual([1, 0]);
+			expect(await cards.belt(alice, now, scope)).toEqual({ stock: 0, due: 1, tokens: [] });
 			// Sans deck : tous les decks.
-			expect(await cards.stats(alice, now)).toEqual({ totalCards: 2, dueToday: 2 });
+			expect(await cards.belt(alice, now)).toEqual({ stock: 0, due: 2, tokens: [] });
 		});
 
 		it('leaves out the b_to_a reviews of a deck turned one-way, without deleting them', async () => {
 			const { id } = await cards.create(alice, aliceDeck, input, 'web', now);
+			await db.review.updateMany({
+				where: { cardId: id, direction: 'a_to_b' },
+				data: { due: new Date(now.getTime() + DAY) }
+			});
 			await createDecksService(db).update(alice, aliceDeck, {
 				name: 'Anglais',
 				bothDirections: false
@@ -542,7 +538,8 @@ describe('cards service', () => {
 			assert.exists(listed);
 			expect(listed.reviews.map((r) => r.direction)).toEqual(['a_to_b']);
 			expect((await cards.get(alice, id)).reviews.map((r) => r.direction)).toEqual(['a_to_b']);
-			expect((await cards.horizon(alice, now, 2)).map((d) => d.count)).toEqual([1, 0]);
+			// Le b_to_a, dû, ne compte plus : la carte n'attend que son a_to_b, demain.
+			expect(await cards.belt(alice, now)).toMatchObject({ due: 0, tokens: [{ delayMs: DAY }] });
 			expect(await db.review.count({ where: { cardId: id } })).toBe(2);
 		});
 	});

@@ -680,13 +680,11 @@ describe('reviews service', () => {
 			expect(early.isNew).toBe(false);
 		});
 
-		it('keeps the waiting new cards out of today and the horizon', async () => {
-			const ids = await addCards(subject, 30);
+		it('keeps the waiting new cards off the belt, as a stock', async () => {
+			await addCards(subject, 30);
 
-			expect(await cards.stats(alice, at(1))).toEqual({ totalCards: 30, dueToday: LIMIT });
-			const horizon = await cards.horizon(alice, at(1));
-			expect(horizon.reduce((total, day) => total + day.count, 0)).toBe(LIMIT);
-			expect(await reviews.heldNewCards(alice, at(1))).toEqual(new Set(ids.slice(LIMIT)));
+			expect(await cards.belt(alice, at(1))).toEqual({ stock: 30 - LIMIT, due: LIMIT, tokens: [] });
+			expect(await reviews.countDue(alice, at(1))).toBe(LIMIT);
 		});
 
 		it('applies a new limit from now on, counting the cards started today', async () => {

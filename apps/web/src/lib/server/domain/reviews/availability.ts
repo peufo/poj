@@ -46,17 +46,23 @@ function byPresentation(a: { at: Date; review: ReviewSlot }, b: { at: Date; revi
 	);
 }
 
-/** Présentation de chaque révision (par id), les deux sens d'une carte considérés ensemble. */
-export function presentations(reviews: ReviewSlot[], now: Date): Map<string, Presentation> {
-	const byCard = new Map<string, ReviewSlot[]>();
+/**
+ * Présentations des sens révisés de chaque carte (par id de carte), dans leur ordre de
+ * présentation : le premier sens, puis le second, que la réponse au premier met de côté.
+ */
+function presentationsByCard<R extends ReviewSlot>(
+	reviews: readonly R[],
+	now: Date
+): Map<string, (Presentation & { review: R })[]> {
+	const byCard = new Map<string, R[]>();
 	for (const review of reviews) {
 		const siblings = byCard.get(review.cardId);
 		if (siblings) siblings.push(review);
 		else byCard.set(review.cardId, [review]);
 	}
 
-	const result = new Map<string, Presentation>();
-	for (const siblings of byCard.values()) {
+	const result = new Map<string, (Presentation & { review: R })[]>();
+	for (const [cardId, siblings] of byCard) {
 		const slots = siblings
 			.map((review) => {
 				const sibling = siblings.find((s) => s.direction === opposite[review.direction]);
@@ -67,13 +73,35 @@ export function presentations(reviews: ReviewSlot[], now: Date): Map<string, Pre
 
 		const [first, second] = slots;
 		if (!first) continue;
-		result.set(first.review.id, { buriedUntil: first.buried, at: first.at });
+		const ordered = [{ review: first.review, buriedUntil: first.buried, at: first.at }];
 		if (second) {
 			// Répondre au premier sens mettra le second de côté pendant 24 h.
 			const answeredAt = later(first.at, now);
 			const at = later(second.at, new Date(answeredAt.getTime() + SIBLING_BURY_MS));
-			result.set(second.review.id, { buriedUntil: second.buried, at });
+			ordered.push({ review: second.review, buriedUntil: second.buried, at });
 		}
+		result.set(cardId, ordered);
+	}
+	return result;
+}
+
+/** Présentation de chaque révision (par id), les deux sens d'une carte considérés ensemble. */
+export function presentations(reviews: ReviewSlot[], now: Date): Map<string, Presentation> {
+	const result = new Map<string, Presentation>();
+	for (const slots of presentationsByCard(reviews, now).values()) {
+		for (const { review, buriedUntil, at } of slots) result.set(review.id, { buriedUntil, at });
+	}
+	return result;
+}
+
+/** Prochaine présentation de chaque carte (par id de carte) : celle du premier de ses sens. */
+export function nextPresentations<R extends ReviewSlot>(
+	reviews: readonly R[],
+	now: Date
+): Map<string, Presentation & { review: R }> {
+	const result = new Map<string, Presentation & { review: R }>();
+	for (const [cardId, [first]] of presentationsByCard(reviews, now)) {
+		if (first) result.set(cardId, first);
 	}
 	return result;
 }

@@ -34,13 +34,20 @@ export type BatchResult =
 
 export type CardDetail = Card & { deck: Deck; reviews: (Review & { logs: ReviewLog[] })[] };
 
-export interface CardStats {
-	totalCards: number;
-	dueToday: number;
+/**
+ * Une carte en route sur le tapis : délai jusqu'à sa prochaine présentation, et l'état du sens
+ * qui sera alors présenté.
+ */
+export interface BeltToken extends Pick<Review, 'state' | 'stability'> {
+	delayMs: number;
 }
 
-/** Un jour civil de l'échéancier : son début (minuit local) et les révisions dues ce jour-là. */
-export interface HorizonDay {
-	date: Date;
-	count: number;
+/** Le tapis : cartes neuves en attente, cartes présentables maintenant, cartes en route. */
+export interface Belt {
+	/** Cartes neuves au-delà de la limite du jour de leur deck. */
+	stock: number;
+	/** Cartes dont un sens est présentable maintenant. */
+	due: number;
+	/** Une entrée par carte en route, sans ordre particulier. */
+	tokens: BeltToken[];
 }

@@ -11,11 +11,13 @@
 		count?: number;
 		back?: { href: string; label: string };
 		compact?: boolean;
+		/** Sous d'autres blocs, pas en haut de l'écran : sans le retrait du haut. */
+		flush?: boolean;
 		actions?: Snippet;
 		children?: Snippet;
 	};
 
-	let { title, count, back, compact = false, actions, children }: Props = $props();
+	let { title, count, back, compact = false, flush = false, actions, children }: Props = $props();
 </script>
 
 {#snippet backLink(link: { href: string; label: string })}
@@ -34,9 +36,14 @@
 		{#if actions}<div class="flex shrink-0 items-center gap-2">{@render actions()}</div>{/if}
 	</header>
 {:else}
-	<header class="flex flex-col gap-1 pt-3 md:pt-8">
+	<header class={['flex flex-col gap-1', !flush && 'pt-3 md:pt-8']}>
 		{#if back}{@render backLink(back)}{/if}
-		<div class="flex min-h-11 items-center justify-between gap-3 {back ? '' : 'pt-6 md:pt-0'}">
+		<div
+			class={[
+				'flex min-h-11 items-center justify-between gap-3',
+				!back && !flush && 'pt-6 md:pt-0'
+			]}
+		>
 			<h1 class="text-2xl font-bold tracking-tight">
 				{title}
 				{#if count !== undefined}<span class="ml-1 font-semibold text-ink-3 tabular-nums"

@@ -277,15 +277,6 @@ export function createReviewsService(db: Db) {
 			return { reviews, held: held !== null, remaining, nextDue };
 		},
 
-		/** Cartes neuves en attente (au-delà de la limite du jour de leur deck). */
-		async heldNewCards(
-			ownerId: string,
-			now = new Date(),
-			{ deckId }: ReviewScope = {}
-		): Promise<Set<string>> {
-			return new Set((await findNewCards(db, ownerId, now, deckId)).held);
-		},
-
 		/**
 		 * Les deux vélocités, tous decks confondus. Les répétitions comptent toutes les réponses
 		 * de la fenêtre, quelle que soit la note, cartes supprimées ou réinitialisées comprises.

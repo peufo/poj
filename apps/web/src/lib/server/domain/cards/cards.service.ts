@@ -4,19 +4,18 @@ import { directionsOf, findOwnedDeck, lockOwner, reviewedDirections } from '../d
 import type { Deck } from '../decks/types';
 import { NotFoundError } from '../errors';
 import { comparisonKey } from '../text';
-import { presentations } from '../reviews/availability';
+import { nextPresentations } from '../reviews/availability';
 import { findNewCards, presentableCard } from '../reviews/new-cards';
 import { emptyState } from '../reviews/scheduler';
-import { calendarDaysBetween, startOfDay, startOfNextDay } from '../time';
 import type {
 	BatchEntry,
 	BatchResult,
+	Belt,
+	BeltToken,
 	Card,
 	CardDetail,
 	CardInput,
-	CardStats,
 	CardWithReviews,
-	HorizonDay,
 	Origin
 } from './types';
 
@@ -101,22 +100,6 @@ export function createCardsService(db: Db) {
 		const card = await db.card.findFirst({ where: { id, ownerId, deletedAt: null } });
 		if (!card) throw new NotFoundError(`Card ${id} not found`);
 		return card;
-	}
-
-	/**
-	 * Les révisions des sens révisés des cartes non supprimées (du deck `deckId` s'il est
-	 * précisé), de quoi calculer leur présentation. Les cartes neuves en attente (au-delà de
-	 * la limite du jour de leur deck) n'en font pas partie.
-	 */
-	async function reviewSlots(ownerId: string, now: Date, deckId?: string) {
-		const fresh = await findNewCards(db, ownerId, now, deckId);
-		return db.review.findMany({
-			where: {
-				card: { ownerId, deletedAt: null, deckId, ...presentableCard(fresh) },
-				...reviewedDirections
-			},
-			select: { id: true, cardId: true, direction: true, due: true, lastReview: true }
-		});
 	}
 
 	return {
@@ -361,49 +344,42 @@ export function createCardsService(db: Db) {
 		},
 
 		/**
-		 * Nombre de cartes, et révisions qui seront présentées d'ici la fin du jour civil
-		 * (Europe/Zurich) : sans les sens mis de côté jusqu'à demain, et au plus un sens par
-		 * carte quand les deux viendraient aujourd'hui (voir `presentations`), sans les cartes
-		 * neuves en attente. Tous les decks, ou le deck `deckId`.
+		 * Le tapis des cartes non supprimées (du deck `deckId` s'il est précisé). Chaque carte y
+		 * figure une fois, à la prochaine présentation du premier de ses sens (mise de côté du
+		 * sens inverse comprise, voir `nextPresentations`) : présentable maintenant (`due`, le
+		 * nombre de `reviews.countDue`), ou en route (`tokens`). Les cartes neuves au-delà de la
+		 * limite du jour de leur deck sont à part (`stock`).
 		 */
-		async stats(
+		async belt(
 			ownerId: string,
 			now = new Date(),
 			{ deckId }: { deckId?: string } = {}
-		): Promise<CardStats> {
-			const [totalCards, slots] = await Promise.all([
-				db.card.count({ where: { ownerId, deletedAt: null, deckId } }),
-				reviewSlots(ownerId, now, deckId)
-			]);
-			const endOfDay = startOfNextDay(now).getTime();
-			let dueToday = 0;
-			for (const { at } of presentations(slots, now).values()) {
-				if (at.getTime() < endOfDay) dueToday += 1;
-			}
-			return { totalCards, dueToday };
-		},
+		): Promise<Belt> {
+			const fresh = await findNewCards(db, ownerId, now, deckId);
+			const reviews = await db.review.findMany({
+				where: {
+					card: { ownerId, deletedAt: null, deckId, ...presentableCard(fresh) },
+					...reviewedDirections
+				},
+				select: {
+					id: true,
+					cardId: true,
+					direction: true,
+					due: true,
+					lastReview: true,
+					state: true,
+					stability: true
+				}
+			});
 
-		/**
-		 * Révisions présentées sur les `days` prochains jours civils (Europe/Zurich), une entrée
-		 * par jour à partir d'aujourd'hui ; le premier jour inclut le retard. Un sens mis de
-		 * côté compte au jour où sa mise de côté se termine, comme dans `stats`. Les cartes
-		 * neuves en attente n'y figurent pas. Tous les decks, ou le deck `deckId`.
-		 */
-		async horizon(
-			ownerId: string,
-			now = new Date(),
-			days = 14,
-			{ deckId }: { deckId?: string } = {}
-		): Promise<HorizonDay[]> {
-			const slots = await reviewSlots(ownerId, now, deckId);
-			const end = startOfDay(now, days).getTime();
-			const counts = Array.from({ length: days }, () => 0);
-			for (const { at: presentedAt } of presentations(slots, now).values()) {
-				if (presentedAt.getTime() >= end) continue;
-				const day = Math.max(0, calendarDaysBetween(now, presentedAt));
-				counts[day] = at(counts, day) + 1;
+			let due = 0;
+			const tokens: BeltToken[] = [];
+			for (const { at: presentedAt, review } of nextPresentations(reviews, now).values()) {
+				const delayMs = presentedAt.getTime() - now.getTime();
+				if (delayMs <= 0) due += 1;
+				else tokens.push({ delayMs, state: review.state, stability: review.stability });
 			}
-			return counts.map((count, i) => ({ date: startOfDay(now, i), count }));
+			return { stock: fresh.held.length, due, tokens };
 		}
 	};
 }

@@ -49,18 +49,6 @@ export function startOfNextDay(now: Date, timeZone = TIME_ZONE): Date {
 	return startOfDay(now, 1, timeZone);
 }
 
-/**
- * Écart en jours civils (heure locale) de `from` à `to` : 0 le même jour, 1 le lendemain,
- * négatif dans le passé, quelle que soit l'heure.
- */
-export function calendarDaysBetween(from: Date, to: Date, timeZone = TIME_ZONE): number {
-	const a = localParts(from, timeZone);
-	const b = localParts(to, timeZone);
-	return Math.round(
-		(Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000
-	);
-}
-
 const relative = new Intl.RelativeTimeFormat('fr', { numeric: 'always' });
 
 const MINUTE = 60_000;

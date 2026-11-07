@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import PageHeader from '#lib/components/PageHeader.svelte';
-	import Horizon from '#lib/components/Horizon.svelte';
+	import Belt from '#lib/components/Belt.svelte';
 	import Velocities from '#lib/components/Velocities.svelte';
-	import MasteryBar from '#lib/components/MasteryBar.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
 	import DeckChips from '#lib/components/DeckChips.svelte';
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
@@ -11,7 +10,7 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { NO_AUTOFILL } from '#lib/ui/autofill.js';
 	import { faces } from '#lib/format/decks.js';
-	import { formatWeekday, plural } from '#lib/format/labels.js';
+	import { plural } from '#lib/format/labels.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -19,26 +18,9 @@
 	const deck = $derived(data.deck);
 	const deckQuery = $derived(deck ? `?deck=${deck.id}` : '');
 	const face = $derived(deck && faces(deck));
+	const hasCards = $derived(data.totalCards > 0);
 
-	let day: number | null = $state(null);
 	let timer: ReturnType<typeof setTimeout> | undefined;
-
-	const later = $derived(data.stats.dueToday - data.stats.dueNow);
-	const visible = $derived(
-		day === null ? data.cards : data.cards.filter((c) => c.reviews.some((r) => r.day === day))
-	);
-
-	function dayLabel(i: number) {
-		if (i === 0) return "aujourd'hui";
-		if (i === 1) return 'demain';
-		const day = data.horizon[i];
-		return day ? formatWeekday(day.date) : '';
-	}
-
-	const countLabel = $derived(
-		plural(visible.length, 'carte') +
-			(day === null ? '' : ` ${visible.length > 1 ? 'dues' : 'due'} ${dayLabel(day)}`)
-	);
 
 	// La recherche se fait côté serveur (`?q=`) ; avec JavaScript, au fil de la frappe.
 	function search(value: string, delay = 250) {
@@ -54,7 +36,15 @@
 <svelte:head><title>{deck?.name ?? 'Cartes'} · Poj</title></svelte:head>
 
 <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-10 md:px-8">
-	<PageHeader title={deck?.name ?? 'Cartes'} count={data.stats.totalCards}>
+	{#if hasCards}
+		<!-- Ce qui vient, tout en haut : le tapis, puis le passé en deux chiffres. -->
+		<div class="flex flex-col gap-3 pt-3 md:pt-8">
+			<Belt {...data.belt} reviewHref="/review{deckQuery}" />
+			<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
+		</div>
+	{/if}
+
+	<PageHeader title={deck?.name ?? 'Cartes'} count={data.totalCards} flush={hasCards}>
 		{#snippet actions()}
 			{#if deck}
 				<Button href="/decks/{deck.id}/edit" icon="pencil" size="sm">Modifier le deck</Button>
@@ -69,7 +59,7 @@
 		<DeckChips decks={data.nav.decks} active={deck?.id ?? null} class="pt-2 md:hidden" />
 	</PageHeader>
 
-	{#if data.stats.totalCards === 0}
+	{#if !hasCards}
 		<div class="flex flex-col items-start gap-3 py-8">
 			<p class="text-lg font-semibold">Aucune carte pour l'instant</p>
 			<p class="max-w-[50ch] text-ink-2">
@@ -81,30 +71,6 @@
 			<Button href="/cards/new{deckQuery}" variant="primary" icon="plus">Créer une carte</Button>
 		</div>
 	{:else}
-		<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
-
-		<!-- L'échéancier : ce qui est dû, ce qui vient, où en est le paquet -->
-		<section aria-label="Échéancier" class="flex flex-col gap-5 rounded-2xl bg-surface p-4 md:p-5">
-			<div class="flex items-center justify-between gap-4">
-				<div class="min-w-0">
-					<p class="text-lg font-semibold">
-						<span class="text-accent-text tabular-nums">{data.stats.dueToday}</span>
-						{data.stats.dueToday > 1 ? 'dues' : 'due'} aujourd'hui
-					</p>
-					<p class="text-sm text-ink-2">
-						{data.stats.dueNow} maintenant{#if later > 0}, {later} plus tard{/if}
-					</p>
-				</div>
-				<Button href="/review{deckQuery}" variant="primary" icon="review">Réviser</Button>
-			</div>
-
-			<Horizon days={data.horizon} bind:selected={day} />
-
-			<div class="border-t border-line pt-4">
-				<MasteryBar counts={data.mastery} />
-			</div>
-		</section>
-
 		<section aria-label="Liste des cartes" class="flex flex-col gap-2">
 			<form
 				method="get"
@@ -135,25 +101,15 @@
 				</label>
 			</form>
 
-			<div class="flex min-h-9 items-center justify-between gap-3 pt-2">
-				<p class="text-sm text-ink-3" aria-live="polite">
-					{countLabel}
+			{#if data.query}
+				<p class="pt-2 text-sm text-ink-3" aria-live="polite">
+					{plural(data.cards.length, 'carte')}
 				</p>
-				{#if day !== null}
-					<button
-						type="button"
-						onclick={() => (day = null)}
-						class="inline-flex h-7 items-center gap-1 rounded-full bg-accent-soft pr-2 pl-2.5 text-xs font-medium text-accent-text"
-					>
-						{dayLabel(day)}
-						<Icon name="x" size={14} label="Retirer le filtre" />
-					</button>
-				{/if}
-			</div>
+			{/if}
 
-			{#if visible.length}
+			{#if data.cards.length}
 				<ul>
-					{#each visible as c (c.id)}
+					{#each data.cards as c (c.id)}
 						<CardRow
 							href="/cards/{c.id}"
 							sideA={c.sideA}
@@ -164,7 +120,7 @@
 						/>
 					{/each}
 				</ul>
-			{:else if data.query}
+			{:else}
 				<div class="flex flex-col items-start gap-3 py-8">
 					<p class="text-ink">Aucune carte ne contient « {data.query} ».</p>
 					<p class="text-sm text-ink-2">
@@ -178,8 +134,6 @@
 						>
 					</div>
 				</div>
-			{:else}
-				<p class="py-8 text-ink-2">Aucune carte due {dayLabel(day ?? 0)}.</p>
 			{/if}
 		</section>
 	{/if}

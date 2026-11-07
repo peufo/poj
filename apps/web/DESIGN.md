@@ -229,7 +229,7 @@ Une palette tirée de la marque (teal, encre, papier), à un seul accent, où la
 
 ### Primary
 
-- **Teal d'action** (`accent`) : bouton principal, pastille du nombre de révisions dues, barres de l'horizon, jour sélectionné, curseur de saisie et `accent-color` natif. C'est le teal de la marque, identique dans les deux thèmes (`var(--color-brand)`). `accent-hover` assombrit en clair et éclaircit en sombre.
+- **Teal d'action** (`accent`) : bouton principal, pastille du nombre de révisions dues, cartes prêtes du tapis, curseur de saisie et `accent-color` natif. C'est le teal de la marque, identique dans les deux thèmes (`var(--color-brand)`). `accent-hover` assombrit en clair et éclaircit en sombre.
 - **Teal de texte** (`accent-text`) : la variante lisible de l'accent pour le texte et les icônes actives (lien retour, onglet courant, réponse révélée, jour « aujourd'hui »). Toujours préférée à `accent` pour du texte sur fond neutre.
 - **Teal voilé** (`accent-soft`) : fond des puces d'échéance « à réviser » et « nouvelle », survol des actions en texte d'accent.
 - **Encre sur accent** (`on-accent`) : valeur non appariée, comme `accent` et `brand`, le texte sur fond teal dans les deux thèmes.
@@ -246,13 +246,13 @@ Une palette tirée de la marque (teal, encre, papier), à un seul accent, où la
 ### Neutral
 
 - **Canvas** (`canvas`) : fond de page et de la barre d'onglets translucide ; un papier plus clair que celui de la marque.
-- **Surface** (`surface`) : le papier de la marque en clair. Barre latérale, panneaux (échéancier, sens d'une carte), fond de `Notice` info, rail du contrôle segmenté.
+- **Surface** (`surface`) : le papier de la marque en clair. Barre latérale, panneaux (tapis, sens d'une carte), fond de `Notice` info, rail du contrôle segmenté.
 - **Relief** (`raised`) : ce qui est au-dessus : carte de révision, feuille, bouton secondaire, segment actif. Blanc pur en clair.
 - **Creux** (`inset`) : fond des champs de saisie.
 - **Survol** (`hover`) : survol des lignes et des boutons discrets, et état actif de la navigation.
-- **Filet** (`line`) et **filet appuyé** (`line-strong`) : séparateurs de lignes et bordures ; `line-strong` borde les champs, le bouton secondaire et les jours vides de l'horizon.
+- **Filet** (`line`) et **filet appuyé** (`line-strong`) : séparateurs de lignes et bordures ; `line-strong` borde les champs, le bouton secondaire et la boîte des prêtes vide, et trace le tapis.
 - **Encre** (`ink`, `ink-2`, `ink-3`) : texte principal, secondaire (traduction anglaise, descriptions), discret (métadonnées, placeholders, icônes inactives). Toutes trois dépassent 4,5:1 sur canvas, surface et hover. En clair, `ink` est l'encre de la marque ; en sombre, son papier.
-- **Rampe de maîtrise** (`level-0` à `level-3`) : une rampe d'encre neutre, du plus pâle (Nouvelle) au plus contrasté (Solide), qui s'inverse naturellement en sombre.
+- **Rampe de maîtrise** (`level-0` à `level-3`) : une rampe d'encre neutre, du plus pâle (Nouvelle) au plus contrasté (Solide), qui s'inverse naturellement en sombre. Elle teinte aussi les marques du tapis, sans légende à côté.
 
 ### Named Rules
 
@@ -277,14 +277,14 @@ Une palette tirée de la marque (teal, encre, papier), à un seul accent, où la
 - **Title** (600, 1,4375rem / 1,875rem, `-0.025em`) : l'échéance d'un sens sur la fiche d'une carte.
 - **Title small** (600, 1,1875rem / 1,625rem) : titres de section et titre de feuille.
 - **Body** (400, 1rem / 1,5rem) : texte courant, le français d'une ligne de carte, les champs. Lignes longues plafonnées entre 50 et 65ch.
-- **Body small** (400 à 500, 0,875rem / 1,25rem) : libellés de champs, navigation latérale, aides, légendes de l'horizon.
+- **Body small** (400 à 500, 0,875rem / 1,25rem) : libellés de champs, navigation latérale, aides, lecture du tapis.
 - **Label** (500 à 600, 0,75rem / 1rem, chiffres tabulaires) : puces d'échéance, pastilles de note, intervalles sous les notes.
 
 Une taille intermédiaire de 0,9375rem (15 px) apparaît en valeur arbitraire (bouton moyen, traduction anglaise d'une ligne, lien retour, libellé de note). Elle n'est pas encore un token : la promouvoir si elle reste.
 
 ### Named Rules
 
-**The Tabular Figures Rule.** Tout nombre qui se compare ou se met à jour (compteurs, échéances, horizon, intervalles) est en chiffres tabulaires (`tabular-nums`).
+**The Tabular Figures Rule.** Tout nombre qui se compare ou se met à jour (compteurs, échéances, tapis, intervalles) est en chiffres tabulaires (`tabular-nums`).
 
 **The One Family Rule.** Une seule famille, la police système. La hiérarchie se fait par taille et graisse ; aucune police d'affichage importée.
 
@@ -335,7 +335,7 @@ Nets et sobres, une seule action pleine par zone.
 ### Cards / Containers
 
 - **Corner Style:** `2xl` (1,25rem).
-- **Background:** `surface` pour les panneaux posés (échéancier, sens d'une carte) ; `raised` avec filet `line` et ombre de relief pour la carte de révision.
+- **Background:** `surface` pour les panneaux posés (tapis, sens d'une carte) ; `raised` avec filet `line` et ombre de relief pour la carte de révision.
 - **Shadow Strategy:** voir Elevation & Depth ; seule la carte de révision a une ombre.
 - **Internal Padding:** 1rem à 1,25rem au téléphone, 1,25rem à 1,75rem sur grand écran.
 - **Ligne de carte (`CardRow`) :** pas de conteneur ; le français en `ink`, l'anglais en `ink-2` à 15 px, les deux puces d'échéance alignées à droite, un filet `line` entre les lignes (absent sur la dernière), survol `hover` en coins `lg`.
@@ -352,9 +352,15 @@ Nets et sobres, une seule action pleine par zone.
 - **Barre d'onglets :** icônes de 22 px sur libellé de 11 px ; actif en `accent-text`, inactif en `ink-3`. Pastille teal cerclée de `canvas` sur Réviser.
 - **En-tête d'écran (`PageHeader`) :** lien retour en `accent-text` avec chevron, grand titre Headline et total en `ink-3`, actions à droite. En mode `compact`, une barre seule (retour et actions) : le titre reste dans un `h1` masqué, le contenu fait office de titre.
 
-### Horizon (signature)
+### Tapis (signature, `Belt`)
 
-L'interaction signature : quatorze barres, une par jour civil (le premier inclut le retard), hauteur proportionnelle au nombre de révisions dues, coins de 3 px, largeur plafonnée à 1,25rem. Aujourd'hui et le jour sélectionné en `accent` plein, les autres en accent à 45 % (30 % quand un autre jour est sélectionné), les jours vides en trait `line-strong`. Toucher un jour le sélectionne et filtre la liste ; un second toucher désélectionne. La légende au-dessus annonce le jour survolé ou sélectionné (`aria-live`). Transition de hauteur et de couleur en 200 ms.
+L'interaction signature, tout en haut de `/cards` (doc/story/tapis-roulant.md) : un panneau `surface` où chaque carte en route est une marque, posée à sa prochaine présentation sur un axe logarithmique continu, de maintenant (à gauche) à deux ans et plus. Pas de jours : un trait `line-strong` à crans d'un pixel (durées rondes, de 2 min à 2 ans), cinq repères libellés en 11 px (`1 h`, `1 j`, `7 j`, `30 j`, `1 an`), sur 72 px de haut.
+
+- **Marques :** une par carte, jamais regroupées, teintées par la rampe de maîtrise du sens présenté, les plus solides en bas de chaque colonne. Elles rétrécissent par paliers (6 × 5, 4 × 3, 3 × 2, 2 × 1 px) pour que la colonne la plus haute tienne ; au-delà, elles se chevauchent et les colonnes gardent leurs proportions.
+- **Chute :** le tapis s'arrête à 18 px du bord sur un rouleau ; dans cette marge, jusqu'à quatre marques `accent` inclinées tombent dans la boîte des prêtes.
+- **Boîtes :** sous le tapis, les prêtes à gauche (`accent-soft`, ouverte en haut, pile de marques `accent`), puis les neuves en attente (`hover`, marques creuses `level-1`, absente sans stock), et « Réviser » collé à droite. Mêmes paliers de marques ; une boîte pleine plafonne, son chiffre reste exact. Les boîtes ne filtrent rien.
+- **Ligne :** survoler ou toucher le tapis place une ligne `accent-text` sur le cran le plus proche ; au-delà, les marques s'estompent sous un voile `surface`. Au-dessus, la lecture : « 18 cartes d'ici 3 j » (prêtes comprises). Au toucher, la ligne reste jusqu'à un toucher hors du tapis. Au clavier, un curseur natif (`input type="range"`, masqué) parcourt les crans et donne la même lecture en `aria-valuetext`.
+- Aucun mouvement : le tapis est une photo au chargement.
 
 ### Notes (signature)
 
@@ -362,7 +368,7 @@ L'interaction signature : quatorze barres, une par jour civil (le premier inclut
 
 ### Maîtrise
 
-`MasteryBar` répartit les révisions (deux par carte) en segments arrondis de 0,5rem de haut, avec une légende à points ; `MasteryMeter` affiche trois traits de 0,375rem. Les deux utilisent la rampe neutre `level-0..3`. Les libellés (Nouvelle, En cours, Acquise, Solide) et leurs seuils (jamais notée ; en apprentissage ou stabilité < 7 j ; 7 à 30 j ; > 30 j) sont une proposition en attente de validation par l'utilisateur.
+`MasteryBar` répartit les révisions (deux par carte) en segments arrondis de 0,5rem de haut, avec une légende à points ; il a quitté `/cards` avec l'arrivée du tapis et attend sa propre page (t35). `MasteryMeter` affiche trois traits de 0,375rem. Les deux utilisent la rampe neutre `level-0..3`, comme les marques du tapis. Les libellés (Nouvelle, En cours, Acquise, Solide) et leurs seuils (jamais notée ; en apprentissage ou stabilité < 7 j ; 7 à 30 j ; > 30 j) sont une proposition en attente de validation par l'utilisateur.
 
 ### Feuille (`Sheet`)
 
@@ -374,7 +380,7 @@ Un seul bouton plein. Quand un doublon est signalé, une `Notice` d'avertissemen
 
 ### Vélocités (`Velocities`)
 
-Un panneau `surface` en tête de `/cards`, au-dessus de l'échéancier : les répétitions par jour et les cartes mûres, côte à côte. Chaque chiffre est semi-gras et tabulaire, avec son libellé en `ink-2` et sa définition en `ink-3`. Encre neutre, sans teal : ce sont des constats, pas des actions. Le panneau disparaît quand la page n'a aucune carte ; quand elle se limite à un deck parmi plusieurs, il précise « Tous les decks ». Pas d'autre récompense.
+Un panneau `surface` sous le tapis de `/cards`, au-dessus de la liste : les répétitions par jour et les cartes mûres, côte à côte. Chaque chiffre est semi-gras et tabulaire, avec son libellé en `ink-2` et sa définition en `ink-3`. Encre neutre, sans teal : ce sont des constats, pas des actions. Le panneau disparaît quand la page n'a aucune carte ; quand elle se limite à un deck parmi plusieurs, il précise « Tous les decks ». Pas d'autre récompense.
 
 ### Notice
 

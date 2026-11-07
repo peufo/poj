@@ -42,7 +42,7 @@ Une carte fausse ne doit jamais exister : la fiabilité se joue à la création 
 - Création : suggestion DeepL reprenable d'un clic, jamais enregistrée d'office ; avertissement de doublon (même anglais) avec lien, enregistrement possible quand même.
 - Modifier le français ou l'anglais réinitialise la progression des deux sens (avertissement avant enregistrement) ; modifier le contexte seul ne change rien.
 - Suppression logique avec confirmation.
-- Liste : recherche texte, total de cartes et révisions dues aujourd'hui en tête.
+- Liste : recherche texte, total de cartes en tête ; au-dessus, le tapis des révisions à venir (cartes prêtes, en route, neuves en attente).
 - Détail : échéance relative par sens (« dans 12 jours »), nombre de révisions, dernière note, historique complet (date, sens, note, origine).
 - Progression : stabilité et difficulté ne sont pas exposées ; on montre l'échéance et une indication simple de maîtrise (libellé **à définir**).
 - Accès réservé à un compte unique, créé au premier lancement.
