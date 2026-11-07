@@ -4,9 +4,11 @@ import { directionsOf, findOwnedDeck, lockOwner, reviewedDirections } from '../d
 import type { Deck } from '../decks/types';
 import { NotFoundError } from '../errors';
 import { comparisonKey } from '../text';
-import { nextPresentations } from '../reviews/availability';
-import { findNewCards, presentableCard } from '../reviews/new-cards';
-import { emptyState } from '../reviews/scheduler';
+import { presentationsByCard } from '../reviews/availability';
+import { forecast, type ForecastSense } from '../reviews/forecast';
+import { findNewCards } from '../reviews/new-cards';
+import { emptyState, pickState } from '../reviews/scheduler';
+import { startOfDay } from '../time';
 import type {
 	BatchEntry,
 	BatchResult,
@@ -346,40 +348,64 @@ export function createCardsService(db: Db) {
 		/**
 		 * Le tapis des cartes non supprimées (du deck `deckId` s'il est précisé). Chaque carte y
 		 * figure une fois, à la prochaine présentation du premier de ses sens (mise de côté du
-		 * sens inverse comprise, voir `nextPresentations`) : présentable maintenant (`due`, le
+		 * sens inverse comprise, voir `presentationsByCard`) : présentable maintenant (`due`, le
 		 * nombre de `reviews.countDue`), ou en route (`tokens`). Les cartes neuves au-delà de la
 		 * limite du jour de leur deck sont à part (`stock`).
+		 *
+		 * `forecast` estime les révisions par jour à venir, les deux sens de chaque carte compris,
+		 * et les cartes en attente à partir du jour où la limite de leur deck les laissera entrer.
 		 */
 		async belt(
 			ownerId: string,
 			now = new Date(),
 			{ deckId }: { deckId?: string } = {}
 		): Promise<Belt> {
-			const fresh = await findNewCards(db, ownerId, now, deckId);
-			const reviews = await db.review.findMany({
-				where: {
-					card: { ownerId, deletedAt: null, deckId, ...presentableCard(fresh) },
-					...reviewedDirections
-				},
-				select: {
-					id: true,
-					cardId: true,
-					direction: true,
-					due: true,
-					lastReview: true,
-					state: true,
-					stability: true
-				}
+			const [fresh, reviews] = await Promise.all([
+				findNewCards(db, ownerId, now, deckId),
+				db.review.findMany({
+					where: { card: { ownerId, deletedAt: null, deckId }, ...reviewedDirections },
+					select: {
+						id: true,
+						cardId: true,
+						direction: true,
+						due: true,
+						stability: true,
+						difficulty: true,
+						scheduledDays: true,
+						learningSteps: true,
+						reps: true,
+						lapses: true,
+						state: true,
+						lastReview: true
+					}
+				})
+			]);
+			// Une carte en attente entre à minuit, le jour où la limite de son deck l'atteint.
+			const scheduled = reviews.map((review) => {
+				const day = fresh.releaseDays.get(review.cardId);
+				return day === undefined ? review : { ...review, due: startOfDay(now, day) };
 			});
 
 			let due = 0;
 			const tokens: BeltToken[] = [];
-			for (const { at: presentedAt, review } of nextPresentations(reviews, now).values()) {
-				const delayMs = presentedAt.getTime() - now.getTime();
+			const senses: ForecastSense[] = [];
+			for (const [cardId, slots] of presentationsByCard(scheduled, now)) {
+				for (const { review, at: start } of slots) {
+					senses.push({ id: review.id, state: pickState(review), start });
+				}
+				const [first] = slots;
+				if (!first || fresh.releaseDays.has(cardId)) continue;
+				const delayMs = first.at.getTime() - now.getTime();
 				if (delayMs <= 0) due += 1;
-				else tokens.push({ delayMs, state: review.state, stability: review.stability });
+				else tokens.push({ delayMs, state: first.review.state, stability: first.review.stability });
 			}
-			return { stock: fresh.held.length, due, tokens };
+
+			return {
+				stock: fresh.releaseDays.size,
+				due,
+				tokens,
+				forecast: forecast(senses, now)
+			};
 		}
 	};
 }

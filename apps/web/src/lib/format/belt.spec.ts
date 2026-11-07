@@ -6,11 +6,14 @@ import {
 	MARK_SIZES,
 	beltPosition,
 	cardsByStop,
+	forecastPath,
+	formatRate,
 	layoutMarks,
 	layoutPile,
 	markPaths,
 	nearestStop,
 	pilePath,
+	rateAt,
 	stopAt,
 	type MarkToken
 } from './belt';
@@ -144,5 +147,32 @@ describe('layoutPile', () => {
 		const path = pilePath(layoutPile(2, 20, 44), 44);
 		expect(path).toBe('M0 39h6v5h-6zM7 39h6v5h-6z');
 		expect(pilePath(layoutPile(1, 20, 44), 44, { outline: true })).toBe('M0.5 39.5h5v4h-5z');
+	});
+});
+
+describe('forecast curve', () => {
+	const points = [
+		{ position: 0, perDay: 100 },
+		{ position: 0.5, perDay: 25 },
+		{ position: 1, perDay: 0 }
+	];
+
+	it('reads the estimate of the nearest point', () => {
+		expect(rateAt(points, 0.1)).toBe(100);
+		expect(rateAt(points, 0.6)).toBe(25);
+		expect(rateAt([], 0.5)).toBe(0);
+	});
+
+	it('scales the curve on its own peak, by square root', () => {
+		// Pic à 100 : pleine hauteur ; 25, la moitié (racine de 1/4) ; 0, sur la ligne.
+		expect(forecastPath(points, 18, 200, 70, 60)).toBe('M18 10L118 40L218 70');
+		expect(forecastPath([{ position: 0, perDay: 0 }], 18, 200, 70, 60)).toBe('');
+	});
+
+	it('rounds a pace to what it is worth', () => {
+		expect(formatRate(104.6)).toBe('105');
+		expect(formatRate(2.4)).toBe('2');
+		expect(formatRate(0.34)).toBe('0,3');
+		expect(formatRate(0.01)).toBe('0');
 	});
 });

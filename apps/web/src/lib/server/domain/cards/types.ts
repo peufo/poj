@@ -1,4 +1,5 @@
 import type { Card, Deck, Review, ReviewLog } from '../../db/generated/prisma/client';
+import type { ForecastPoint } from '../reviews/forecast';
 
 export type {
 	Card,
@@ -50,4 +51,6 @@ export interface Belt {
 	due: number;
 	/** Une entrée par carte en route, sans ordre particulier. */
 	tokens: BeltToken[];
+	/** Révisions estimées par jour le long de l'axe (voir `reviews/forecast`). */
+	forecast: ForecastPoint[];
 }

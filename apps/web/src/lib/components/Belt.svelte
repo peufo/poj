@@ -6,12 +6,16 @@
 		BELT_STOPS,
 		DEFAULT_STOP,
 		cardsByStop,
+		forecastPath,
+		formatRate,
 		layoutMarks,
 		layoutPile,
 		markPaths,
 		nearestStop,
 		pilePath,
+		rateAt,
 		stopAt,
+		type ForecastMark,
 		type MarkToken
 	} from '#lib/format/belt.js';
 	import { plural } from '#lib/format/labels.js';
@@ -19,17 +23,21 @@
 	// Le tapis : chaque carte en route est une marque, posée à sa prochaine présentation sur un
 	// axe logarithmique, de maintenant (à gauche) à deux ans, et teintée par la maîtrise du sens
 	// présenté. Au bout, les cartes tombent dans la boîte des prêtes. Toucher ou survoler le
-	// tapis place une ligne sur un cran, avec le nombre de cartes à présenter d'ici là.
+	// tapis place une ligne sur un cran, avec le nombre de cartes à présenter d'ici là. En
+	// tiretés, l'estimation des révisions par jour le long de l'axe : une forme, sans échelle,
+	// dont la ligne donne la valeur.
 	type Props = {
 		/** Cartes neuves en attente. */
 		stock: number;
 		/** Cartes présentables maintenant. */
 		due: number;
 		tokens: MarkToken[];
+		/** Révisions estimées par jour le long de l'axe. */
+		forecast: ForecastMark[];
 		reviewHref: string;
 	};
 
-	let { stock, due, tokens, reviewHref }: Props = $props();
+	let { stock, due, tokens, forecast, reviewHref }: Props = $props();
 
 	const fills = ['fill-level-0', 'fill-level-1', 'fill-level-2', 'fill-level-3'];
 	/** Marques d'une boîte : trois colonnes de 7 px, sur sa hauteur utile. */
@@ -54,6 +62,9 @@
 	const paths = $derived(
 		span > 0 ? markPaths(layoutMarks(tokens, span), BELT_MARGIN, BELT_HEIGHT) : null
 	);
+	const curve = $derived(
+		span > 0 ? forecastPath(forecast, BELT_MARGIN, span, BELT_HEIGHT - 3, BELT_HEIGHT - 8) : ''
+	);
 	/** Cartes à présenter d'ici chaque cran, prêtes comprises. */
 	const counts = $derived(
 		cardsByStop(
@@ -62,11 +73,13 @@
 		)
 	);
 
-	/** Lecture d'un cran : où il est, et combien de cartes d'ici là. */
+	/** Lecture d'un cran : où il est, combien de cartes d'ici là, et le rythme estimé à ce moment. */
 	function readingAt(index: number) {
 		const { position, label } = stopAt(index);
 		const cards = counts[index] ?? due;
-		return { label, cards, x: xOf(position), text: `${plural(cards, 'carte')} d'ici ${label}` };
+		const rate = formatRate(rateAt(forecast, position));
+		const text = `${plural(cards, 'carte')} d'ici ${label}, environ ${rate} révisions par jour à ce moment, estimation`;
+		return { label, cards, rate, x: xOf(position), text };
 	}
 
 	const reading = $derived(stop === null ? null : readingAt(stop));
@@ -102,6 +115,22 @@
 			>
 				<span class="font-semibold text-accent-text">{plural(reading.cards, 'carte')}</span>
 				d'ici {reading.label}
+				<span class="font-normal text-ink-2">· ≈ {reading.rate}/j</span>
+			</p>
+		{:else if curve}
+			<p class="absolute top-0 right-0 flex items-center gap-1.5 text-xs leading-5 text-ink-3">
+				<svg width="16" height="4" aria-hidden="true">
+					<line
+						x1="0"
+						x2="16"
+						y1="2"
+						y2="2"
+						class="stroke-ink-2"
+						stroke-width="1.5"
+						stroke-dasharray="4 3"
+					/>
+				</svg>
+				≈ révisions par jour
 			</p>
 		{/if}
 	</div>
@@ -138,6 +167,22 @@
 						height={BELT_HEIGHT + 2}
 						class="fill-surface"
 						opacity="0.68"
+					/>
+				{/if}
+				{#if curve}
+					<path
+						d={curve}
+						class="fill-none stroke-surface"
+						stroke-width="4"
+						stroke-linejoin="round"
+						opacity="0.85"
+					/>
+					<path
+						d={curve}
+						class="fill-none stroke-ink-2"
+						stroke-width="1.5"
+						stroke-dasharray="4 3"
+						stroke-linejoin="round"
 					/>
 				{/if}
 				<line

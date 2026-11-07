@@ -11,10 +11,15 @@ const tokens = [
 	{ position: beltPosition(36 * HOUR), level: 2 as const },
 	{ position: beltPosition(40 * DAY), level: 3 as const }
 ];
+const forecast = [
+	{ position: 0, perDay: 4 },
+	{ position: 0.5, perDay: 2 },
+	{ position: 1, perDay: 0.3 }
+];
 
 describe('Belt', () => {
 	it('shows the ready and waiting cards under the belt, and links to the review', async () => {
-		render(Belt, { stock: 182, due: 10, tokens, reviewHref: '/review?deck=x' });
+		render(Belt, { stock: 182, due: 10, tokens, forecast, reviewHref: '/review?deck=x' });
 
 		await expect.element(page.getByText('10', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('prêtes')).toBeVisible();
@@ -26,29 +31,44 @@ describe('Belt', () => {
 	});
 
 	it('leaves the waiting box out without new cards', async () => {
-		render(Belt, { stock: 0, due: 1, tokens, reviewHref: '/review' });
+		render(Belt, { stock: 0, due: 1, tokens, forecast, reviewHref: '/review' });
 
 		await expect.element(page.getByText('prête', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('neuve')).not.toBeInTheDocument();
 	});
 
 	it('reads the cards to review up to a stop, from the keyboard', async () => {
-		render(Belt, { stock: 0, due: 10, tokens, reviewHref: '/review' });
+		render(Belt, { stock: 0, due: 10, tokens, forecast, reviewHref: '/review' });
 		const slider = page.getByRole('slider', { name: "Cartes à réviser d'ici une date" });
 
-		await expect.element(slider).toHaveAttribute('aria-valuetext', "11 cartes d'ici 1 j");
+		const estimate = (rate: string) =>
+			`, environ ${rate} révisions par jour à ce moment, estimation`;
+		await expect
+			.element(slider)
+			.toHaveAttribute('aria-valuetext', `11 cartes d'ici 1 j${estimate('2')}`);
 		slider.element().focus();
 		await expect.element(slider).toHaveFocus();
 		await expect.element(page.getByText("d'ici 1 j")).toBeVisible();
 
 		await userEvent.keyboard('{ArrowRight}');
-		await expect.element(slider).toHaveAttribute('aria-valuetext', "12 cartes d'ici 2 j");
+		await expect
+			.element(slider)
+			.toHaveAttribute('aria-valuetext', `12 cartes d'ici 2 j${estimate('2')}`);
 		await userEvent.keyboard('{End}');
-		await expect.element(slider).toHaveAttribute('aria-valuetext', "13 cartes d'ici 2 ans +");
+		await expect
+			.element(slider)
+			.toHaveAttribute('aria-valuetext', `13 cartes d'ici 2 ans +${estimate('0,3')}`);
+		await expect.element(page.getByText('· ≈ 0,3/j')).toBeVisible();
 	});
 
 	it('places the line where the belt is touched', async () => {
-		const { container } = render(Belt, { stock: 0, due: 0, tokens, reviewHref: '/review' });
+		const { container } = render(Belt, {
+			stock: 0,
+			due: 0,
+			tokens,
+			forecast,
+			reviewHref: '/review'
+		});
 		const tape = container.querySelector('[role="presentation"]');
 		assert.exists(tape);
 
@@ -65,5 +85,15 @@ describe('Belt', () => {
 		await expect.element(page.getByText(/3 cartes\s+d'ici 2 ans \+/)).toBeVisible();
 		touch('pointerdown', document.body);
 		await expect.element(page.getByText(/d'ici/)).not.toBeInTheDocument();
+	});
+
+	it('presents the forecast as an estimate, and leaves it out without reviews', async () => {
+		const shown = render(Belt, { stock: 0, due: 1, tokens, forecast, reviewHref: '/review' });
+		await expect.element(page.getByText('≈ révisions par jour')).toBeVisible();
+		await shown.unmount();
+
+		const empty = forecast.map((point) => ({ ...point, perDay: 0 }));
+		render(Belt, { stock: 0, due: 1, tokens, forecast: empty, reviewHref: '/review' });
+		await expect.element(page.getByText('≈ révisions par jour')).not.toBeInTheDocument();
 	});
 });

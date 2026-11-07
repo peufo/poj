@@ -46,21 +46,34 @@ export interface NewCards {
 	released: string[];
 	/** Au-delà : elles attendent les jours suivants. */
 	held: string[];
+	/**
+	 * Jour où chaque carte en attente deviendra présentable (1 : demain), si la limite
+	 * d'aujourd'hui de son deck reste la même et que chaque jour l'épuise.
+	 */
+	releaseDays: Map<string, number>;
 }
 
 /**
  * Répartit des cartes neuves, dans leur ordre de présentation : dans chaque deck, les
- * `quota(deck)` premières sont présentables, les autres attendent.
+ * `quota(deck)` premières sont présentables, les autres attendent, et entrent ensuite par
+ * `limit(deck)` chaque jour.
  */
-function splitNewCards(
+export function splitNewCards(
 	cards: readonly { id: string; deckId: string }[],
-	quota: (deckId: string) => number
+	quota: (deckId: string) => number,
+	limit: (deckId: string) => number
 ): NewCards {
 	const taken = new Map<string, number>();
-	const result: NewCards = { released: [], held: [] };
+	const result: NewCards = { released: [], held: [], releaseDays: new Map() };
 	for (const { id, deckId } of cards) {
 		const count = taken.get(deckId) ?? 0;
-		(count < quota(deckId) ? result.released : result.held).push(id);
+		const rank = count - Math.max(0, quota(deckId));
+		if (rank < 0) {
+			result.released.push(id);
+		} else {
+			result.held.push(id);
+			result.releaseDays.set(id, Math.floor(rank / limit(deckId)) + 1);
+		}
 		taken.set(deckId, count + 1);
 	}
 	return result;
@@ -107,11 +120,9 @@ export async function findNewCards(
 	]);
 
 	const limits = new Map(decks.map((deck) => [deck.id, limitOn(deck.newCardsLimits, today)]));
+	const limit = (id: string) => limits.get(id) ?? DEFAULT_NEW_CARDS_PER_DAY;
 	const startedIn = new Map(started.map(({ deckId: id, _count }) => [id, _count._all]));
-	return splitNewCards(
-		pending,
-		(id) => (limits.get(id) ?? DEFAULT_NEW_CARDS_PER_DAY) - (startedIn.get(id) ?? 0)
-	);
+	return splitNewCards(pending, (id) => limit(id) - (startedIn.get(id) ?? 0), limit);
 }
 
 /** Filtre de carte : déjà répondue, ou neuve présentable aujourd'hui (`released`). */

@@ -227,3 +227,50 @@ export function pilePath(
 	}
 	return path;
 }
+
+/** Un point de l'estimation, sur l'axe du tapis : révisions estimées par jour à cet endroit. */
+export interface ForecastMark {
+	position: number;
+	perDay: number;
+}
+
+/** Révisions estimées par jour au point de l'estimation le plus proche de `position`. */
+export function rateAt(points: readonly ForecastMark[], position: number): number {
+	let best: ForecastMark | undefined;
+	for (const point of points) {
+		if (!best || Math.abs(point.position - position) < Math.abs(best.position - position)) {
+			best = point;
+		}
+	}
+	return best?.perDay ?? 0;
+}
+
+/**
+ * Tracé de la courbe d'estimation sur `width` px à partir de `left`, posée sur `baseline` :
+ * hauteur en racine carrée, rapportée au pic de la courbe et à `height`. Vide sans révision.
+ */
+export function forecastPath(
+	points: readonly ForecastMark[],
+	left: number,
+	width: number,
+	baseline: number,
+	height: number
+): string {
+	const peak = Math.max(0, ...points.map((p) => p.perDay));
+	if (peak === 0) return '';
+	return points
+		.map(({ position, perDay }, i) => {
+			const x = left + position * width;
+			const y = baseline - Math.sqrt(perDay / peak) * height;
+			return `${i === 0 ? 'M' : 'L'}${+x.toFixed(1)} ${+y.toFixed(1)}`;
+		})
+		.join('');
+}
+
+const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+
+/** Un rythme estimé, arrondi à ce qu'il vaut : « 105 », « 2 », « 0,3 », « 0 ». */
+export function formatRate(perDay: number): string {
+	if (perDay >= 1) return String(Math.round(perDay));
+	return perDay >= 0.05 ? decimal.format(perDay) : '0';
+}

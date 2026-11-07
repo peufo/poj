@@ -26,7 +26,15 @@ export interface FsrsState {
 	lastReview: Date | null;
 }
 
-const scheduler = fsrs({ request_retention: 0.9, enable_fuzz: true });
+/** Probabilité visée de se souvenir d'une carte à son échéance. */
+export const TARGET_RETENTION = 0.9;
+
+const scheduler = fsrs({ request_retention: TARGET_RETENTION, enable_fuzz: true });
+/** Le même planificateur sans le hasard du fuzz, pour les estimations. */
+const estimator = fsrs({ request_retention: TARGET_RETENTION, enable_fuzz: false });
+
+/** Garde-fou d'une simulation : plus de révisions qu'un sens n'en fera jamais en deux ans. */
+const MAX_SIMULATED_REVIEWS = 100;
 
 const toFsrsRating: Record<Rating, Grade> = {
 	again: FsrsRating.Again,
@@ -114,6 +122,29 @@ export function applyRating(
 	const retained = capRating(rating, hintUsed);
 	const { card } = scheduler.next(toFsrsCard(state), now, toFsrsRating[retained]);
 	return { state: fromFsrsCard(card), rating: retained };
+}
+
+/**
+ * Dates des révisions d'un sens de `start` à `until` (exclu), si chacune est faite dès son
+ * échéance : réussie (`good`), sauf quand `forgets` tire un oubli (`again`) pour une carte en
+ * révision (pas en apprentissage). Sans fuzz : à tirages égaux, la même suite.
+ */
+export function simulateReviews(
+	state: FsrsState,
+	start: Date,
+	until: Date,
+	forgets: () => boolean
+): Date[] {
+	const dates: Date[] = [];
+	let card = toFsrsCard(state);
+	let at = start;
+	while (at < until && dates.length < MAX_SIMULATED_REVIEWS) {
+		dates.push(at);
+		const rating = card.state === State.Review && forgets() ? FsrsRating.Again : FsrsRating.Good;
+		card = estimator.next(card, at, rating).card;
+		at = card.due;
+	}
+	return dates;
 }
 
 /**

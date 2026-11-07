@@ -50,7 +50,7 @@ function byPresentation(a: { at: Date; review: ReviewSlot }, b: { at: Date; revi
  * Présentations des sens révisés de chaque carte (par id de carte), dans leur ordre de
  * présentation : le premier sens, puis le second, que la réponse au premier met de côté.
  */
-function presentationsByCard<R extends ReviewSlot>(
+export function presentationsByCard<R extends ReviewSlot>(
 	reviews: readonly R[],
 	now: Date
 ): Map<string, (Presentation & { review: R })[]> {
@@ -90,18 +90,6 @@ export function presentations(reviews: ReviewSlot[], now: Date): Map<string, Pre
 	const result = new Map<string, Presentation>();
 	for (const slots of presentationsByCard(reviews, now).values()) {
 		for (const { review, buriedUntil, at } of slots) result.set(review.id, { buriedUntil, at });
-	}
-	return result;
-}
-
-/** Prochaine présentation de chaque carte (par id de carte) : celle du premier de ses sens. */
-export function nextPresentations<R extends ReviewSlot>(
-	reviews: readonly R[],
-	now: Date
-): Map<string, Presentation & { review: R }> {
-	const result = new Map<string, Presentation & { review: R }>();
-	for (const [cardId, [first]] of presentationsByCard(reviews, now)) {
-		if (first) result.set(cardId, first);
 	}
 	return result;
 }
