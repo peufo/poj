@@ -1,5 +1,5 @@
-// Le tapis de `/cards` (doc/story/tapis-roulant.md) : un axe logarithmique continu, de
-// maintenant à deux ans, où chaque carte en route est une marque. Fonctions pures, partagées
+// Le tapis de `/cards` (doc/story/tapis-roulant.md) : un axe logarithmique continu, de dix
+// minutes à deux ans, où chaque carte en route est une marque. Fonctions pures, partagées
 // par le load (positions) et le composant (marques, crans, lecture).
 import { formatInterval } from './due';
 import type { MasteryLevel } from './mastery';
@@ -8,8 +8,8 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** Début de l'axe : une carte présentée dans moins d'une minute est au bord du tapis. */
-const BELT_START_MS = MINUTE;
+/** Début de l'axe : une carte présentée dans moins de dix minutes est au bord du tapis. */
+const BELT_START_MS = 10 * MINUTE;
 /** Fin de l'axe : une carte présentée dans plus de deux ans s'empile au bout du tapis. */
 export const BELT_END_MS = 2 * 365 * DAY;
 /** Hauteur des marques sur le tapis, en px. */
@@ -17,7 +17,10 @@ export const BELT_HEIGHT = 72;
 /** Marge à gauche du tapis, au-dessus de la boîte des prêtes, en px. */
 export const BELT_MARGIN = 18;
 
-/** Position sur l'axe (0 : maintenant, 1 : deux ans et plus) d'une présentation dans `delayMs`. */
+/**
+ * Position sur l'axe (0 : dix minutes ou moins, 1 : deux ans et plus) d'une présentation dans
+ * `delayMs`.
+ */
 export function beltPosition(delayMs: number): number {
 	const position =
 		Math.log(Math.max(delayMs, BELT_START_MS) / BELT_START_MS) /

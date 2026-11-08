@@ -23,24 +23,26 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 describe('beltPosition', () => {
-	it('spreads delays on a log axis, from one minute to two years', () => {
-		expect(beltPosition(MINUTE)).toBe(0);
+	it('spreads delays on a log axis, from ten minutes to two years', () => {
+		const span = Math.log(BELT_END_MS / (10 * MINUTE));
+		expect(beltPosition(10 * MINUTE)).toBe(0);
 		expect(beltPosition(BELT_END_MS)).toBe(1);
-		// Une décade de plus, la même distance : 1 min → 10 min comme 10 min → 100 min.
-		const decade = beltPosition(10 * MINUTE);
-		expect(beltPosition(100 * MINUTE)).toBeCloseTo(2 * decade);
-		expect(beltPosition(HOUR)).toBeCloseTo(Math.log(60) / Math.log(BELT_END_MS / MINUTE));
-		expect(beltPosition(DAY)).toBeCloseTo(Math.log(1440) / Math.log(BELT_END_MS / MINUTE));
+		// Une décade de plus, la même distance : 10 → 100 min comme 100 → 1 000 min.
+		const decade = beltPosition(100 * MINUTE);
+		expect(beltPosition(1000 * MINUTE)).toBeCloseTo(2 * decade);
+		expect(beltPosition(HOUR)).toBeCloseTo(Math.log(6) / span);
+		expect(beltPosition(DAY)).toBeCloseTo(Math.log(144) / span);
 	});
 
 	it('keeps imminent and very distant cards at the ends', () => {
 		expect(beltPosition(0)).toBe(0);
-		expect(beltPosition(20_000)).toBe(0);
+		expect(beltPosition(MINUTE)).toBe(0);
+		expect(beltPosition(9 * MINUTE)).toBe(0);
 		expect(beltPosition(10 * BELT_END_MS)).toBe(1);
 	});
 
 	it('increases with the delay', () => {
-		const delays = [MINUTE, 5 * MINUTE, HOUR, DAY, 7 * DAY, 30 * DAY, 365 * DAY];
+		const delays = [10 * MINUTE, 20 * MINUTE, HOUR, DAY, 7 * DAY, 30 * DAY, 365 * DAY];
 		const positions = delays.map(beltPosition);
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 		expect(new Set(positions).size).toBe(delays.length);

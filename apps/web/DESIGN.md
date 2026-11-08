@@ -354,7 +354,7 @@ Nets et sobres, une seule action pleine par zone.
 
 ### Tapis (signature, `Belt`)
 
-L'interaction signature, tout en haut de `/cards` (doc/story/tapis-roulant.md) : un panneau `surface` où chaque carte en route est une marque, posée à sa prochaine présentation sur un axe logarithmique continu, de maintenant (à gauche) à deux ans et plus. Pas de jours : un trait `line-strong` à crans d'un pixel (durées rondes, de 10 min à 2 ans), cinq repères libellés en 11 px (`1 h`, `1 j`, `7 j`, `30 j`, `1 an`), sur 72 px de haut.
+L'interaction signature, tout en haut de `/cards` (doc/story/tapis-roulant.md) : un panneau `surface` où chaque carte en route est une marque, posée à sa prochaine présentation sur un axe logarithmique continu, de 10 min (à gauche, où s'empile aussi tout ce qui vient avant) à deux ans et plus. Pas de jours : un trait `line-strong` à crans d'un pixel (durées rondes, du départ du tapis à 2 ans), cinq repères libellés en 11 px (`1 h`, `1 j`, `7 j`, `30 j`, `1 an`), sur 72 px de haut.
 
 - **Marques :** une par carte, jamais regroupées, teintées par la rampe de maîtrise du sens présenté, les plus solides en bas de chaque colonne. Elles rétrécissent par paliers (6 × 5, 4 × 3, 3 × 2, 2 × 1 px) pour que la colonne la plus haute tienne ; au-delà, elles se chevauchent et les colonnes gardent leurs proportions.
 - **Bout du tapis :** le tapis s'arrête à 18 px du bord sur un rouleau, au-dessus de la boîte des prêtes. Chaque carte n'est dessinée qu'une fois : une carte prête est dans la boîte, pas dans la marge.

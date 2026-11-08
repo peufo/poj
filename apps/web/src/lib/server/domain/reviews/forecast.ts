@@ -9,7 +9,7 @@ import { simulateReviews, TARGET_RETENTION, type FsrsState } from './scheduler';
 /** Horizon de l'estimation : la fin de l'axe du tapis. */
 export const FORECAST_HORIZON_MS = 2 * 365 * DAY;
 /** Premier point de la courbe : le début de l'axe du tapis. */
-const FIRST_POINT_MS = 60_000;
+const FIRST_POINT_MS = 10 * 60_000;
 /** Points de la courbe, également espacés sur l'axe logarithmique. */
 export const FORECAST_POINTS = 65;
 /** Simulations visées en tout : un petit paquet est rejoué plusieurs fois, puis moyenné. */
@@ -53,7 +53,7 @@ function random(seed: number): () => number {
 	};
 }
 
-/** Délais des points de la courbe : de 1 min à deux ans, en progression géométrique. */
+/** Délais des points de la courbe : de 10 min à deux ans, en progression géométrique. */
 export function forecastDelays(): number[] {
 	const ratio = FORECAST_HORIZON_MS / FIRST_POINT_MS;
 	return Array.from(

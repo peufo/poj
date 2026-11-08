@@ -21,11 +21,11 @@
 	import { plural } from '#lib/format/labels.js';
 
 	// Le tapis : chaque carte en route est une marque, posée à sa prochaine présentation sur un
-	// axe logarithmique, de maintenant (à gauche) à deux ans, et teintée par la maîtrise du sens
-	// présenté. Au bout, sous le rouleau, la boîte des prêtes. Toucher ou survoler le
-	// tapis place une ligne sur un cran, avec le nombre de cartes à présenter d'ici là. En
-	// tiretés, l'estimation des révisions par jour le long de l'axe : une forme, sans échelle,
-	// dont la ligne donne la valeur.
+	// axe logarithmique, de dix minutes (à gauche, avec tout ce qui vient avant) à deux ans, et
+	// teintée par la maîtrise du sens présenté. Au bout, sous le rouleau, la boîte des prêtes.
+	// Toucher ou survoler le tapis place une ligne sur un cran, avec le nombre de cartes à
+	// présenter d'ici là. En tiretés, l'estimation des révisions par jour le long de l'axe : une
+	// forme, sans échelle, dont la ligne donne la valeur.
 	type Props = {
 		/** Cartes neuves en attente. */
 		stock: number;
