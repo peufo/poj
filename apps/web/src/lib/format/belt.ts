@@ -14,7 +14,7 @@ const BELT_START_MS = MINUTE;
 export const BELT_END_MS = 2 * 365 * DAY;
 /** Hauteur des marques sur le tapis, en px. */
 export const BELT_HEIGHT = 72;
-/** Marge à gauche du tapis, où les cartes tombent dans la boîte des prêtes, en px. */
+/** Marge à gauche du tapis, au-dessus de la boîte des prêtes, en px. */
 export const BELT_MARGIN = 18;
 
 /** Position sur l'axe (0 : maintenant, 1 : deux ans et plus) d'une présentation dans `delayMs`. */

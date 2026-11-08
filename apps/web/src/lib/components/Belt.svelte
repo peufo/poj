@@ -22,7 +22,7 @@
 
 	// Le tapis : chaque carte en route est une marque, posée à sa prochaine présentation sur un
 	// axe logarithmique, de maintenant (à gauche) à deux ans, et teintée par la maîtrise du sens
-	// présenté. Au bout, les cartes tombent dans la boîte des prêtes. Toucher ou survoler le
+	// présenté. Au bout, sous le rouleau, la boîte des prêtes. Toucher ou survoler le
 	// tapis place une ligne sur un cran, avec le nombre de cartes à présenter d'ici là. En
 	// tiretés, l'estimation des révisions par jour le long de l'axe : une forme, sans échelle,
 	// dont la ligne donne la valeur.
@@ -43,13 +43,6 @@
 	/** Marques d'une boîte : trois colonnes de 7 px, sur sa hauteur utile. */
 	const PILE_WIDTH = 20;
 	const PILE_HEIGHT = 44;
-	/** Cartes qui tombent du bout du tapis : décalage depuis le rouleau, et inclinaison. */
-	const FALLING = [
-		[-8, -3, -24],
-		[-12, 6, 16],
-		[-13, 15, -12],
-		[-12, 23, 8]
-	] as const;
 
 	let width = $state(0);
 	let readoutWidth = $state(0);
@@ -200,19 +193,6 @@
 						y1={BELT_HEIGHT}
 						y2={BELT_HEIGHT + (major ? 6 : 3)}
 						class={major ? 'stroke-ink-3' : 'stroke-line-strong'}
-					/>
-				{/each}
-				{#each FALLING.slice(0, Math.min(due, FALLING.length)) as [dx, dy, angle], i (i)}
-					{@const x = BELT_MARGIN + dx}
-					{@const y = BELT_HEIGHT + dy}
-					<rect
-						{x}
-						{y}
-						width="6"
-						height="5"
-						rx="1"
-						class="fill-accent"
-						transform="rotate({angle} {x + 3} {y + 2.5})"
 					/>
 				{/each}
 				{#if reading}

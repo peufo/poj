@@ -30,6 +30,16 @@ describe('Belt', () => {
 			.toHaveAttribute('href', '/review?deck=x');
 	});
 
+	it('draws the ready cards in their box only, not on the belt', async () => {
+		const { container } = render(Belt, { stock: 0, due: 3, tokens, forecast, reviewHref: '/r' });
+		const tape = container.querySelector('[role="presentation"]');
+		assert.exists(tape);
+
+		// Le tapis est dessiné une fois sa largeur mesurée ; une carte prête n'y figure pas.
+		await expect.poll(() => tape.querySelector('svg')).not.toBeNull();
+		expect(tape.querySelectorAll('.fill-accent')).toHaveLength(0);
+	});
+
 	it('leaves the waiting box out without new cards', async () => {
 		render(Belt, { stock: 0, due: 1, tokens, forecast, reviewHref: '/review' });
 
