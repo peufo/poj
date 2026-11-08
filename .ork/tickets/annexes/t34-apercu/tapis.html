@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperçu du tapis</title>
+<style>
+:root {
+	color-scheme: light dark;
+	--brand: oklch(0.511 0.086 186.4);
+	--canvas: light-dark(oklch(0.985 0.004 95), oklch(0.185 0.011 266));
+	--surface: light-dark(oklch(0.97 0.005 95), oklch(0.21 0.013 266));
+	--hover: light-dark(oklch(0.945 0.006 95), oklch(0.26 0.016 266));
+	--line: light-dark(oklch(0.91 0.007 95), oklch(0.29 0.015 266));
+	--line-strong: light-dark(oklch(0.845 0.009 95), oklch(0.365 0.016 266));
+	--ink: light-dark(oklch(0.252 0.018 266), oklch(0.97 0.005 95));
+	--ink-2: light-dark(oklch(0.44 0.016 266), oklch(0.8 0.008 95));
+	--ink-3: light-dark(oklch(0.52 0.016 266), oklch(0.67 0.01 95));
+	--accent: var(--brand);
+	--on-accent: oklch(0.995 0.002 95);
+	--accent-text: light-dark(oklch(0.47 0.078 186), oklch(0.8 0.1 182));
+	--accent-soft: light-dark(oklch(0.95 0.025 186), oklch(0.27 0.04 186));
+	--focus: light-dark(oklch(0.53 0.09 186), oklch(0.74 0.11 184));
+	--level-0: light-dark(oklch(0.88 0.007 95), oklch(0.36 0.014 266));
+	--level-1: light-dark(oklch(0.72 0.012 266), oklch(0.52 0.012 266));
+	--level-2: light-dark(oklch(0.52 0.016 266), oklch(0.72 0.009 95));
+	--level-3: light-dark(oklch(0.3 0.018 266), oklch(0.9 0.006 95));
+	--font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+[data-theme='light'] { color-scheme: light; }
+[data-theme='dark'] { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; }
+body { font: 16px/1.5 var(--font); background: light-dark(#e8e7e2, #101218); color: light-dark(#222, #ddd); padding: 24px; }
+body:has(.solo) { padding: 0; }
+/* Ouvert sur un téléphone : une maquette de 375 px occupe tout l'écran. */
+@media (max-width: 440px) {
+	body { padding: 16px 0; }
+	h1, h2, .note { padding: 0 16px; }
+	.row { gap: 0; }
+	.frame { border-radius: 0; }
+}
+body:has(.solo) :is(h1, h2, .note, .frame:not(.solo)) { display: none; }
+body:has(.solo) .row { margin: 0; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 15px; font-weight: 600; margin: 32px 0 4px; }
+.note { font-size: 13px; opacity: 0.75; max-width: 76ch; }
+.row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin-top: 12px; }
+.frame { background: var(--canvas); color: var(--ink); padding: 12px 16px 16px; border-radius: 12px; flex: none; display: flex; flex-direction: column; gap: 16px; }
+.tag { font-size: 11px; color: var(--ink-3); display: block; }
+
+.panel { background: var(--surface); border-radius: 20px; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 4px; }
+.reading { position: relative; height: 20px; font-size: 12px; line-height: 20px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.key { position: absolute; right: 0; display: inline-flex; align-items: center; gap: 6px; }
+.readout { position: absolute; top: 0; white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--ink); }
+.readout b { font-weight: 600; color: var(--accent-text); }
+.readout span { color: var(--ink-2); font-weight: 400; }
+
+.tape { position: relative; touch-action: pan-y; cursor: crosshair; border-radius: 6px; }
+.tape:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tape input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; pointer-events: none; }
+svg { display: block; overflow: visible; position: relative; }
+.axis { position: absolute; left: 0; right: 0; height: 16px; font-size: 11px; line-height: 16px; color: var(--ink-3); font-variant-numeric: tabular-nums; pointer-events: none; }
+.axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+.boxes { display: flex; align-items: flex-end; gap: 6px; }
+.box { height: 56px; display: flex; align-items: flex-end; gap: 6px; padding: 0 8px 6px 6px; }
+.box .txt { display: flex; flex-direction: column; align-self: center; }
+.box .n { font-size: 15px; line-height: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.box .w { font-size: 11px; line-height: 14px; }
+.box.due { background: var(--accent-soft); color: var(--accent-text); border-radius: 2px 2px 10px 10px; }
+.box.due.empty { background: none; box-shadow: inset 1px 0 var(--line-strong), inset -1px 0 var(--line-strong), inset 0 -1px var(--line-strong); color: var(--ink-3); }
+.box.stock { background: var(--hover); color: var(--ink-2); border-radius: 10px; }
+.cta { margin-left: auto; background: var(--accent); color: var(--on-accent); font: 500 15px var(--font); border: 0; border-radius: 10px; height: 40px; padding: 0 14px; flex: none; }
+
+.vel { background: var(--surface); border-radius: 20px; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.vel p { font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.vel b { display: block; font-size: 19px; line-height: 26px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.vel small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+.hd { display: flex; align-items: center; justify-content: space-between; }
+.hd h3 { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -0.025em; }
+.hd h3 span { color: var(--ink-3); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.hd i { width: 32px; height: 32px; border-radius: 99px; background: var(--hover); }
+.chips { display: flex; gap: 6px; margin-top: -8px; }
+.chips span { font-size: 13px; height: 30px; line-height: 30px; padding: 0 12px; border-radius: 99px; background: var(--surface); color: var(--ink-2); }
+.chips span:first-child { background: var(--accent-soft); color: var(--accent-text); font-weight: 500; }
+.search { height: 44px; line-height: 44px; border-radius: 14px; background: var(--surface); color: var(--ink-3); padding: 0 14px; }
+</style>
+</head>
+<body>
+<h1>Aperçu du tapis, t34, quatrième version</h1>
+<p class="note">Maquette statique, cartes simulées, tokens réels de <code>tokens.css</code>. La courbe sort d'une vraie simulation <code>ts-fsrs</code> (paramètres du projet, 10 % d'oublis), calculée une fois et embarquée : le fichier s'ouvre seul, sans serveur ni dépendance. Survoler ou toucher le tapis place la ligne ; Tab puis les flèches au clavier. Non destiné à être commité.</p>
+
+<h2>A. Téléphone (375 px), le haut de la page</h2>
+<p class="note">Marge de 18 px à gauche : les cartes quittent le bout du tapis et tombent dans les prêtes. Chaque marque est une carte. Tiretés : l'estimation des révisions par jour. Troisième maquette : la ligne donne le cumul et l'estimation à cet endroit.</p>
+<div class="row" id="a"></div>
+
+<h2>B. Densité : chaque carte reste une marque, à 320 px</h2>
+<p class="note">Hauteur fixe. Les marques rétrécissent par paliers pour que le pic tienne, puis, à la limite, se chevauchent : les colonnes gardent leurs proportions mais on ne distingue plus les cartes. Sous chaque maquette : taille des marques, pic de la colonne la plus haute, temps de simulation mesuré dans Chromium au calcul des courbes.</p>
+<div class="row" id="b"></div>
+
+<h2>C. Densité sur grand écran</h2>
+<div class="row" id="c"></div>
+
+<h2>D. La courbe face aux neuves et au retard</h2>
+<p class="note">Avec un stock, l'estimation compte les neuves au rythme du quota (10 par jour ici). Le retard pèse sur la journée qui vient ; l'échelle verticale en racine carrée garde le reste lisible.</p>
+<div class="row" id="d"></div>
+
+<script>
+const MAX_MIN = 2 * 365 * 1440;
+const DAY_MIN = 1440;
+const position = (m) => Math.min(1, Math.max(0, Math.log(Math.max(m, 1)) / Math.log(MAX_MIN)));
+const STOPS = [2, 5, 10, 20, 30, 60, 120, 180, 360, 720, 1440, 2880, 4320, 7200, 10080, 20160, 30240, 43200, 86400, 129600, 259200, 525600, MAX_MIN];
+const MAJOR = new Map([[60, '1 h'], [1440, '1 j'], [10080, '7 j'], [43200, '30 j'], [525600, '1 an']]);
+const stopLabel = (m) => {
+	if (m === MAX_MIN) return '2 ans +';
+	if (m === 525600) return '1 an';
+	if (m > 43200) return `${Math.round(m / 43200)} mois`;
+	if (m >= 1440) return `${m / 1440} j`;
+	if (m >= 60) return `${m / 60} h`;
+	return `${m} min`;
+};
+const MARGIN = 18, STAGE_H = 72;
+const LADDER = [
+	{ w: 6, h: 5, px: 7, py: 6 },
+	{ w: 4, h: 3, px: 5, py: 4 },
+	{ w: 3, h: 2, px: 4, py: 3 },
+	{ w: 2, h: 1, px: 3, py: 2 }
+];
+const NS = 'http://www.w3.org/2000/svg';
+
+function rng(seed) { return () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296; }
+function gauss(r) { return Math.sqrt(-2 * Math.log(r() + 1e-9)) * Math.cos(2 * Math.PI * r()); }
+function logn(r, medianMin, spread) { return medianMin * Math.pow(10, gauss(r) * spread); }
+function deck(seed, groups, due, stock, scale = 1) {
+	const r = rng(seed);
+	const cards = [];
+	for (const [n, med, sp, level] of groups) for (let i = 0; i < Math.round(n * scale); i++) cards.push({ m: logn(r, med, sp), level });
+	return { cards, due, stock };
+}
+const MATURE_GROUPS = [[10, 7, 0.2, 1], [70, 900, 0.3, 1], [120, 6000, 0.3, 1], [100, 6000, 0.3, 2], [320, 30000, 0.28, 2], [100, 30000, 0.28, 3], [560, 150000, 0.25, 3], [80, 900000, 0.15, 3]];
+const BATCH_GROUPS = [[14, 8, 0.25, 1], [20, 1500, 0.15, 0], [26, 1800, 0.2, 1], [110, 4500, 0.2, 1], [20, 7000, 0.15, 2], [50, 15000, 0.2, 2], [18, 60000, 0.25, 3]];
+const IDLE_GROUPS = [[12, 7000, 0.25, 2], [9, 30000, 0.2, 3]];
+const STARTER = deck(3, [[2, 6, 0.2, 1], [3, 1500, 0.3, 0], [2, 3000, 0.3, 1]], 4, 18);
+const SEED = deck(7, [[3, 5, 0.3, 1], [2, 300, 0.4, 1], [2, 1500, 0.2, 0], [9, 4000, 0.3, 1], [6, 20000, 0.25, 2], [2, 70000, 0.2, 3]], 2, 0);
+const BATCH = deck(11, BATCH_GROUPS, 10, 182);
+const BATCH_NOSTOCK = deck(11, BATCH_GROUPS, 10, 0);
+const BACKLOG = deck(11, BATCH_GROUPS, 300, 0);
+const MATURE = deck(23, MATURE_GROUPS, 38, 0);
+const HUGE = deck(41, MATURE_GROUPS, 120, 400, 3.6);
+const EXTREME = deck(43, MATURE_GROUPS, 400, 2000, 14);
+const IDLE = deck(29, IDLE_GROUPS, 0, 0);
+
+const plural = (n, w) => `${n.toLocaleString('fr-FR')} ${w}${n > 1 ? 's' : ''}`;
+const rate = (v) => (v >= 10 ? Math.round(v).toLocaleString('fr-FR') : v >= 1 ? String(Math.round(v)) : v >= 0.05 ? v.toFixed(1).replace('.', ',') : '0');
+function el(tag, attrs = {}, text) {
+	const e = document.createElement(tag);
+	for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+	if (text !== undefined) e.textContent = text;
+	return e;
+}
+function svg(tag, attrs = {}) {
+	const e = document.createElementNS(NS, tag);
+	for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+	return e;
+}
+
+/* ———— Estimation ————
+   Courbes calculées une fois par une simulation ts-fsrs 5.4.2 (rétention 0,9, sans fuzz, Good sauf
+   10 % d'`again` en phase review, neuves au quota de 10 par jour, second sens à +24 h), en révisions
+   par jour sur une fenêtre d'au moins un jour, aux 65 points de GRID. Embarquées pour que le fichier
+   s'ouvre seul. */
+const GRID = Array.from({ length: 65 }, (_, i) => Math.exp((i / 64) * Math.log(MAX_MIN)));
+const FORECASTS = {"STARTER":{"perDay":[8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,8.56,35.8,49.9,37.6,32.4,36.6,30.9,42.9,28.6,27.4,13.1,6.12,2.96,2.5,6.73,6.24,5.61,2.26,1.79,1.3,2.15,2.2,2.04,1.8,0.809,0.696,0.894,0.92,0.827,0.705,0.413,0.304,0.3,0.177],"ms":79,"senses":58,"runs":18},"SEED":{"perDay":[11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,11.5,18.2,18,11.7,14.3,9.73,11.1,9.99,8.02,7.53,5.44,4.93,4.45,4.02,3.67,3.65,2.85,2.35,2,1.72,1.78,1.58,1.48,1.2,0.959,0.885,0.801,0.742,0.657,0.546,0.489,0.41,0.301,0.153],"ms":70,"senses":52,"runs":20},"BATCH":{"perDay":[52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,52.5,106,151,127,134,136,132,157,155,149,142,117,105,106,110,112,95.4,70.3,45.6,35.6,26.9,29,26.8,23.6,16.6,13.2,11.7,13.3,11.6,10.4,7.39,6.18,4.7,2.47],"ms":137,"senses":900,"runs":2},"BATCH_NOSTOCK":{"perDay":[52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,87.4,116,99.8,111,101,104,106,106,86.2,66.7,56.1,43.2,37.8,39,38,32.6,26.7,21.8,18.7,17.7,15,14.1,12.6,10.5,9.47,8.39,7.91,6.71,5.82,4.76,4.09,2.96,1.52],"ms":75,"senses":536,"runs":2},"BACKLOG":{"perDay":[371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,371,663,677,551,475,130,130,145,262,226,182,155,128,111,66.5,88.1,77.7,79,55.2,46,40.7,33.7,32.2,32.4,23.8,21.3,18,17.9,15.4,12,11.1,9.06,7.32,3.78],"ms":87,"senses":1116,"runs":1},"MATURE":{"perDay":[111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,133,144,175,165,109,78.7,91.5,123,114,102,99.5,93.8,84.4,69.2,73.7,67.1,66.7,59.6,53.9,49.4,43.7,41.3,39.7,37.1,34.5,31.4,29.2,26.3,23.3,20.4,17.6,12.2,6.13],"ms":122,"senses":2796,"runs":1},"HUGE":{"perDay":[393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,393,542,581,619,623,485,414,428,519,490,476,439,400,372,332,353,338,336,308,270,229,192,178,165,146,132,115,111,97.2,85.4,75.8,68.8,50.6,26.6],"ms":499,"senses":10832,"runs":1},"EXTREME":{"perDay":[1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1460,1970,2040,2160,2260,1740,1500,1450,1730,1610,1490,1400,1270,1190,1070,1130,1030,997,885,817,769,716,694,663,627,603,549,490,418,357,314,279,197,103],"ms":1965,"senses":42880,"runs":1},"IDLE":{"perDay":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1.17,0.939,0.84,1.26,2.58,3.88,3.78,3.77,2.55,2.7,1.62,1.58,1.24,1.43,1.34,1.48,1.46,1.23,0.997,0.747,0.597,0.577,0.548,0.533,0.449,0.4,0.346,0.309,0.211,0.11],"ms":56,"senses":42,"runs":24}};
+const DECK_NAMES = new Map([[STARTER, 'STARTER'], [SEED, 'SEED'], [BATCH, 'BATCH'], [BATCH_NOSTOCK, 'BATCH_NOSTOCK'], [BACKLOG, 'BACKLOG'], [MATURE, 'MATURE'], [HUGE, 'HUGE'], [EXTREME, 'EXTREME'], [IDLE, 'IDLE']]);
+function forecast(data) {
+	const fc = FORECASTS[DECK_NAMES.get(data)];
+	if (!fc) throw new Error('Aperçu : aucune courbe précalculée pour ce paquet');
+	return fc;
+}
+const rateAt = (fc, m) => {
+	let best = 0;
+	GRID.forEach((t, i) => { if (Math.abs(Math.log(t / m)) < Math.abs(Math.log(GRID[best] / m))) best = i; });
+	return fc.perDay[best];
+};
+
+/* ———— Marques ———— */
+function fit(cards, W) {
+	for (const size of LADDER) {
+		const n = Math.floor(W / size.px);
+		const cols = Array.from({ length: n }, () => []);
+		for (const c of cards) cols[Math.min(n - 1, Math.floor((position(c.m) * W) / size.px))].push(c);
+		const peak = Math.max(0, ...cols.map((c) => c.length));
+		const rows = Math.floor(STAGE_H / size.py);
+		const last = size === LADDER.at(-1);
+		if (peak <= rows || last) return { size, cols, peak, overlap: peak > rows, py: peak > rows ? STAGE_H / peak : size.py };
+	}
+}
+function tapeMarks(s, { size, cols, py, overlap }, xOf0) {
+	const paths = [[], [], [], []];
+	cols.forEach((col, ci) => {
+		if (!col.length) return;
+		const x = xOf0 + ci * size.px;
+		const counts = [0, 0, 0, 0];
+		for (const c of col) counts[c.level]++;
+		let done = 0;
+		for (const level of [3, 2, 1, 0]) {
+			if (overlap) {
+				if (!counts[level]) continue;
+				const y = STAGE_H - (done + counts[level]) * py;
+				paths[level].push(`M${x} ${y.toFixed(2)}h${size.w}v${(counts[level] * py).toFixed(2)}h-${size.w}z`);
+				done += counts[level];
+			} else {
+				for (let i = 0; i < counts[level]; i++, done++) {
+					const y = STAGE_H - (done + 1) * size.py + (size.py - size.h);
+					paths[level].push(`M${x} ${y}h${size.w}v${size.h}h-${size.w}z`);
+				}
+			}
+		}
+	});
+	paths.forEach((p, level) => { if (p.length) s.append(svg('path', { d: p.join(''), fill: `var(--level-${level})` })); });
+}
+function pile(count, colsN, { color, hollow = false }) {
+	const areaW = colsN * 7 - 1, areaH = 44;
+	const s = svg('svg', { width: areaW, height: areaH, 'aria-hidden': 'true' });
+	for (const size of LADDER) {
+		const cols = Math.floor((areaW + 1) / size.px), rows = Math.floor((areaH + 1) / size.py);
+		if (count <= cols * rows || size === LADDER.at(-1)) {
+			const n = Math.min(cols * rows, count);
+			const d = [];
+			const open = hollow && size.w >= 4;
+			for (let i = 0; i < n; i++) {
+				const x = (i % cols) * size.px, y = areaH - (Math.floor(i / cols) + 1) * size.py + (size.py - size.h);
+				d.push(open ? `M${x + 0.5} ${y + 0.5}h${size.w - 1}v${size.h - 1}h-${size.w - 1}z` : `M${x} ${y}h${size.w}v${size.h}h-${size.w}z`);
+			}
+			s.append(svg('path', open ? { d: d.join(''), fill: 'none', stroke: color } : { d: d.join(''), fill: color }));
+			break;
+		}
+	}
+	return s;
+}
+
+function buildPanel(root, data, inner, { line = null, withForecast = true }) {
+	const W = inner - MARGIN;
+	const xOf = (m) => MARGIN + position(m) * W;
+	const marks = fit(data.cards, W);
+	const fc = forecast(data);
+	const narrow = inner < 280;
+	let stop = line;
+
+	const panel = el('section', { class: 'panel' });
+	const reading = el('div', { class: 'reading' });
+	const tape = el('div', { class: 'tape' });
+	tape.style.height = `${STAGE_H + 24}px`;
+	const boxes = el('div', { class: 'boxes' });
+	const cumul = (m) => data.due + data.cards.filter((c) => m === MAX_MIN || c.m <= m).length;
+
+	const staticLayer = svg('svg', { width: inner, height: STAGE_H + 8, 'aria-hidden': 'true' });
+	tapeMarks(staticLayer, marks, MARGIN);
+	const dim = svg('rect', { y: -2, height: STAGE_H + 2, fill: 'var(--surface)', opacity: 0.68, visibility: 'hidden' });
+	staticLayer.append(dim);
+
+	// Le tapis et ses crans
+	staticLayer.append(svg('line', { x1: MARGIN, x2: inner, y1: STAGE_H + 0.5, y2: STAGE_H + 0.5, stroke: 'var(--line-strong)' }));
+	staticLayer.append(svg('circle', { cx: MARGIN, cy: STAGE_H + 0.5, r: 2.5, fill: 'var(--surface)', stroke: 'var(--ink-3)' }));
+	for (const m of STOPS) {
+		const x = Math.round(xOf(m)) + 0.5;
+		const major = MAJOR.has(m);
+		staticLayer.append(svg('line', { x1: x, x2: x, y1: STAGE_H, y2: STAGE_H + (major ? 6 : 3), stroke: major ? 'var(--ink-3)' : 'var(--line-strong)' }));
+	}
+	// La chute, dans la marge
+	const fall = [[MARGIN - 8, STAGE_H - 3, -24], [MARGIN - 12, STAGE_H + 6, 16], [MARGIN - 13, STAGE_H + 15, -12], [MARGIN - 12, STAGE_H + 23, 8]];
+	fall.slice(0, Math.min(data.due, 4)).forEach(([x, y, a]) => {
+		staticLayer.append(svg('rect', { x, y, width: 6, height: 5, rx: 1, fill: 'var(--accent)', transform: `rotate(${a} ${x + 3} ${y + 2.5})` }));
+	});
+	// L'estimation : racine carrée pour garder le reste lisible à côté d'un retard
+	if (withForecast) {
+		const peak = Math.max(...fc.perDay, 0.001);
+		const pts = GRID.map((t, i) => `${(MARGIN + position(t) * W).toFixed(1)} ${(STAGE_H - 3 - Math.sqrt(fc.perDay[i] / peak) * (STAGE_H - 8)).toFixed(1)}`);
+		const d = `M${pts.join('L')}`;
+		staticLayer.append(svg('path', { d, fill: 'none', stroke: 'var(--surface)', 'stroke-width': 4, 'stroke-linejoin': 'round', opacity: 0.85 }));
+		staticLayer.append(svg('path', { d, fill: 'none', stroke: 'var(--ink-2)', 'stroke-width': 1.5, 'stroke-dasharray': '4 3', 'stroke-linejoin': 'round' }));
+	}
+	const cursor = svg('line', { y1: -2, y2: STAGE_H + 8, stroke: 'var(--accent-text)', 'stroke-width': 1.5, visibility: 'hidden' });
+	staticLayer.append(cursor);
+
+	function draw() {
+		reading.replaceChildren();
+		if (stop === null) {
+			dim.setAttribute('visibility', 'hidden');
+			cursor.setAttribute('visibility', 'hidden');
+			if (withForecast) {
+				const k = el('span', { class: 'key' });
+				const sw = svg('svg', { width: 16, height: 4 });
+				sw.append(svg('line', { x1: 0, x2: 16, y1: 2, y2: 2, stroke: 'var(--ink-2)', 'stroke-width': 1.5, 'stroke-dasharray': '4 3' }));
+				k.append(sw, document.createTextNode('≈ révisions par jour'));
+				reading.append(k);
+			}
+		} else {
+			const m = STOPS[stop], x = Math.round(xOf(m)) + 0.5;
+			dim.setAttribute('visibility', 'visible');
+			dim.setAttribute('x', x);
+			dim.setAttribute('width', Math.max(0, inner - x));
+			cursor.setAttribute('visibility', 'visible');
+			cursor.setAttribute('x1', x); cursor.setAttribute('x2', x);
+			const r = el('span', { class: 'readout' });
+			const v = rate(rateAt(fc, m));
+			r.append(Object.assign(el('b'), { textContent: plural(cumul(m), 'carte') }), document.createTextNode(` d'ici ${stopLabel(m)}`));
+			if (withForecast) r.append(Object.assign(el('span'), { textContent: ` · ≈ ${v}/j` }));
+			reading.append(r);
+			const w = r.getBoundingClientRect().width || 190;
+			r.style.left = `${Math.max(0, Math.min(inner - w, x - w / 2))}px`;
+		}
+		input.value = stop ?? 10;
+		const v = stop === null ? '' : `${plural(cumul(STOPS[stop]), 'carte')} d'ici ${stopLabel(STOPS[stop])}, environ ${rate(rateAt(fc, STOPS[stop]))} révisions par jour à ce moment, estimation`;
+		input.setAttribute('aria-valuetext', v);
+	}
+
+	const axis = el('div', { class: 'axis' });
+	axis.style.top = `${STAGE_H + 8}px`;
+	for (const [m, label] of MAJOR) {
+		const sp = el('span', {}, label);
+		sp.style.left = `${xOf(m)}px`;
+		axis.append(sp);
+	}
+	const input = el('input', { type: 'range', min: 0, max: STOPS.length - 1, step: 1, 'aria-label': 'Cartes à réviser jusqu’à une date' });
+	input.oninput = () => { stop = Number(input.value); draw(); };
+	input.onfocus = () => { if (stop === null) { stop = 10; draw(); } };
+	input.onblur = () => { stop = line; draw(); };
+	tape.append(staticLayer, axis, input);
+
+	const nearest = (e) => {
+		const rect = tape.getBoundingClientRect();
+		const p = (e.clientX - rect.left - MARGIN) / W;
+		let best = 0;
+		STOPS.forEach((m, i) => { if (Math.abs(position(m) - p) < Math.abs(position(STOPS[best]) - p)) best = i; });
+		return best;
+	};
+	tape.onpointermove = (e) => { if (e.pointerType === 'mouse' || e.buttons) { stop = nearest(e); draw(); } };
+	tape.onpointerdown = (e) => { stop = nearest(e); draw(); };
+	tape.onpointerleave = (e) => { if (e.pointerType === 'mouse') { stop = line; draw(); } };
+
+	const prets = el('div', { class: `box due${data.due === 0 ? ' empty' : ''}` });
+	if (data.due) prets.append(pile(data.due, narrow ? 3 : 4, { color: 'var(--accent)' }));
+	const t1 = el('div', { class: 'txt' });
+	t1.append(el('span', { class: 'n' }, data.due.toLocaleString('fr-FR')), el('span', { class: 'w' }, 'prêtes'));
+	prets.append(t1);
+	boxes.append(prets);
+	if (data.stock > 0) {
+		const neuves = el('div', { class: 'box stock' });
+		neuves.append(pile(data.stock, narrow ? 2 : 3, { color: 'var(--level-1)', hollow: true }));
+		const t2 = el('div', { class: 'txt' });
+		t2.append(el('span', { class: 'n' }, data.stock.toLocaleString('fr-FR')), el('span', { class: 'w' }, 'neuves'));
+		neuves.append(t2);
+		boxes.append(neuves);
+	}
+	boxes.append(el('button', { class: 'cta', type: 'button' }, 'Réviser'));
+
+	panel.append(reading, tape, boxes);
+	root.append(panel);
+	draw();
+	return { marks, fc, W };
+}
+
+function frame(host, { label, theme = 'light', width = 375, data, line = null, page = false, measure = false, withForecast = true }) {
+	const f = el('div', { class: 'frame', 'data-theme': theme });
+	f.style.width = `${width}px`;
+	f.append(el('span', { class: 'tag' }, label));
+	host.append(f);
+	const { marks, fc, W } = buildPanel(f, data, width - 32 - 32, { line, withForecast });
+	if (measure) {
+		const { size, peak, overlap } = marks;
+		const gaps = STOPS.slice(1).map((m, i) => (position(m) - position(STOPS[i])) * W);
+		f.append(el('span', { class: 'tag' }, `tapis ${W} px · marque ${size.w}×${size.h} · pic ${peak}/colonne${overlap ? ' · chevauchement' : ''} · ${fc.senses} sens × ${fc.runs} : ${Math.round(fc.ms)} ms · cran min ${Math.min(...gaps).toFixed(1)} px`));
+	}
+	if (page) {
+		const v = el('section', { class: 'vel' });
+		v.innerHTML = '<p><b>18,4</b>répétitions par jour<small>moyenne sur 7 jours</small></p><p><b>18</b>cartes mûres<small>retenues pour 21 jours ou plus</small></p>';
+		const total = data.cards.length + data.due + data.stock;
+		const hd = el('div', { class: 'hd' });
+		hd.innerHTML = `<h3>Cartes<span>${total}</span></h3><i></i>`;
+		const chips = el('div', { class: 'chips' });
+		chips.innerHTML = '<span>Tous</span><span>Anglais</span><span>Géographie</span>';
+		f.append(v, hd, chips, el('div', { class: 'search' }, 'Rechercher une carte'));
+	}
+}
+
+const $ = (id) => document.getElementById(id);
+const WEEK = STOPS.indexOf(10080);
+frame($('a'), { label: '375 · clair · après un lot', data: BATCH, page: true });
+frame($('a'), { label: '375 · sombre', theme: 'dark', data: BATCH, page: true });
+frame($('a'), { label: '375 · la ligne, sur 7 j', theme: 'dark', data: BATCH, line: WEEK, page: true });
+
+for (const [host, width] of [['b', 320], ['c', 696]]) {
+	frame($(host), { label: `${width} · 460 cartes (lot)`, width, data: BATCH, measure: true });
+	frame($(host), { label: `${width} · 1 400 cartes`, width, data: MATURE, measure: true });
+	frame($(host), { label: `${width} · 5 000 cartes`, width, data: HUGE, measure: true });
+	frame($(host), { label: `${width} · 20 000 cartes (limite)`, width, theme: 'dark', data: EXTREME, measure: true });
+}
+
+frame($('d'), { label: 'lot, stock de 182 compté au quota', data: BATCH, measure: true });
+frame($('d'), { label: 'le même lot, sans stock', data: BATCH_NOSTOCK, measure: true });
+frame($('d'), { label: 'retard : 300 prêtes', data: BACKLOG, measure: true });
+frame($('d'), { label: 'seed, 27 cartes', data: SEED, measure: true });
+frame($('d'), { label: 'démarrage', data: STARTER });
+frame($('d'), { label: 'rien de prêt', theme: 'dark', data: IDLE });
+frame($('d'), { label: '320 · ligne au bout', width: 320, data: MATURE, line: STOPS.length - 1 });
+
+// `#n` n'affiche que la n-ième maquette (captures à la taille d'un téléphone).
+const solo = location.hash.slice(1);
+if (solo) document.querySelectorAll('.frame')[Number(solo)]?.classList.add('solo');
+</script>
+</body>
+</html>
