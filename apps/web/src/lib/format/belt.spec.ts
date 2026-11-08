@@ -48,9 +48,10 @@ describe('beltPosition', () => {
 });
 
 describe('stops', () => {
-	it('run from a few minutes to the end of the axis, in order', () => {
+	it('run from ten minutes to the end of the axis, in order', () => {
 		const delays = BELT_STOPS.map((s) => s.delayMs);
 		expect(delays).toEqual([...delays].sort((a, b) => a - b));
+		expect(BELT_STOPS[0]).toMatchObject({ delayMs: 10 * MINUTE, label: '10 min' });
 		expect(BELT_STOPS.at(-1)).toMatchObject({ delayMs: BELT_END_MS, label: '2 ans +' });
 		expect(BELT_STOPS.filter((s) => s.major).map((s) => s.label)).toEqual([
 			'1 h',

@@ -44,7 +44,7 @@ const stop = (delayMs: number, major = false, label = formatInterval(delayMs)): 
 
 /** Les crans, du plus proche au plus lointain. */
 export const BELT_STOPS: readonly BeltStop[] = [
-	...[2, 5, 10, 20, 30].map((n) => stop(n * MINUTE)),
+	...[10, 20, 30].map((n) => stop(n * MINUTE)),
 	stop(HOUR, true),
 	...[2, 3, 6, 12].map((n) => stop(n * HOUR)),
 	stop(DAY, true),
