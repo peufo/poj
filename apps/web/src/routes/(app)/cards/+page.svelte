@@ -39,7 +39,7 @@
 	{#if hasCards}
 		<!-- Ce qui vient, tout en haut : le tapis, puis le passé en deux chiffres. -->
 		<div class="flex flex-col gap-3 pt-3 md:pt-8">
-			<Belt {...data.belt} reviewHref="/review{deckQuery}" />
+			<Belt {...data.belt} now={data.now} reviewHref="/review{deckQuery}" />
 			<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
 		</div>
 	{/if}

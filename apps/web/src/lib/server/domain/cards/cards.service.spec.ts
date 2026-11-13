@@ -409,7 +409,7 @@ describe('cards service', () => {
 
 		expect(await cards.list(alice)).toEqual([]);
 		await expect(cards.get(alice, id)).rejects.toBeInstanceOf(NotFoundError);
-		expect(await cards.belt(alice, now)).toMatchObject({ stock: 0, due: 0, tokens: [] });
+		expect(await cards.belt(alice, now)).toMatchObject({ stock: 0, ready: [], tokens: [] });
 	});
 
 	it('puts each card on the belt once, at the first of its presentations', async () => {
@@ -433,10 +433,11 @@ describe('cards service', () => {
 		});
 
 		// `due` : ses deux sens sont dus, mais un seul sera présenté, l'autre mis de côté.
-		expect(await cards.belt(alice, now)).toMatchObject({
+		expect(await cards.belt(alice, now)).toEqual({
 			stock: 0,
-			due: 1,
-			tokens: [{ delayMs: 2 * DAY, state: 'review', stability: 40 }]
+			ready: [due.id],
+			tokens: [{ cardId: later.id, delayMs: 2 * DAY, state: 'review', stability: 40 }],
+			forecast: expect.any(Array)
 		});
 		expect(await createReviewsService(db).countDue(alice, now)).toBe(1);
 		expect(due.reviews).toHaveLength(2);
@@ -458,8 +459,8 @@ describe('cards service', () => {
 
 		expect(await cards.belt(alice, now)).toMatchObject({
 			stock: 0,
-			due: 1,
-			tokens: [{ delayMs: 22 * HOUR, state: 'new', stability: 0 }]
+			ready: [expect.any(String)],
+			tokens: [{ cardId: answered.id, delayMs: 22 * HOUR, state: 'new', stability: 0 }]
 		});
 	});
 
@@ -469,9 +470,12 @@ describe('cards service', () => {
 		}
 
 		const belt = await cards.belt(alice, now);
-		expect(belt).toMatchObject({ stock: 2, due: DEFAULT_NEW_CARDS_PER_DAY, tokens: [] });
-		expect(belt.stock + belt.due + belt.tokens.length).toBe((await cards.list(alice)).length);
-		expect(await createReviewsService(db).countDue(alice, now)).toBe(belt.due);
+		expect(belt).toMatchObject({ stock: 2, tokens: [] });
+		expect(belt.ready).toHaveLength(DEFAULT_NEW_CARDS_PER_DAY);
+		expect(belt.stock + belt.ready.length + belt.tokens.length).toBe(
+			(await cards.list(alice)).length
+		);
+		expect(await createReviewsService(db).countDue(alice, now)).toBe(belt.ready.length);
 	});
 
 	it('estimates both directions of each card, the waiting ones from the day the limit lets them in', async () => {
@@ -504,7 +508,7 @@ describe('cards service', () => {
 				});
 			}
 		}
-		expect(belt).toMatchObject({ stock: 2, due: 1 });
+		expect(belt).toMatchObject({ stock: 2, ready: [ids[0]] });
 		expect(belt.forecast).toEqual(forecast(senses, now));
 	});
 
@@ -528,7 +532,7 @@ describe('cards service', () => {
 			data: { due: new Date(now.getTime() + HOUR) }
 		});
 
-		expect(await cards.belt(alice, now)).toMatchObject({ due: 1, tokens: [] });
+		expect(await cards.belt(alice, now)).toMatchObject({ ready: [overdue.id], tokens: [] });
 	});
 
 	it('hides other users’ cards', async () => {
@@ -537,7 +541,7 @@ describe('cards service', () => {
 		await expect(cards.get(alice, id)).rejects.toBeInstanceOf(NotFoundError);
 		await expect(cards.update(alice, id, input)).rejects.toBeInstanceOf(NotFoundError);
 		await expect(cards.softDelete(alice, id)).rejects.toBeInstanceOf(NotFoundError);
-		expect(await cards.belt(alice, now)).toMatchObject({ stock: 0, due: 0, tokens: [] });
+		expect(await cards.belt(alice, now)).toMatchObject({ stock: 0, ready: [], tokens: [] });
 	});
 
 	describe('per deck', () => {
@@ -558,9 +562,15 @@ describe('cards service', () => {
 			expect((await cards.list(alice, { deckId: aliceDeck })).map((c) => c.id)).toEqual([
 				english.id
 			]);
-			expect(await cards.belt(alice, now, scope)).toMatchObject({ stock: 0, due: 1, tokens: [] });
+			expect(await cards.belt(alice, now, scope)).toMatchObject({
+				stock: 0,
+				ready: [capital.id],
+				tokens: []
+			});
 			// Sans deck : tous les decks.
-			expect(await cards.belt(alice, now)).toMatchObject({ stock: 0, due: 2, tokens: [] });
+			const all = await cards.belt(alice, now);
+			expect(all).toMatchObject({ stock: 0, tokens: [] });
+			expect(all.ready.toSorted()).toEqual([english.id, capital.id].toSorted());
 		});
 
 		it('leaves out the b_to_a reviews of a deck turned one-way, without deleting them', async () => {
@@ -579,7 +589,10 @@ describe('cards service', () => {
 			expect(listed.reviews.map((r) => r.direction)).toEqual(['a_to_b']);
 			expect((await cards.get(alice, id)).reviews.map((r) => r.direction)).toEqual(['a_to_b']);
 			// Le b_to_a, dû, ne compte plus : la carte n'attend que son a_to_b, demain.
-			expect(await cards.belt(alice, now)).toMatchObject({ due: 0, tokens: [{ delayMs: DAY }] });
+			expect(await cards.belt(alice, now)).toMatchObject({
+				ready: [],
+				tokens: [{ cardId: id, delayMs: DAY }]
+			});
 			expect(await db.review.count({ where: { cardId: id } })).toBe(2);
 		});
 	});

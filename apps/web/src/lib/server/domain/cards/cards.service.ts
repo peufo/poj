@@ -386,7 +386,7 @@ export function createCardsService(db: Db) {
 				return day === undefined ? review : { ...review, due: startOfDay(now, day) };
 			});
 
-			let due = 0;
+			const ready: string[] = [];
 			const tokens: BeltToken[] = [];
 			const senses: ForecastSense[] = [];
 			for (const [cardId, slots] of presentationsByCard(scheduled, now)) {
@@ -396,13 +396,16 @@ export function createCardsService(db: Db) {
 				const [first] = slots;
 				if (!first || fresh.releaseDays.has(cardId)) continue;
 				const delayMs = first.at.getTime() - now.getTime();
-				if (delayMs <= 0) due += 1;
-				else tokens.push({ delayMs, state: first.review.state, stability: first.review.stability });
+				if (delayMs <= 0) ready.push(cardId);
+				else {
+					const { state, stability } = first.review;
+					tokens.push({ cardId, delayMs, state, stability });
+				}
 			}
 
 			return {
 				stock: fresh.releaseDays.size,
-				due,
+				ready,
 				tokens,
 				forecast: forecast(senses, now)
 			};

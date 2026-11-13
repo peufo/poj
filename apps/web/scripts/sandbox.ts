@@ -60,7 +60,7 @@ async function summarize(db: Db, userId: string, now: Date) {
 	console.log(`
 ✓ Bac à sable prêt (${databaseName(url)})
   compte       ${SANDBOX_ACCOUNT.email} / ${SANDBOX_ACCOUNT.password}
-  cartes       ${cards} (+ ${deleted} supprimée) : ${belt.due} prêtes, ${belt.tokens.length} en route, ${belt.stock} en attente
+  cartes       ${cards} (+ ${deleted} supprimée) : ${belt.ready.length} prêtes, ${belt.tokens.length} en route, ${belt.stock} en attente
   révisions    ${newReviews} neuves
   historique   ${answers} réponses`);
 }

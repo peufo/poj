@@ -43,7 +43,8 @@ export const load: PageServerLoad = async (event) => {
 		belt: {
 			...belt,
 			tokens: belt.tokens.map((token) => ({
-				position: beltPosition(token.delayMs),
+				id: token.cardId,
+				dueAt: now.getTime() + token.delayMs,
 				level: masteryOf(token)
 			})),
 			forecast: belt.forecast.map(({ delayMs, perDay }) => ({

@@ -108,7 +108,7 @@ describe('sandbox seed', () => {
 			expect(listed).toHaveLength(SANDBOX_CARDS.length - 1);
 			// Sur le tapis, chaque carte une fois : en attente, prête ou en route.
 			const belt = await cards.belt(owner, now);
-			expect(belt.stock + belt.due + belt.tokens.length).toBe(listed.length);
+			expect(belt.stock + belt.ready.length + belt.tokens.length).toBe(listed.length);
 			expect(listed.some((c) => c.context === null)).toBe(true);
 			expect(listed.some((c) => c.context !== null)).toBe(true);
 			expect(new Set(listed.map((c) => c.origin))).toEqual(new Set(['web', 'claude']));

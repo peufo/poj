@@ -4,7 +4,7 @@
 import { formatInterval } from './due';
 import type { MasteryLevel } from './mastery';
 
-const MINUTE = 60_000;
+export const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
@@ -14,7 +14,7 @@ const BELT_START_MS = 10 * MINUTE;
 export const BELT_END_MS = 2 * 365 * DAY;
 /** Hauteur des marques sur le tapis, en px. */
 export const BELT_HEIGHT = 72;
-/** Marge à gauche du tapis, au-dessus de la boîte des prêtes, en px. */
+/** Marge à gauche du tapis, où les cartes tombent dans la boîte des prêtes, en px. */
 export const BELT_MARGIN = 18;
 
 /**
@@ -224,11 +224,84 @@ export function pilePath(
 	const inset = outline ? 0.5 : 0;
 	let path = '';
 	for (let i = 0; i < marks; i += 1) {
-		const x = (i % columns) * size.pitchX;
-		const y = height - (Math.floor(i / columns) + 1) * size.pitchY + (size.pitchY - size.height);
+		const { x, y } = pileSlot({ size, columns }, i, height);
 		path += rect(x + inset, y + inset, size.width - 2 * inset, size.height - 2 * inset);
 	}
 	return path;
+}
+
+/** Coin haut gauche de la marque d'indice `index` dans une boîte de `height` px. */
+export function pileSlot(
+	{ size, columns }: Pick<PileLayout, 'size' | 'columns'>,
+	index: number,
+	height: number
+): { x: number; y: number } {
+	return {
+		x: (index % columns) * size.pitchX,
+		y: height - (Math.floor(index / columns) + 1) * size.pitchY + (size.pitchY - size.height)
+	};
+}
+
+/** Une carte en route : quand elle sera prête (ms depuis l'époque), et sa maîtrise. */
+export interface BeltCard {
+	id: string;
+	dueAt: number;
+	level: MasteryLevel;
+}
+
+/**
+ * Le dernier état vu du tapis : les cartes qui y étaient, avec leur échéance (ms). Une carte
+ * prête qui y figure est arrivée au bout du tapis depuis : elle tombe dans la boîte.
+ */
+export type SeenBelt = Map<string, number>;
+
+/** Une carte vue en route mais jamais revue prête est oubliée un an après son échéance. */
+const SEEN_FOR_MS = 365 * DAY;
+
+/** Les cartes prêtes qui étaient sur le tapis au dernier état vu. */
+export function arrivals(seen: SeenBelt, ready: readonly string[]): string[] {
+	return ready.filter((id) => seen.has(id));
+}
+
+/**
+ * Le nouvel état vu, après avoir vu les cartes `ready` dans la boîte et `onBelt` sur le tapis.
+ * Les cartes hors de la vue (un autre deck) gardent leur dernier état vu.
+ */
+export function rememberBelt(
+	seen: SeenBelt,
+	ready: readonly string[],
+	onBelt: readonly BeltCard[],
+	now: number
+): SeenBelt {
+	const next: SeenBelt = new Map();
+	for (const [id, dueAt] of seen) if (dueAt > now - SEEN_FOR_MS) next.set(id, dueAt);
+	for (const id of ready) next.delete(id);
+	for (const { id, dueAt } of onBelt) next.set(id, dueAt);
+	return next;
+}
+
+/** L'état vu à enregistrer : `JSON` d'entrées `[id, échéance]`. */
+export function serializeSeenBelt(seen: SeenBelt): string {
+	return JSON.stringify([...seen]);
+}
+
+/** Relit un état vu enregistré (`serializeSeenBelt`) ; vide s'il est illisible. */
+export function parseSeenBelt(raw: string | null): SeenBelt {
+	const seen: SeenBelt = new Map();
+	if (!raw) return seen;
+	let entries: unknown;
+	try {
+		entries = JSON.parse(raw);
+	} catch {
+		return seen;
+	}
+	if (!Array.isArray(entries)) return seen;
+	for (const entry of entries) {
+		if (!Array.isArray(entry)) continue;
+		const [id, dueAt] = entry;
+		if (typeof id === 'string' && typeof dueAt === 'number') seen.set(id, dueAt);
+	}
+	return seen;
 }
 
 /** Un point de l'estimation, sur l'axe du tapis : révisions estimées par jour à cet endroit. */

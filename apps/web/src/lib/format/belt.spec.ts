@@ -4,6 +4,7 @@ import {
 	BELT_STOPS,
 	DEFAULT_STOP,
 	MARK_SIZES,
+	arrivals,
 	beltPosition,
 	cardsByStop,
 	forecastPath,
@@ -12,8 +13,12 @@ import {
 	layoutPile,
 	markPaths,
 	nearestStop,
+	parseSeenBelt,
 	pilePath,
+	pileSlot,
 	rateAt,
+	rememberBelt,
+	serializeSeenBelt,
 	stopAt,
 	type MarkToken
 } from './belt';
@@ -150,6 +155,50 @@ describe('layoutPile', () => {
 		const path = pilePath(layoutPile(2, 20, 44), 44);
 		expect(path).toBe('M0 39h6v5h-6zM7 39h6v5h-6z');
 		expect(pilePath(layoutPile(1, 20, 44), 44, { outline: true })).toBe('M0.5 39.5h5v4h-5z');
+	});
+
+	it('places the next mark of a pile, where a falling card lands', () => {
+		const pile = layoutPile(4, 20, 44);
+		expect(pileSlot(pile, 1, 44)).toEqual({ x: 7, y: 39 });
+		expect(pileSlot(pile, 3, 44)).toEqual({ x: 0, y: 33 });
+	});
+});
+
+describe('last seen belt', () => {
+	const now = Date.UTC(2026, 10, 13);
+	const card = (id: string, delayMs: number) => ({ id, dueAt: now + delayMs, level: 1 as const });
+
+	it('drops the ready cards that were on the belt when last seen', () => {
+		const seen = new Map([
+			['a', now - HOUR],
+			['b', now + DAY]
+		]);
+		expect(arrivals(seen, ['a', 'c'])).toEqual(['a']);
+		expect(arrivals(new Map(), ['a', 'c'])).toEqual([]);
+	});
+
+	it('remembers the belt as seen, keeping the cards out of view', () => {
+		const seen = new Map([
+			['ready', now - HOUR],
+			['other-deck', now + DAY],
+			['forgotten', now - 400 * DAY]
+		]);
+		const next = rememberBelt(seen, ['ready'], [card('moving', HOUR)], now);
+		expect([...next]).toEqual([
+			['other-deck', now + DAY],
+			['moving', now + HOUR]
+		]);
+		// Une carte vue en route, puis ailleurs qu'en route ou prête (supprimée), finit oubliée.
+		expect(rememberBelt(next, [], [], now + 2 * 365 * DAY).size).toBe(0);
+	});
+
+	it('reads a saved belt back, and nothing from a broken one', () => {
+		const seen = rememberBelt(new Map(), [], [card('a', DAY)], now);
+		expect(parseSeenBelt(serializeSeenBelt(seen))).toEqual(seen);
+		expect(parseSeenBelt(null).size).toBe(0);
+		expect(parseSeenBelt('{').size).toBe(0);
+		expect(parseSeenBelt('{"a":1}').size).toBe(0);
+		expect([...parseSeenBelt('[["a",1],["b"],[2,3],"c"]')]).toEqual([['a', 1]]);
 	});
 });
 

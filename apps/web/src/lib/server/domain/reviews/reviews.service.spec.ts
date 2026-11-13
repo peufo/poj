@@ -701,12 +701,14 @@ describe('reviews service', () => {
 		it('keeps the waiting new cards off the belt, as a stock', async () => {
 			await addCards(subject, 30);
 
-			expect(await cards.belt(alice, at(1))).toEqual({
+			const belt = await cards.belt(alice, at(1));
+			expect(belt).toEqual({
 				stock: 30 - LIMIT,
-				due: LIMIT,
+				ready: expect.any(Array),
 				tokens: [],
 				forecast: expect.any(Array)
 			});
+			expect(belt.ready).toHaveLength(LIMIT);
 			expect(await reviews.countDue(alice, at(1))).toBe(LIMIT);
 		});
 

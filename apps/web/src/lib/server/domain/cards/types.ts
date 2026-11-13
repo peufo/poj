@@ -40,6 +40,7 @@ export type CardDetail = Card & { deck: Deck; reviews: (Review & { logs: ReviewL
  * qui sera alors présenté.
  */
 export interface BeltToken extends Pick<Review, 'state' | 'stability'> {
+	cardId: string;
 	delayMs: number;
 }
 
@@ -47,8 +48,8 @@ export interface BeltToken extends Pick<Review, 'state' | 'stability'> {
 export interface Belt {
 	/** Cartes neuves au-delà de la limite du jour de leur deck. */
 	stock: number;
-	/** Cartes dont un sens est présentable maintenant. */
-	due: number;
+	/** Cartes dont un sens est présentable maintenant, par identifiant. */
+	ready: string[];
 	/** Une entrée par carte en route, sans ordre particulier. */
 	tokens: BeltToken[];
 	/** Révisions estimées par jour le long de l'axe (voir `reviews/forecast`). */
