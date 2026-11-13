@@ -18,7 +18,8 @@
 	--color-mark: light-dark(var(--color-brand), oklch(0.97 0.005 95));
 
 	/* Surfaces, du fond vers l'avant. En clair, le papier de la marque (#F6F5F1) ; en
-	   sombre, la famille de son encre (#1E222B). Le `theme-color` d'app.html reprend canvas. */
+	   sombre, la famille de son encre (#1E222B). Le `theme-color` d'app.html reprend canvas,
+	   comme les couleurs de static/manifest.webmanifest (en clair). */
 	--color-canvas: light-dark(oklch(0.985 0.004 95), oklch(0.185 0.011 266));
 	--color-surface: light-dark(oklch(0.97 0.005 95), oklch(0.21 0.013 266));
 	--color-raised: light-dark(oklch(1 0 0), oklch(0.24 0.015 266));

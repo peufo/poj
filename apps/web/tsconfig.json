@@ -13,5 +13,6 @@
 		"prisma.config.ts",
 		"playwright.config.ts",
 		"vitest.global-setup.ts"
-	]
+	],
+	"exclude": ["src/service-worker"]
 }

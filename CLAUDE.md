@@ -16,7 +16,7 @@ Depuis la racine (délèguent à `@poj/web` via `bun --filter`) :
 
 ```sh
 bun run dev                 # http://localhost:5173 (docs API : /api/docs)
-bun run check               # svelte-check (types)
+bun run check               # svelte-check (types), puis tsc pour le service worker
 bun run lint                # prettier --check + eslint
 bun run test                # Vitest : projets "client" (navigateur) et "server" (node)
 bun run db:start            # Postgres Docker (compose.yaml racine), port 5433
