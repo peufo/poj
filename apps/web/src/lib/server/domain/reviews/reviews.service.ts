@@ -1,3 +1,4 @@
+import type { Prisma } from '../../db/generated/prisma/client';
 import type { Db } from '../db';
 import { reviewedDirections } from '../decks/decks.service';
 import { ConflictError, NotFoundError } from '../errors';
@@ -54,6 +55,30 @@ const promptOf = (direction: Direction, card: Pick<Card, 'sideA' | 'sideB'>) =>
 
 const withDeck = { card: { include: { deck: true } } } as const;
 
+/**
+ * Filtre excluant les révisions mises de côté à l'instant `now` : celles dont le sens
+ * inverse (s'il est révisé) a été noté dans les `SIBLING_BURY_MS` précédentes.
+ */
+function notBuried(now: Date) {
+	const since = new Date(now.getTime() - SIBLING_BURY_MS);
+	return {
+		NOT: {
+			OR: (['a_to_b', 'b_to_a'] as const).map((direction) => ({
+				direction,
+				card: {
+					reviews: {
+						some: {
+							direction: opposite[direction],
+							lastReview: { gt: since },
+							...reviewedDirections
+						}
+					}
+				}
+			}))
+		}
+	} satisfies Prisma.ReviewWhereInput;
+}
+
 /** Portée d'une session : tous les decks, ou le deck `deckId`. */
 export interface ReviewScope {
 	deckId?: string;
@@ -79,33 +104,12 @@ export function createReviewsService(db: Db) {
 		return review;
 	}
 
-	/** Filtre excluant le sens inverse des cartes notées dans les dernières 24 h. */
-	async function buriedFilter(ownerId: string, now: Date) {
-		const recent = await db.review.findMany({
-			where: {
-				lastReview: { gt: new Date(now.getTime() - SIBLING_BURY_MS) },
-				...owned(ownerId)
-			},
-			select: { cardId: true, direction: true }
-		});
-		if (recent.length === 0) return {};
-		return {
-			NOT: {
-				OR: recent.map(({ cardId, direction }) => ({ cardId, direction: opposite[direction] }))
-			}
-		};
-	}
-
 	/**
 	 * Ce qui écarte une révision de la session à cet instant : sens inverse mis de côté, et
 	 * cartes neuves au-delà de la limite du jour de leur deck (`findNewCards`).
 	 */
 	async function presentability(ownerId: string, now: Date, { deckId }: ReviewScope) {
-		const [buried, fresh] = await Promise.all([
-			buriedFilter(ownerId, now),
-			findNewCards(db, ownerId, now, deckId)
-		]);
-		return { buried, fresh };
+		return { buried: notBuried(now), fresh: await findNewCards(db, ownerId, now, deckId) };
 	}
 
 	type Presentability = Awaited<ReturnType<typeof presentability>>;

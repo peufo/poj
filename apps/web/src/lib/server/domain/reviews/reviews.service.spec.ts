@@ -575,6 +575,24 @@ describe('reviews service', () => {
 			expect(await reviews.next(alice, t0)).toEqual({ review: null, nextDue: at(DAY), waiting: 0 });
 			expect(presented(await reviews.next(alice, t0, { ahead: true })).direction).toBe('a_to_b');
 		});
+
+		it('stops burying a_to_b once the deck is turned one-way', async () => {
+			await createCard(db, alice, { now: t0 });
+			// Le b_to_a a été noté il y a une heure : l'a_to_b est mis de côté.
+			await db.review.updateMany({
+				where: { direction: 'b_to_a' },
+				data: { lastReview: at(-HOUR), state: 'review', due: at(10 * DAY) }
+			});
+			expect(await reviews.countDue(alice, t0)).toBe(0);
+
+			await createDecksService(db).update(alice, aliceDeck, {
+				name: 'Anglais',
+				bothDirections: false
+			});
+
+			expect(await reviews.countDue(alice, t0)).toBe(1);
+			expect(presented(await reviews.next(alice, t0)).direction).toBe('a_to_b');
+		});
 	});
 
 	describe('new cards per day', () => {
