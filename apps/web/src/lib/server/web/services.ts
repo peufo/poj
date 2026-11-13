@@ -8,6 +8,7 @@ import {
 	createCardsService,
 	createInvitationsService,
 	createDecksService,
+	createNotificationsService,
 	duplicateSide,
 	createReviewsService,
 	createTranslationService,
@@ -24,6 +25,7 @@ export const accounts = createAccountsService(db);
 export const cards = createCardsService(db);
 export const invitations = createInvitationsService(db, hashPassword);
 export const decks = createDecksService(db);
+export const notifications = createNotificationsService(db);
 export const reviews = createReviewsService(db);
 export const translation = createTranslationService(translator);
 

@@ -11,8 +11,8 @@
 		if (path === '/cards/new') return 'new';
 		if (path === '/decks/new') return 'new-deck';
 		if (path.startsWith('/connect')) return 'connect';
-		// Administration : hors des onglets, aucun n'est actif.
-		if (path.startsWith('/admin')) return undefined;
+		// Administration et réglages : hors des onglets, aucun n'est actif.
+		if (path.startsWith('/admin') || path.startsWith('/settings')) return undefined;
 		return 'cards';
 	});
 

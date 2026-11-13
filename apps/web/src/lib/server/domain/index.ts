@@ -20,3 +20,5 @@ export * from './translation/translator';
 export * from './translation/translation.service';
 export * from './accounts/accounts.service';
 export * from './accounts/invitations.service';
+export * from './notifications/notifications.service';
+export * from './notifications/push-services';

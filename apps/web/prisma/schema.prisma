@@ -31,6 +31,9 @@ model User {
   cards         Card[]
   invitations   Invitation[]
 
+  pushSubscriptions    PushSubscription[]
+  notificationSettings NotificationSettings?
+
   oauthclients       OauthClient[]
   oauthrefreshtokens OauthRefreshToken[]
   oauthaccesstokens  OauthAccessToken[]
@@ -289,6 +292,46 @@ model NewCardsLimit {
 
   @@unique([deckId, effectiveFrom])
   @@map("new_cards_limits")
+}
+
+// ─── Notifications de révision (doc/story/notifications-revision.md) ───
+
+/// Abonnement Web Push d'un appareil. Le navigateur n'a qu'un abonnement par origine :
+/// `endpoint` est unique, et le dernier compte qui active les notifications sur l'appareil
+/// le reprend. `deletedAt` marque un abonnement désactivé, ravivé s'il revient.
+model PushSubscription {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String
+  /// Clés de chiffrement du message (base64url), fournies par le navigateur.
+  p256dh    String
+  auth      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+/// Réglages de notification d'un compte. Sans ligne, le seuil par défaut s'applique. Pas de
+/// `deletedAt` : une ligne par compte, modifiée sur place, qui part avec le compte.
+model NotificationSettings {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Cartes prêtes à partir desquelles une notification part.
+  readyThreshold     Int       @map("ready_threshold")
+  /// Moment où les cartes prêtes ont atteint le seuil et où la notification est partie ;
+  /// nul tant qu'elles sont sous le seuil. Une seule notification par franchissement.
+  thresholdReachedAt DateTime? @map("threshold_reached_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([userId])
+  @@map("notification_settings")
 }
 
 // ─── Serveur d'autorisation OAuth du connecteur Claude (plugins jwt et @better-auth/mcp) ───

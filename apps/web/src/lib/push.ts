@@ -22,3 +22,10 @@ export function readPushMessage(text = ''): PushMessage {
 	const body = 'body' in data && typeof data.body === 'string' ? data.body : '';
 	return { title, body };
 }
+
+/** Octets d'une clé base64url (clé publique VAPID passée à `pushManager.subscribe`). */
+export function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
+	const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+	const binary = atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='));
+	return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}

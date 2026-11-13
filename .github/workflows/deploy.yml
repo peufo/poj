@@ -42,6 +42,9 @@ jobs:
       ORIGIN: http://localhost:5173
       BETTER_AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
       DEEPL_API_KEY: ''
+      VAPID_PUBLIC_KEY: ''
+      VAPID_PRIVATE_KEY: ''
+      VAPID_SUBJECT: ''
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2

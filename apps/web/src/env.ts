@@ -13,5 +13,19 @@ export const variables = defineEnvVars({
 		description:
 			'DeepL API key (free keys end with `:fx`). Optional: without it, DeepL suggestions are disabled.',
 		schema: (value) => value || undefined
+	},
+	VAPID_PUBLIC_KEY: {
+		description:
+			'VAPID public key for Web Push (`bunx web-push generate-vapid-keys`). Optional: without the three VAPID variables, review notifications are unavailable.',
+		schema: (value) => value || undefined
+	},
+	VAPID_PRIVATE_KEY: {
+		description: 'VAPID private key for Web Push, paired with `VAPID_PUBLIC_KEY`. Optional.',
+		schema: (value) => value || undefined
+	},
+	VAPID_SUBJECT: {
+		description:
+			'Contact sent to push services, a `mailto:` or `https:` URL (e.g. `mailto:admin@example.com`). Optional.',
+		schema: (value) => value || undefined
 	}
 });

@@ -32,7 +32,7 @@
 		children
 	}: Props = $props();
 
-	// Pied de la barre latérale : administration et déconnexion.
+	// Pied de la barre latérale : réglages, administration et déconnexion.
 	const footerItem =
 		'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
 
@@ -163,6 +163,9 @@
 				class="mt-auto flex flex-col gap-1 border-t border-line pt-3"
 			>
 				<span class="truncate px-2.5 text-xs text-ink-3">{user.email}</span>
+				<a href="/settings" class={footerItem}>
+					<Icon name="settings" size={17} class="text-ink-3" />Réglages
+				</a>
 				{#if user.isAdmin}
 					<a href="/admin" class={footerItem}>
 						<Icon name="user" size={17} class="text-ink-3" />Administration

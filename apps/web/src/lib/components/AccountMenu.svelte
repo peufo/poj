@@ -6,8 +6,8 @@
 	import SubmitButton from './form/SubmitButton.svelte';
 
 	// Compte et déconnexion au téléphone, où la barre latérale n'existe pas : un bouton
-	// d'en-tête qui ouvre une feuille. L'administrateur y trouve aussi le lien vers `/admin`
-	// (hors de la barre d'onglets).
+	// d'en-tête qui ouvre une feuille, avec le lien vers les réglages. L'administrateur y
+	// trouve aussi le lien vers `/admin` (hors de la barre d'onglets).
 	type Props = { email: string; isAdmin?: boolean; class?: string };
 
 	let { email, isAdmin = false, class: className = '' }: Props = $props();
@@ -30,6 +30,9 @@
 </button>
 
 <Sheet bind:open title="Compte" description="Connecté avec {email}.">
+	<Button href="/settings" size="lg" icon="settings" block onclick={() => (open = false)}>
+		Réglages
+	</Button>
 	{#if isAdmin}
 		<Button href="/admin" size="lg" icon="user" block onclick={() => (open = false)}>
 			Administration

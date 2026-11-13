@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { readPushMessage } from './push';
+import { base64UrlToBytes, readPushMessage } from './push';
+
+describe('base64UrlToBytes', () => {
+	it('decodes base64url, with or without padding', () => {
+		expect([...base64UrlToBytes('-_8')]).toEqual([0xfb, 0xff]);
+		expect([...base64UrlToBytes('-_8=')]).toEqual([0xfb, 0xff]);
+		expect([...base64UrlToBytes('AQIDBA')]).toEqual([1, 2, 3, 4]);
+	});
+});
 
 describe('readPushMessage', () => {
 	it('reads the title and body of a JSON message', () => {
