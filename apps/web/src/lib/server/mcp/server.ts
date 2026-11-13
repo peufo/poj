@@ -21,6 +21,7 @@ import {
 	languagePair,
 	MAX_BATCH_CARDS,
 	NotFoundError,
+	resetsProgress,
 	resolveDeck,
 	type BatchResult,
 	type CardInput,
@@ -39,8 +40,11 @@ import {
 	BATCH_FACT_CHECK,
 	BATCH_SUMMARY,
 	batchRule,
+	CHECK_EDIT,
 	CORRECTION_RULE,
 	DECK_CHOICE_RULE,
+	EDIT_ON_REQUEST,
+	EDIT_RULE,
 	END_RULE,
 	FACT_CHECK,
 	FACT_RULE,
@@ -92,6 +96,7 @@ const SHARED_RULES = [
 	CORRECTION_RULE,
 	RATING_RULE,
 	END_RULE,
+	EDIT_RULE,
 	VOICE_RULE
 ];
 
@@ -160,6 +165,9 @@ ${ruleList([
 ])}`;
 }
 
+/** Fin de la phrase « À appeler avant chaque create_card… » des descriptions de check_card. */
+const CHECK_BEFORE_EDIT = `, et avant chaque update_card qui change une face (${CHECK_EDIT})`;
+
 /** Descriptions de check_card et create_card pour un seul deck (ou aucun), avec ses faces. */
 function singleDeckToolTexts(deck: DeckFaces): { check: string; create: string } {
 	const pair = languagePair(deck);
@@ -167,15 +175,15 @@ function singleDeckToolTexts(deck: DeckFaces): { check: string; create: string }
 	const sameFace = `avec ${(duplicateSide(deck) === 'sideA' ? a : b).same}`;
 	return {
 		check: pair
-			? `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) et les cartes existantes ${sameFace}. Si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher. Si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Ne modifie rien.`
-			: `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes. Renvoie les cartes existantes ${sameFace}. Ce deck n'a pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls) : vérifie toi-même la carte et relis-la avec l'utilisateur. Dans ce deck de sujet, ${FACT_CHECK} Ne modifie rien.`,
+			? `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes${CHECK_BEFORE_EDIT}. Renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) et les cartes existantes ${sameFace}. Si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher. Si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Ne modifie rien.`
+			: `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes${CHECK_BEFORE_EDIT}. Renvoie les cartes existantes ${sameFace}. Ce deck n'a pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls) : vérifie toi-même la carte et relis-la avec l'utilisateur. Dans ce deck de sujet, ${FACT_CHECK} Ne modifie rien.`,
 		create: `Crée une carte et ${directionsOf(deck).length > 1 ? 'ses deux révisions, dues' : 'sa révision, due'} immédiatement. Avant de l'appeler : appelle toujours check_card ; ${pair ? 'si DeepL diverge, expose les options et laisse-le trancher' : `vérifie toi-même la carte, ce deck n’a pas de second avis DeepL ; ${FACT_SOURCE}`} ; relis-lui la carte finale (${a.name}, ${b.name}, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`
 	};
 }
 
 /** Descriptions de check_card et create_card quand l'utilisateur a plusieurs decks. */
 const MULTI_DECK_TOOL_TEXTS = {
-	check: `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes et son deck (déduis-le de la carte, ou demande-le en cas de doute). Deck de langue : renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) ; si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher ; si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Deck de sujet : pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls), vérifie toi-même la carte ; ${FACT_CHECK} Renvoie aussi les cartes existantes du deck avec la même face (B pour une langue, A pour un sujet). Ne modifie rien.`,
+	check: `${REAL_SITUATION} À appeler avant chaque create_card, avec la carte que tu proposes et son deck (déduis-le de la carte, ou demande-le en cas de doute)${CHECK_BEFORE_EDIT}. Deck de langue : renvoie les traductions DeepL dans les deux sens (en tenant compte du contexte) ; si DeepL diverge de ta proposition, expose les options à l'utilisateur et laisse-le trancher ; si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non. Deck de sujet : pas de second avis DeepL (deepl_a_to_b et deepl_b_to_a sont nuls), vérifie toi-même la carte ; ${FACT_CHECK} Renvoie aussi les cartes existantes du deck avec la même face (B pour une langue, A pour un sujet). Ne modifie rien.`,
 	create: `Crée une carte dans le deck indiqué, et ses révisions, dues immédiatement (une seule, de A vers B, dans un deck à sens unique). Avant de l'appeler : appelle toujours check_card avec le même deck ; pour un deck de langue, si DeepL diverge, expose les options et laisse-le trancher ; pour un sujet, vérifie toi-même la carte : ${FACT_SOURCE} ; relis-lui la carte finale (deck, faces, contexte) et attends sa confirmation explicite. Rejouer le même appel dans les 10 minutes renvoie la carte déjà créée sans doublon.`
 };
 
@@ -188,6 +196,19 @@ function batchToolTexts(languages: boolean, subjects: boolean): { check: string;
 		check: `${REAL_SITUATION} Vérifie un lot de cartes d'un même deck (${MAX_BATCH_CARDS} au plus par appel) avant create_cards, au lieu d'appeler check_card pour chaque carte. Ne renvoie que les problèmes, repérés par leur position dans le lot (à partir de 1) : doublons (dans le lot, ou déjà dans le deck) et cartes déjà créées il y a moins de 10 minutes${languages ? ". Deck de langue : divergences DeepL, quand ni la traduction de la face A ni celle de la face B ne correspondent à la carte ; si deepl_error est présent, signale-le : l'utilisateur décide de créer quand même ou non" : ''}.${subjects ? ` Deck de sujet : pas de second avis DeepL ; ${BATCH_FACT_CHECK}` : ''} Ensuite, ${BATCH_SUMMARY}. Ne modifie rien.`,
 		create: `Crée un lot de cartes dans un même deck (${MAX_BATCH_CARDS} au plus par appel), et leurs révisions : les nouvelles cartes sont présentées au fil des jours, dans la limite quotidienne du deck, dans l'ordre du lot. ${BATCH_CONFIRMATION} Les doublons (dans le lot, ou déjà dans le deck) ne sont pas créés : skipped les liste ; pour en garder un quand même, passe par create_card. Tout ou rien : après une erreur, aucune carte n'est créée. Rejouer le même lot (après une erreur ou une coupure) ne recrée pas les cartes déjà créées.`
 	};
+}
+
+/**
+ * Description de update_card, selon que la carte peut être d'un deck de langue (`languages`)
+ * ou de sujet (`subjects`).
+ */
+function updateToolText(languages: boolean, subjects: boolean): string {
+	const checks = [
+		languages && 'second avis DeepL pour une langue',
+		subjects && `pour un sujet, ${FACT_SOURCE}`,
+		'doublons'
+	].filter(Boolean);
+	return `Modifie les faces ou le contexte d'une carte existante (card_id renvoyé par search_cards), ${EDIT_ON_REQUEST} Passe seulement ce qui change : un champ absent reste inchangé, context à null ou vide le supprime. Modifier une face réinitialise la progression de la carte (ses révisions repartent de zéro, l'historique est conservé) ; modifier seulement le contexte la conserve. Avant de l'appeler : si une face change, appelle check_card ${CHECK_EDIT} (${checks.join(' ; ')}) ; relis-lui la carte avant et après, préviens-le si sa progression sera réinitialisée, et attends sa confirmation explicite. La suppression d'une carte se fait sur le web.`;
 }
 
 /** Nom d'un deck, tel que Claude le passe aux outils. */
@@ -261,6 +282,38 @@ function cardFields(shape: DeckFaces | null) {
 const cardInputSchema = (shape: DeckFaces | null, decks: readonly Deck[]) =>
 	z.object({ ...cardFields(shape), deck: captureDeckField(decks) });
 
+const cardIdSchema = z.uuid();
+
+/** Entrée de check_card : celle de create_card, et la carte à modifier s'il y en a une. */
+const checkInputSchema = (shape: DeckFaces | null, decks: readonly Deck[]) =>
+	cardInputSchema(shape, decks).extend({
+		card_id: cardIdSchema
+			.optional()
+			.describe(
+				"Pour vérifier la modification d'une carte existante : son card_id (search_cards). Son deck s'impose, elle n'est pas comptée parmi les doublons, un context absent reprend le sien, et progress_reset dit si la modification réinitialisera sa progression. Absent pour une nouvelle carte."
+			)
+	});
+
+/** Champ facultatif de update_card : absent, la valeur actuelle de la carte est gardée. */
+const unchangedIfAbsent = <T extends z.ZodType>(field: T) =>
+	field.optional().describe(`${field.description ?? ''} Absent : inchangé.`.trim());
+
+/** Entrée de update_card : seuls les champs passés changent. */
+function updateInputSchema(shape: DeckFaces | null) {
+	const { side_a, side_b, context } = cardFields(shape);
+	return z.object({
+		card_id: cardIdSchema.describe('card_id de la carte à modifier, renvoyé par search_cards.'),
+		side_a: unchangedIfAbsent(side_a),
+		side_b: unchangedIfAbsent(side_b),
+		context: context.describe(
+			"Nouveau contexte d'origine. Absent : inchangé ; null ou vide : supprimé. Pour un deck de sujet, garde sa ligne « Source : »."
+		)
+	});
+}
+
+/** Nombre maximal de cartes renvoyées par search_cards : une réponse courte, pour la voix. */
+const SEARCH_LIMIT = 10;
+
 /** Entrée de check_cards et create_cards : un lot plafonné, pour un seul deck. */
 const batchInputSchema = (shape: DeckFaces | null, decks: readonly Deck[]) =>
 	z.object({
@@ -283,6 +336,16 @@ const toCardInput = (input: {
 	context?: string | null;
 }): CardInput => ({ sideA: input.side_a, sideB: input.side_b, context: input.context });
 
+/** Carte modifiée : les champs passés, et ceux de la carte actuelle pour les autres. */
+const editedCard = (
+	current: { sideA: string; sideB: string; context: string | null },
+	input: { side_a?: string; side_b?: string; context?: string | null }
+): CardInput => ({
+	sideA: input.side_a ?? current.sideA,
+	sideB: input.side_b ?? current.sideB,
+	context: input.context === undefined ? current.context : input.context
+});
+
 const cardOutput = (card: {
 	id: string;
 	sideA: string;
@@ -301,6 +364,14 @@ const cardOutputSchema = z.object({
 	side_a: z.string(),
 	side_b: z.string(),
 	context: z.string().nullable()
+});
+
+/** Carte existante avec le nom de son deck, dans les sorties de search_cards et update_card. */
+const deckCardOutputSchema = cardOutputSchema.extend({ deck: z.string() });
+
+const deckCardOutput = (card: Parameters<typeof cardOutput>[0], deck: Pick<Deck, 'name'>) => ({
+	...cardOutput(card),
+	deck: deck.name
 });
 
 /** Carte d'un lot, repérée par sa position (à partir de 1). */
@@ -376,20 +447,29 @@ const isToolResult = (value: Deck | CallToolResult | undefined): value is CallTo
 
 const REVIEW_NOT_FOUND = 'Révision introuvable (carte supprimée ou identifiant erroné).';
 
-/** Traduit les erreurs du domaine en résultats d'erreur lisibles par Claude. */
+const CARD_NOT_FOUND =
+	'Carte introuvable (supprimée ou identifiant erroné) : retrouve-la avec search_cards.';
+
+/**
+ * Traduit les erreurs du domaine en résultats d'erreur lisibles par Claude (`conflict` à
+ * `null` pour un outil qui ne rencontre pas de conflit).
+ */
 async function guard(
 	run: () => Promise<CallToolResult>,
-	conflict: string,
+	conflict: string | null,
 	notFound = REVIEW_NOT_FOUND
 ): Promise<CallToolResult> {
 	try {
 		return await run();
 	} catch (error) {
 		if (error instanceof NotFoundError) return toolError(notFound);
-		if (error instanceof ConflictError) return toolError(conflict);
+		if (error instanceof ConflictError && conflict !== null) return toolError(conflict);
 		throw error;
 	}
 }
+
+/** `guard` des outils qui lisent une carte par son card_id. */
+const cardGuard = (run: () => Promise<CallToolResult>) => guard(run, null, CARD_NOT_FOUND);
 
 export function createPojMcpServer({
 	ownerId,
@@ -417,9 +497,10 @@ export function createPojMcpServer({
 	const cardInput = cardInputSchema(shape, decks);
 	const toolTexts = shape ? singleDeckToolTexts(shape) : MULTI_DECK_TOOL_TEXTS;
 	const batchInput = batchInputSchema(shape, decks);
-	const batchTexts = shape
-		? batchToolTexts(isLanguage(shape), !isLanguage(shape))
-		: batchToolTexts(decks.some(isLanguage), !decks.every(isLanguage));
+	// Les textes des outils ne parlent que des types de decks que l'utilisateur a.
+	const languages = shape ? isLanguage(shape) : decks.some(isLanguage);
+	const subjects = shape ? !isLanguage(shape) : !decks.every(isLanguage);
+	const batchTexts = batchToolTexts(languages, subjects);
 
 	/** « dans « Anglais » » quand l'utilisateur a plusieurs decks, sinon rien. */
 	const inDeck = (deck: Pick<Deck, 'name'>) => (several ? ` dans ${quote(deck.name)}` : '');
@@ -537,53 +618,153 @@ export function createPojMcpServer({
 		{
 			title: 'Vérifier une carte',
 			description: toolTexts.check,
-			inputSchema: cardInput,
+			inputSchema: checkInputSchema(shape, decks),
 			outputSchema: z.object({
 				deck: z.string(),
 				deepl_a_to_b: z.string().nullable(),
 				deepl_b_to_a: z.string().nullable(),
 				deepl_error: z.string().optional(),
-				duplicates: z.array(cardOutputSchema)
+				duplicates: z.array(cardOutputSchema),
+				progress_reset: z.boolean().optional()
 			}),
 			annotations: { readOnlyHint: true, openWorldHint: decks.some(isLanguage) }
 		},
-		async (input) => {
-			const deck = captureDeck(input.deck);
-			if (isToolResult(deck)) return deck;
-			const pair = languagePair(deck);
-			const { a, b } = faces(deck);
-			const proposed = toCardInput(input);
-			const [check, duplicates] = await Promise.all([
-				pair && translation.check(pair, proposed),
-				cards.findDuplicates(ownerId, deck, proposed)
-			]);
-			const text = (s: Suggestion | undefined) => (s?.ok ? s.text : null);
-			const deeplError = check ? deeplErrorOf([check.aToB, check.bToA]) : undefined;
+		({ card_id, ...input }) =>
+			cardGuard(async () => {
+				// Une modification se vérifie dans le deck de la carte, avec son contexte par défaut.
+				const current = card_id === undefined ? undefined : await cards.get(ownerId, card_id);
+				const deck = current?.deck ?? captureDeck(input.deck);
+				if (isToolResult(deck)) return deck;
+				const pair = languagePair(deck);
+				const { a, b } = faces(deck);
+				const proposed = current ? editedCard(current, input) : toCardInput(input);
+				const [check, duplicates] = await Promise.all([
+					pair && translation.check(pair, proposed),
+					cards.findDuplicates(ownerId, deck, proposed, { excludeId: card_id })
+				]);
+				const progressReset = current && resetsProgress(current, proposed);
+				const text = (s: Suggestion | undefined) => (s?.ok ? s.text : null);
+				const deeplError = check ? deeplErrorOf([check.aToB, check.bToA]) : undefined;
 
-			const lines: string[] = [];
-			lines.push(...deckHeader(deck));
-			if (!check) lines.push('Pas de second avis DeepL pour ce deck.');
-			if (check?.aToB.ok) {
-				lines.push(`DeepL, ${a.name} vers ${b.name} : ${quote(check.aToB.text)}.`);
-			}
-			if (check?.bToA.ok) {
-				lines.push(`DeepL, ${b.name} vers ${a.name} : ${quote(check.bToA.text)}.`);
-			}
-			if (deeplError) lines.push(`DeepL : ${deeplError}.`);
-			lines.push(
-				duplicates.length === 0
-					? 'Aucun doublon.'
-					: `Doublon${duplicates.length > 1 ? 's' : ''} : ${duplicates.map(describeCard).join(' ; ')}.`
+				const lines: string[] = [];
+				lines.push(...deckHeader(deck));
+				if (!check) lines.push('Pas de second avis DeepL pour ce deck.');
+				if (check?.aToB.ok) {
+					lines.push(`DeepL, ${a.name} vers ${b.name} : ${quote(check.aToB.text)}.`);
+				}
+				if (check?.bToA.ok) {
+					lines.push(`DeepL, ${b.name} vers ${a.name} : ${quote(check.bToA.text)}.`);
+				}
+				if (deeplError) lines.push(`DeepL : ${deeplError}.`);
+				lines.push(
+					duplicates.length === 0
+						? 'Aucun doublon.'
+						: `Doublon${duplicates.length > 1 ? 's' : ''} : ${duplicates.map(describeCard).join(' ; ')}.`
+				);
+				if (progressReset !== undefined) {
+					lines.push(
+						progressReset
+							? 'Cette modification réinitialisera sa progression (historique conservé).'
+							: 'Cette modification conservera sa progression.'
+					);
+				}
+
+				return result(lines.join('\n'), {
+					deck: deck.name,
+					deepl_a_to_b: text(check?.aToB),
+					deepl_b_to_a: text(check?.bToA),
+					...(deeplError && { deepl_error: deeplError }),
+					duplicates: duplicates.map(cardOutput),
+					...(progressReset !== undefined && { progress_reset: progressReset })
+				});
+			})
+	);
+
+	server.registerTool(
+		'search_cards',
+		{
+			title: 'Rechercher des cartes',
+			description: `Cherche les cartes de l'utilisateur qui contiennent un texte, dans leurs faces ou leur contexte (casse et accents ignorés), dans tous ses decks ou dans un deck nommé. Renvoie les ${SEARCH_LIMIT} plus récentes au plus, avec leur card_id, à passer à check_card et update_card. Ne modifie rien.`,
+			inputSchema: z.object({
+				query: z
+					.string()
+					.trim()
+					.min(1)
+					.max(CARD_LIMITS.context, tooLong(CARD_LIMITS.context))
+					.describe('Texte à chercher : un mot ou un morceau de la carte, pas une phrase entière.'),
+				deck: deckNameSchema.describe(
+					`Nom d'un deck pour n'y chercher que ses cartes. Sans deck, la recherche porte sur tous les decks (${names}).`
+				)
+			}),
+			outputSchema: z.object({
+				cards: z.array(deckCardOutputSchema),
+				total: z.number(),
+				truncated: z.boolean()
+			}),
+			annotations: { readOnlyHint: true, openWorldHint: false }
+		},
+		async ({ query, deck: deckName }) => {
+			const scope = deckName === undefined ? undefined : namedDeck(deckName);
+			if (isToolResult(scope)) return scope;
+			const found = await cards.list(ownerId, { query, deckId: scope?.id });
+			const shown = found.slice(0, SEARCH_LIMIT);
+			const truncated = found.length > shown.length;
+
+			const where = scope ? ` dans ${quote(scope.name)}` : '';
+			const header =
+				found.length === 0
+					? `Aucune carte trouvée pour ${quote(query)}${where}.`
+					: truncated
+						? `${found.length} cartes trouvées${where}, voici les ${SEARCH_LIMIT} plus récentes : affine la recherche si besoin.`
+						: `${plural(found.length, 'carte trouvée', 'cartes trouvées')}${where} :`;
+			const lines = shown.map(
+				(card) =>
+					`${several && !scope ? `${quote(card.deck.name)} : ` : ''}${describeCard(card)} (card_id : ${card.id}).`
 			);
-
-			return result(lines.join('\n'), {
-				deck: deck.name,
-				deepl_a_to_b: text(check?.aToB),
-				deepl_b_to_a: text(check?.bToA),
-				...(deeplError && { deepl_error: deeplError }),
-				duplicates: duplicates.map(cardOutput)
+			return result([header, ...lines].join('\n'), {
+				cards: shown.map((card) => deckCardOutput(card, card.deck)),
+				total: found.length,
+				truncated
 			});
 		}
+	);
+
+	server.registerTool(
+		'update_card',
+		{
+			title: 'Modifier une carte',
+			description: updateToolText(languages, subjects),
+			inputSchema: updateInputSchema(shape),
+			outputSchema: deckCardOutputSchema.extend({ progress_reset: z.boolean() }),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: false
+			}
+		},
+		({ card_id, side_a, side_b, context }) =>
+			cardGuard(async () => {
+				if (side_a === undefined && side_b === undefined && context === undefined) {
+					return toolError('Rien à modifier : passe au moins side_a, side_b ou context.');
+				}
+				const current = await cards.get(ownerId, card_id);
+				const { card, progressReset } = await cards.update(
+					ownerId,
+					card_id,
+					editedCard(current, { side_a, side_b, context }),
+					now()
+				);
+				return result(
+					[
+						`Carte modifiée${inDeck(current.deck)} : ${describeCard(card)}.`,
+						progressReset
+							? 'Progression réinitialisée : ses révisions repartent de zéro (historique conservé).'
+							: 'Progression conservée.'
+					].join('\n'),
+					{ ...deckCardOutput(card, current.deck), progress_reset: progressReset }
+				);
+			})
 	);
 
 	server.registerTool(

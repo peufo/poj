@@ -35,7 +35,7 @@ export function oauthRedirect(result: unknown): string | undefined {
 }
 
 const SCOPE_LABELS: Record<string, string> = {
-	cards: 'Lire, créer et réviser tes cartes',
+	cards: 'Lire, créer, modifier et réviser tes cartes',
 	openid: 'Connaître ton identifiant Poj',
 	profile: 'Voir ton nom',
 	email: 'Voir ton adresse email',

@@ -52,7 +52,7 @@ test('authorizes a dynamically registered client up to its callback', async ({
 	await expect(
 		page.getByRole('heading', { name: 'Client e2e demande l’accès à tes cartes' })
 	).toBeVisible();
-	await expect(page.getByText('Lire, créer et réviser tes cartes')).toBeVisible();
+	await expect(page.getByText('Lire, créer, modifier et réviser tes cartes')).toBeVisible();
 	await expect(page.getByText('client.example')).toBeVisible();
 	await waitForApp(page);
 	await page.getByRole('button', { name: 'Autoriser' }).click();

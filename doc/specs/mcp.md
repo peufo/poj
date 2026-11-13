@@ -1,6 +1,6 @@
 # Spécification : serveur MCP
 
-Le serveur MCP permet à Claude de capturer et de réviser des cartes : [story/connecteur-claude.md](../story/connecteur-claude.md). Les règles de répétition sont celles de [specs/repetition.md](repetition.md).
+Le serveur MCP permet à Claude de capturer, de retrouver, de modifier et de réviser des cartes : [story/connecteur-claude.md](../story/connecteur-claude.md). Les règles de répétition sont celles de [specs/repetition.md](repetition.md).
 
 ## Principes
 
@@ -18,7 +18,7 @@ Le serveur MCP permet à Claude de capturer et de réviser des cartes : [story/c
   - Le rafraîchissement des jetons est supporté : Claude renouvelle ses jetons quand ils expirent.
   - La connexion réutilise la page de connexion du web. Il faut ajouter une page de consentement (« Claude demande l'accès à tes cartes ») : elle ne s'affiche qu'à l'ajout du connecteur, et elle protège contre un client qui se ferait passer pour Claude. Pas d'approbation automatique.
 - **Exposition :** l'enregistrement est ouvert à tout client, mais n'importe qui ne peut pas utiliser mes cartes pour autant : il faut ensuite se connecter avec un compte Poj ([WEB-1](../story/web.md#web-1--accès-réservé)). Les comptes sont le mien, le premier créé et administrateur, et ceux des testeurs que j'ai invités ([connexion-assistants](../story/connexion-assistants.md)). Un jeton ne donne accès qu'aux cartes du compte qui a donné son consentement.
-- **Scope :** l'accès au MCP exige le scope `cards` (« lire, créer et réviser tes cartes »), annoncé dans les métadonnées de la ressource et dans le `401`. Claude y ajoute `offline_access` pour obtenir un jeton de rafraîchissement.
+- **Scope :** l'accès au MCP exige le scope `cards` (« lire, créer, modifier et réviser tes cartes »), annoncé dans les métadonnées de la ressource et dans le `401`. Claude y ajoute `offline_access` pour obtenir un jeton de rafraîchissement.
 - **Découverte :** la ressource est `${ORIGIN}/mcp`, l'émetteur `${ORIGIN}/api/auth`. Sont servis : `/.well-known/oauth-protected-resource` (et `/…/mcp`), `/.well-known/oauth-authorization-server` (à la racine et suffixé par `/api/auth`), et sous `/api/auth/.well-known/` les métadonnées OAuth et OpenID.
 - **Clients :** DCR seulement, sans CIMD (Claude se rabat sur DCR quand CIMD n'est pas annoncé). Les clients natifs sans `application_type` (anciens Claude Code, boucle locale) sont enregistrés comme natifs : leur redirection `http://localhost:<port>` est acceptée quel que soit le port.
 - **À vérifier :** le parcours complet est testé (tests serveur, puis curl et MCP Inspector en CLI sur le bac à sable). Reste à le tester avec claude.ai, une fois Poj joignable en HTTPS.
@@ -48,17 +48,18 @@ Claude choisit le deck d'une carte capturée ([story/decks.md](../story/decks.md
 - **Sortie :** `decks`, du plus ancien au plus récent, sans les decks supprimés : `name`, `kind` (`language` ou `subject`), `side_a` et `side_b` (noms des faces), `language_a` et `language_b` (étiquettes BCP 47, nulles pour un sujet), `both_directions` et `card_count`. Le texte tient en une ligne par deck. Sans deck, il invite à en créer un sur `/decks/new`.
 - **Lecture seule.**
 
-### `check_card` — vérifier une carte avant création
+### `check_card` — vérifier une carte avant création ou modification
 
-Appelé **avant chaque création**, avec la proposition de Claude.
+Appelé **avant chaque création**, avec la proposition de Claude, et **avant chaque modification d'une face** (voir `update_card`), avec la carte modifiée en entier.
 
-- **Entrée :** `side_a` (le français), `side_b` (l'anglais), `context` (facultatif), `deck` (facultatif, voir [Choix du deck](#choix-du-deck)).
+- **Entrée :** `side_a` (le français), `side_b` (l'anglais), `context` (facultatif), `deck` (facultatif, voir [Choix du deck](#choix-du-deck)), `card_id` (facultatif : la carte à modifier).
 - **Sortie :**
   - `deck` : le nom du deck retenu ;
   - `deepl_a_to_b` : traduction DeepL de la face A dans la langue de la face B (anglais britannique, variante tirée du deck), en tenant compte du contexte ;
   - `deepl_b_to_a` : traduction DeepL de la face B, utile quand l'expression a été entendue en anglais ([CL-3](../story/connecteur-claude.md#cl-3--capturer-une-expression-entendue-en-anglais)) ;
   - `duplicates` : cartes existantes du même deck au même texte anglais (casse et espaces ignorés), avec leurs deux faces (`side_a`, `side_b`) et leur contexte ;
   - si DeepL est indisponible ou que le quota est épuisé : `deepl_error` avec la raison. Claude me le signale, et je décide de créer quand même ou pas.
+- **Modification (`card_id`) :** la carte est celle du compte (sinon erreur d'outil, qui renvoie vers `search_cards`). Son deck s'impose, `deck` est ignoré. Elle n'est pas comptée parmi ses propres doublons. Un `context` absent reprend le sien. La sortie ajoute `progress_reset` : vrai si la modification change une face et réinitialisera donc sa progression.
 - **Deck de sujet :** DeepL ne s'applique qu'aux decks de langue. Pour un sujet, `deepl_a_to_b` et `deepl_b_to_a` sont nuls, sans `deepl_error`, et les doublons portent sur la face A (la question). La relecture de la carte par Claude reste obligatoire, et toute information vérifiable est vérifiée auprès d'une source récente et fiable (voir [Consignes générales](#consignes-générales)).
 - **Lecture seule :** il ne modifie rien.
 
@@ -99,6 +100,28 @@ Appelé **avant `create_cards`**, à la place de `check_card` carte par carte, p
 - **Rejeu :** rejouer le lot (après une erreur ou une coupure, quand Claude ignore si l'appel a abouti) ne crée aucun doublon : les cartes déjà créées sont reconnues (`already_created` dans les 10 minutes, doublons ensuite).
 - **Sortie :** `deck`, `created` et `already_created` (nombres), `skipped`, et `cards` (`position`, `card_id`, `created`) pour les cartes créées ou déjà créées. Le texte tient en quelques lignes : nombre de cartes créées, doublons écartés.
 - **Description de l'outil (consignes à Claude) :** vérifier le lot avec `check_cards`, puis me soumettre un résumé bref (nombre de cartes, deck, doublons, divergences DeepL, deux ou trois exemples), sans lire tout le lot, et attendre **une seule confirmation explicite** pour tout le lot, même découpé en plusieurs appels. Pour un deck de sujet, la vérification des faits vaut pour chaque carte du lot (voir [Consignes générales](#consignes-générales)).
+
+### `search_cards` — retrouver des cartes
+
+- **Entrée :** `query` (texte à chercher, obligatoire), `deck` (facultatif : limite la recherche à ce deck ; un nom inconnu renvoie l'erreur qui liste les decks).
+- **Recherche :** celle de la liste du web : sur les deux faces et le contexte, sans tenir compte de la casse ni des accents, dans les cartes non supprimées du compte.
+- **Sortie :** `cards`, les 10 plus récentes au plus (`card_id`, `deck`, `side_a`, `side_b`, `context`, sans la progression), `total` (nombre de cartes trouvées) et `truncated`. Le texte tient en une ligne par carte, avec son `card_id` et son deck quand j'en ai plusieurs. Au-delà de 10, il le dit et invite à affiner la recherche : une liste plus longue ne se lit pas à la voix.
+- **Lecture seule.**
+
+### `update_card` — modifier une carte
+
+Sert à corriger une carte **quand je le demande** ([CL-7](../story/connecteur-claude.md#cl-7--retrouver-et-corriger-une-carte)). La suppression reste sur le web ([WEB-6](../story/web.md#web-6--supprimer-une-carte)).
+
+- **Entrée :** `card_id` (renvoyé par `search_cards`), puis seulement ce qui change : `side_a`, `side_b` (mêmes limites de longueur qu'à la création) et `context` (absent : inchangé ; `null` ou vide : supprimé). Un champ absent garde sa valeur : Claude ne peut pas effacer un contexte ou sa ligne « Source : » par oubli. Un appel sans aucun champ à modifier renvoie une erreur d'outil.
+- **Effet :** celui de [WEB-5](../story/web.md#web-5--modifier-une-carte). Modifier une face réinitialise la progression des sens de la carte (l'historique est conservé). Modifier seulement le contexte la conserve. La carte reste dans son deck.
+- **Sortie :** `card_id`, `deck`, `side_a`, `side_b`, `context` et `progress_reset`. Le texte dit la carte modifiée, puis si la progression est réinitialisée ou conservée.
+- **Erreurs :** une carte inconnue, supprimée ou d'un autre compte renvoie « Carte introuvable », qui renvoie vers `search_cards`.
+- **Rejeu :** rejouer le même appel ne change rien de plus (la seconde fois, les faces sont déjà les nouvelles : rien n'est réinitialisé).
+- **Annotations :** `destructiveHint` (la progression peut être perdue), `idempotentHint`.
+- **Description de l'outil (consignes à Claude) :**
+  - seulement à ma demande explicite : Claude ne propose jamais de lui-même de corriger une carte, même pendant une révision ([décision du 2026-10-24](../decisions.md#2026-10-24--prévenir-les-cartes-fausses-plutôt-que-les-corriger)) ;
+  - si une face change, appeler d'abord `check_card` avec `card_id` et la carte modifiée en entier : second avis DeepL pour une langue, vérification des faits et ligne « Source : » pour un sujet, doublons. Le serveur ne l'impose pas, comme pour `create_card` ;
+  - me relire la carte avant et après, me prévenir quand une face modifiée réinitialisera sa progression, et attendre ma confirmation explicite.
 
 ### `review` — réviser avec une carte d'avance
 
@@ -185,9 +208,10 @@ Elles ajoutent le comportement de Claude hors révision :
   - hors révision, quand une expression utile surgit dans la conversation (je cherche un mot, je demande une traduction, je cite une expression entendue ou lue) : une proposition d'en faire une carte ;
   - jamais entre deux cartes d'une révision, et pas de relance si je décline.
 - **Vérification (deck de sujet) :** toute information vérifiable que porte une carte (fait, chiffre, date, définition, attribution, procédure…) est vérifiée par Claude auprès d'une source récente et fiable, par une recherche web, avant d'être proposée, jamais de mémoire. La source et sa date figurent dans le contexte de la carte, sur une ligne à part qui commence par « Source : », pour que `get_hint` ne la donne jamais comme indice. Si Claude ne peut pas vérifier, il le dit au lieu d'inventer. Une carte demande un gros effort pour être retenue : elle doit être juste. La règle est reprise dans les descriptions de `check_card` et `create_card` et dans le prompt `add_card`, comme le second avis DeepL pour une langue.
+- **Modifier une carte :** seulement à ma demande explicite, jamais de la propre initiative de Claude, même pendant une révision. Claude la retrouve avec `search_cards`, vérifie la modification d'une face avec `check_card` (`card_id`), me relit l'avant et l'après, me prévient qu'une face modifiée remet sa progression à zéro (pas le contexte seul), et attend ma confirmation explicite avant `update_card`. La suppression se fait sur le web.
 - **Ajout en lot :** pour beaucoup de cartes tirées d'une source (photo d'une page de cours, article, fichier ou texte collé, liste), Claude prépare les cartes et les vérifie avec `check_cards` (50 au plus par appel), sans `check_card` carte par carte. Il me donne ensuite un résumé bref (nombre de cartes, deck, doublons, divergences DeepL pour une langue, deux ou trois exemples), sans lire tout le lot, et attend une seule confirmation explicite pour tout le lot, même découpé en plusieurs appels, avant `create_cards`. Pour un deck de sujet, la vérification des faits vaut pour chaque carte du lot : Claude vérifie le lot auprès d'une source récente et fiable (celle que j'apporte si elle l'est, sinon une recherche web), jamais de mémoire, et met la source et sa date sur une ligne « Source : » du contexte de chaque carte.
 
-Les règles essentielles figurent **aussi** dans les descriptions des outils (indulgence, carte d'avance, correction, rejeu et proposition en fin de session pour `review` ; situation réelle et vérification pour `check_card` et `create_card` ; source, résumé, confirmation unique et vérification du lot pour `check_cards` et `create_cards`), et dans les textes de résultat : Claude.ai ne garantit pas la lecture des instructions.
+Les règles essentielles figurent **aussi** dans les descriptions des outils (indulgence, carte d'avance, correction, rejeu et proposition en fin de session pour `review` ; situation réelle et vérification pour `check_card` et `create_card` ; source, résumé, confirmation unique et vérification du lot pour `check_cards` et `create_cards` ; demande explicite, vérification, relecture et confirmation pour `update_card`), et dans les textes de résultat : Claude.ai ne garantit pas la lecture des instructions.
 
 Avec plusieurs decks, elles listent les decks et ajoutent :
 
@@ -200,5 +224,5 @@ Avec plusieurs decks, elles listent les decks et ajoutent :
 
 - Ressources MCP : la voix ne permet pas de les déclencher. Les outils suffisent.
 - MCP Apps (interface intégrée à la conversation).
-- Modifier ou supprimer une carte depuis Claude : on corrige sur le web ([décision](../decisions.md)).
+- Supprimer une carte depuis Claude : on supprime sur le web ([décision](../decisions.md#2026-11-13--claude-retrouve-et-modifie-une-carte-à-la-demande)).
 - Statistiques : Claude résume lui-même une session à partir de la conversation.

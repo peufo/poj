@@ -393,7 +393,7 @@ describe('Claude connector flow', () => {
 
 		const client = await mcpClient(tokens.access_token);
 		const { tools } = await client.listTools();
-		expect(tools).toHaveLength(8);
+		expect(tools).toHaveLength(10);
 		await client.close();
 	});
 
@@ -423,7 +423,7 @@ describe('Claude connector flow', () => {
 		expect(refreshed.refresh_token).not.toBe(tokens.refresh_token);
 
 		const client = await mcpClient(refreshed.access_token);
-		expect((await client.listTools()).tools).toHaveLength(8);
+		expect((await client.listTools()).tools).toHaveLength(10);
 		await client.close();
 
 		// Un jeton de rafraîchissement inconnu : `invalid_grant` (exigé par Claude).

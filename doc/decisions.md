@@ -2,6 +2,16 @@
 
 Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut.
 
+## 2026-11-13 — Claude retrouve et modifie une carte, à la demande
+
+**Décision :** le connecteur Claude gagne `search_cards` (10 cartes au plus, les plus récentes) et `update_card` (modification partielle des faces ou du contexte). Claude ne modifie une carte qu'à ma demande explicite, jamais de lui-même, même pendant une révision. Il vérifie la modification d'une face comme une création (`check_card` avec `card_id` : DeepL, faits, doublons), me relit l'avant et l'après, me prévient qu'une face modifiée remet la progression à zéro, et attend ma confirmation. Le consentement OAuth dit désormais « Lire, créer, modifier et réviser tes cartes ». Voir [specs/mcp.md](specs/mcp.md#update_card--modifier-une-carte) et [story/connecteur-claude.md](story/connecteur-claude.md#cl-7--retrouver-et-corriger-une-carte).
+
+**Remplace en partie :** « corriger ou supprimer une carte à l'oral : trop compliqué, on reste sur le web » (2026-10-29, [story/connexion-assistants.md](story/connexion-assistants.md)). Reste en vigueur « Prévenir les cartes fausses plutôt que les corriger » (2026-10-24) : Claude ne propose jamais de corriger une carte en révision.
+
+**Rejeté :**
+- *Supprimer une carte depuis Claude :* la suppression reste sur le web (WEB-6).
+- *Refuser un doublon côté serveur dans `update_card` (sauf `allow_duplicate`) :* garanti par le serveur, mais sans DeepL ni vérification des faits ; on passe par `check_card`, comme pour une création.
+
 ## 2026-11-13 — Notifications de révision par Web Push
 
 **Décision :** Poj prévient qu'une révision attend par des notifications Web Push, via l'app web installée en PWA, avec un seuil de cartes prêtes réglable par utilisateur. Voir [story/notifications-revision.md](story/notifications-revision.md).

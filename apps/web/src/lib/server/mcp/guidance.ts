@@ -76,6 +76,15 @@ export const LAST_CARD_LINE =
 export const NOT_RECORDED =
 	"Rien n'a été enregistré : dis-le-lui en un mot, puis rappelle review sans answer, avec le même holding. La carte que tu tiens reste valable.";
 
+/** Modifier une carte : jamais de la propre initiative de Claude. */
+export const EDIT_ON_REQUEST =
+	"seulement à la demande explicite de l'utilisateur : ne propose jamais de toi-même de corriger une carte, même pendant une révision.";
+
+/** Vérification d'une modification par check_card. */
+export const CHECK_EDIT = 'avec card_id et la carte modifiée en entier';
+
+export const EDIT_RULE = `Modifier une carte : ${EDIT_ON_REQUEST} Retrouve-la avec search_cards. Si une face change, appelle d'abord check_card ${CHECK_EDIT} : second avis DeepL pour une langue, vérification des faits et ligne « Source : » pour un sujet, doublons. Relis-lui la carte avant et après, préviens-le qu'une face modifiée remet sa progression à zéro (pas le contexte seul), et attends sa confirmation explicite avant update_card. La suppression d'une carte se fait sur le web.`;
+
 export const VOICE_RULE =
 	"L'utilisateur révise souvent en voiture, à la voix : réponses brèves, pas de listes longues.";
 

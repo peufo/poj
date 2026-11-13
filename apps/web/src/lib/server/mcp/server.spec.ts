@@ -123,7 +123,7 @@ const answerOf = (card: Entry, rating: string) => ({
 });
 
 describe('MCP server', () => {
-	it('exposes the eight tools, with read-only hints and instructions', async () => {
+	it('exposes the ten tools, with read-only hints and instructions', async () => {
 		const client = await connect(alice);
 		const { tools } = await client.listTools();
 
@@ -135,10 +135,14 @@ describe('MCP server', () => {
 			'create_cards',
 			'get_hint',
 			'list_decks',
-			'review'
+			'review',
+			'search_cards',
+			'update_card'
 		]);
 		const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
-		expect(readOnly.sort()).toEqual(['check_card', 'check_cards', 'list_decks']);
+		expect(readOnly.sort()).toEqual(['check_card', 'check_cards', 'list_decks', 'search_cards']);
+		const destructive = tools.filter((t) => t.annotations?.destructiveHint).map((t) => t.name);
+		expect(destructive).toEqual(['update_card']);
 		expect(client.getInstructions()).toContain('easy');
 	});
 
@@ -722,6 +726,276 @@ describe('MCP server', () => {
 		});
 	});
 
+	describe('search and edit', () => {
+		/** Donne de la progression aux révisions d'une carte. */
+		async function reviewed(cardId: string) {
+			await db.review.updateMany({ where: { cardId }, data: { reps: 3, stability: 12 } });
+		}
+
+		it('finds cards ignoring case and accents, in all decks or a named one', async () => {
+			const capitalsDeck = (await createDeck(db, alice, capitals)).id;
+			const english = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'Réunion budget' },
+				'web',
+				t0
+			);
+			const capital = await cards.create(
+				alice,
+				capitalsDeck,
+				{ sideA: 'Suisse', sideB: 'Berne', context: 'Vu à la réunion' },
+				'web',
+				at(1)
+			);
+			await cards.create(alice, aliceDeck, { sideA: 'chat', sideB: 'cat' }, 'web', at(2));
+			await cards.create(bob, bobDeck, { ...card, context: 'réunion' }, 'web', t0);
+			const client = await connect(alice);
+
+			const all = await call(client, 'search_cards', { query: ' REUNION ' });
+			expect(data(all)).toEqual({
+				cards: [
+					{
+						card_id: capital.id,
+						deck: 'Capitales',
+						side_a: 'Suisse',
+						side_b: 'Berne',
+						context: 'Vu à la réunion'
+					},
+					{ card_id: english.id, deck: 'Anglais', ...args, context: 'Réunion budget' }
+				],
+				total: 2,
+				truncated: false
+			});
+			expect(text(all)).toContain('2 cartes trouvées :');
+			expect(text(all)).toContain(
+				`« Capitales » : « Suisse » = « Berne », contexte « Vu à la réunion » (card_id : ${capital.id}).`
+			);
+
+			const scoped = await call(client, 'search_cards', { query: 'réunion', deck: 'anglais' });
+			expect(data(scoped)).toMatchObject({ cards: [{ card_id: english.id }], total: 1 });
+			expect(text(scoped)).toContain('1 carte trouvée dans « Anglais » :');
+
+			const none = await call(client, 'search_cards', { query: 'Berlin' });
+			expect(data(none)).toEqual({ cards: [], total: 0, truncated: false });
+			expect(text(none)).toBe('Aucune carte trouvée pour « Berlin ».');
+
+			const unknown = await call(client, 'search_cards', { query: 'chat', deck: 'Espagnol' });
+			expect(unknown.isError).toBe(true);
+			expect(text(unknown)).toContain('Deck « Espagnol » introuvable');
+
+			expect((await call(client, 'search_cards', { query: '  ' })).isError).toBe(true);
+		});
+
+		it('returns only the most recent cards beyond the limit, with the total', async () => {
+			for (let i = 0; i < 12; i++) {
+				await cards.create(
+					alice,
+					aliceDeck,
+					{ sideA: `mot ${i}`, sideB: `word ${i}` },
+					'web',
+					at(i)
+				);
+			}
+			const result = await call(await connect(alice), 'search_cards', { query: 'mot' });
+
+			expect(data(result)).toMatchObject({ total: 12, truncated: true });
+			expect(cardsOf(result).map((c) => c.side_a)).toEqual(
+				Array.from({ length: 10 }, (_, i) => `mot ${11 - i}`)
+			);
+			expect(text(result)).toMatch(
+				/^12 cartes trouvées, voici les 10 plus récentes : affine la recherche si besoin\.\n/
+			);
+			// Un seul deck : le texte ne le nomme pas.
+			expect(text(result)).not.toContain('« Anglais »');
+		});
+
+		it('checks an edit in the deck of the card, without counting the card as a duplicate', async () => {
+			await createDeck(db, alice, capitals);
+			const edited = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'réunion' },
+				'web',
+				t0
+			);
+			const other = await cards.create(
+				alice,
+				aliceDeck,
+				{ sideA: 'considérer comme acquis', sideB: card.sideB },
+				'web',
+				t0
+			);
+			const client = await connect(alice);
+
+			// Sans deck malgré les deux decks : celui de la carte s'impose.
+			const sameSides = await call(client, 'check_card', { ...args, card_id: edited.id });
+			expect(data(sameSides)).toMatchObject({
+				deck: 'Anglais',
+				deepl_a_to_b: 'to take for granted',
+				duplicates: [{ card_id: other.id }],
+				progress_reset: false
+			});
+			expect(text(sameSides)).toContain('Cette modification conservera sa progression.');
+
+			const newSide = await call(client, 'check_card', {
+				side_a: card.sideA,
+				side_b: 'to take something for granted',
+				card_id: edited.id
+			});
+			expect(data(newSide)).toMatchObject({ duplicates: [], progress_reset: true });
+			expect(text(newSide)).toContain('Cette modification réinitialisera sa progression');
+
+			// Sans card_id, la carte compte parmi les doublons.
+			const capture = await call(client, 'check_card', { ...args, deck: 'Anglais' });
+			expect(data(capture).duplicates).toHaveLength(2);
+			expect(data(capture)).not.toHaveProperty('progress_reset');
+		});
+
+		it('checks an edit with the context of the card when none is given', async () => {
+			const contexts: (string | null | undefined)[] = [];
+			const translator: Translator = {
+				async translate({ texts, context }) {
+					contexts.push(context);
+					return texts;
+				}
+			};
+			const edited = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'réunion' },
+				'web',
+				t0
+			);
+
+			await call(await connect(alice, translator), 'check_card', { ...args, card_id: edited.id });
+			expect(contexts).toEqual(['réunion', 'réunion']);
+		});
+
+		it('refuses to check an edit of an unknown or foreign card', async () => {
+			const foreign = await cards.create(bob, bobDeck, card, 'web', t0);
+			const client = await connect(alice);
+			for (const card_id of [foreign.id, '00000000-0000-7000-8000-000000000000']) {
+				const result = await call(client, 'check_card', { ...args, card_id });
+				expect(result.isError).toBe(true);
+				expect(text(result)).toContain('Carte introuvable');
+				expect(text(result)).toContain('search_cards');
+			}
+		});
+
+		it('resets the progress when a side changes, keeping the other fields', async () => {
+			const edited = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'réunion' },
+				'web',
+				t0
+			);
+			await reviewed(edited.id);
+			clock = at(5);
+			const client = await connect(alice);
+
+			const result = await call(client, 'update_card', {
+				card_id: edited.id,
+				side_b: ' to take something for granted '
+			});
+			expect(data(result)).toEqual({
+				card_id: edited.id,
+				deck: 'Anglais',
+				side_a: card.sideA,
+				side_b: 'to take something for granted',
+				context: 'réunion',
+				progress_reset: true
+			});
+			expect(text(result)).toContain(
+				'Carte modifiée : « tenir pour acquis » = « to take something for granted », contexte « réunion ».'
+			);
+			expect(text(result)).toContain('Progression réinitialisée');
+
+			const stored = await db.review.findMany({ where: { cardId: edited.id } });
+			expect(stored).toHaveLength(2);
+			for (const review of stored) {
+				expect(review).toMatchObject({ reps: 0, due: clock });
+			}
+		});
+
+		it('keeps the progress when only the context changes, and can remove it', async () => {
+			const edited = await cards.create(
+				alice,
+				aliceDeck,
+				{ ...card, context: 'réunion' },
+				'web',
+				t0
+			);
+			await reviewed(edited.id);
+			const client = await connect(alice);
+
+			const changed = await call(client, 'update_card', {
+				card_id: edited.id,
+				context: 'réunion budget'
+			});
+			expect(data(changed)).toMatchObject({
+				...args,
+				context: 'réunion budget',
+				progress_reset: false
+			});
+			expect(text(changed)).toContain('Progression conservée.');
+
+			for (const context of [null, '  ']) {
+				const removed = await call(client, 'update_card', { card_id: edited.id, context });
+				expect(data(removed)).toMatchObject({ ...args, context: null, progress_reset: false });
+			}
+			const stored = await db.review.findMany({ where: { cardId: edited.id } });
+			expect(stored.map((r) => r.reps)).toEqual([3, 3]);
+		});
+
+		it('names the deck of an edited card when there are several', async () => {
+			const capitalsDeck = (await createDeck(db, alice, capitals)).id;
+			const edited = await cards.create(
+				alice,
+				capitalsDeck,
+				{ sideA: 'Suisse', sideB: 'Zurich' },
+				'web',
+				t0
+			);
+			const result = await call(await connect(alice), 'update_card', {
+				card_id: edited.id,
+				side_b: 'Berne'
+			});
+			expect(data(result)).toMatchObject({
+				deck: 'Capitales',
+				side_b: 'Berne',
+				progress_reset: true
+			});
+			expect(text(result)).toContain('Carte modifiée dans « Capitales »');
+		});
+
+		it('refuses an empty edit, a foreign or deleted card and a malformed id', async () => {
+			const foreign = await cards.create(bob, bobDeck, card, 'web', t0);
+			const own = await cards.create(alice, aliceDeck, card, 'web', t0);
+			const client = await connect(alice);
+
+			const empty = await call(client, 'update_card', { card_id: own.id });
+			expect(empty.isError).toBe(true);
+			expect(text(empty)).toContain('Rien à modifier');
+
+			const stolen = await call(client, 'update_card', { card_id: foreign.id, side_b: 'hacked' });
+			expect(stolen.isError).toBe(true);
+			expect(text(stolen)).toContain('Carte introuvable');
+
+			const malformed = await call(client, 'update_card', { card_id: 'abc', side_b: 'x' });
+			expect(malformed.isError).toBe(true);
+
+			await cards.softDelete(alice, own.id);
+			const deleted = await call(client, 'update_card', { card_id: own.id, side_b: 'x' });
+			expect(deleted.isError).toBe(true);
+			expect(text(deleted)).toContain('Carte introuvable');
+
+			const stored = await db.card.findMany({ select: { sideB: true } });
+			expect(stored.map((c) => c.sideB)).toEqual([card.sideB, card.sideB]);
+		});
+	});
+
 	describe('review', () => {
 		it('presents only the new cards of the day, as on the web', async () => {
 			for (let i = 0; i < 15; i += 1) {
@@ -1186,6 +1460,52 @@ describe('MCP server', () => {
 			expect(tools.review).toContain('« Répète-la une fois ? »');
 			expect(tools.review).toContain("rejoue-le à l'identique");
 			expect(tools.review).toContain("propose une fois d'ajouter une carte");
+		});
+
+		it('lets Claude edit a card only on request, after a check and a confirmation', async () => {
+			const carol = await createUser(db, 'Carol');
+			await createDeck(db, carol, capitals);
+			const several = await createUser(db, 'Dave');
+			await createDeck(db, several);
+			await createDeck(db, several, capitals);
+
+			for (const owner of [alice, carol, several]) {
+				const client = await connect(owner);
+				expect(client.getInstructions()).toContain(
+					"- Modifier une carte : seulement à la demande explicite de l'utilisateur : ne propose jamais de toi-même de corriger une carte, même pendant une révision. Retrouve-la avec search_cards."
+				);
+				expect(client.getInstructions()).toContain(
+					"préviens-le qu'une face modifiée remet sa progression à zéro (pas le contexte seul), et attends sa confirmation explicite avant update_card"
+				);
+				const tools = await descriptions(client);
+				expect(tools.update_card).toContain(
+					'ne propose jamais de toi-même de corriger une carte, même pendant une révision'
+				);
+				expect(tools.update_card).toContain(
+					'Modifier une face réinitialise la progression de la carte'
+				);
+				expect(tools.update_card).toContain(
+					'appelle check_card avec card_id et la carte modifiée en entier'
+				);
+				expect(tools.update_card).toContain('attends sa confirmation explicite');
+				expect(tools.check_card).toContain('avant chaque update_card qui change une face');
+				expect(tools.search_cards).toContain('Ne modifie rien.');
+			}
+			const english = await connect(alice);
+			const update = (await english.listTools()).tools.find((t) => t.name === 'update_card');
+			expect(update?.inputSchema.required).toEqual(['card_id']);
+			expect(update?.inputSchema.properties).toMatchObject({
+				side_b: {
+					description: 'Texte en anglais de la carte (mot ou phrase entière). Absent : inchangé.'
+				},
+				context: { description: expect.stringContaining('null ou vide : supprimé') }
+			});
+			const tools = await descriptions(english);
+			expect(tools.update_card).toContain('second avis DeepL pour une langue ; doublons');
+			expect(tools.update_card).not.toContain('Source :');
+			expect((await descriptions(await connect(carol))).update_card).toContain(
+				'ligne « Source : » du contexte'
+			);
 		});
 
 		it('has every verifiable fact of a subject card checked against a recent source', async () => {

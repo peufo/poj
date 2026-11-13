@@ -53,3 +53,13 @@ Je veux savoir quand rien n'est dû, et pouvoir réviser quand même.
 
 - Claude indique qu'aucune révision n'est due et quand arrive la prochaine.
 - Il propose de réviser en avance, avec le même déroulé que CL-4.
+
+## CL-7 — Retrouver et corriger une carte
+
+Je veux demander à Claude de retrouver une carte et de la corriger, sans ouvrir le web.
+
+- Exemple : « Dans ma carte sur *tenir pour acquis*, mets plutôt *to take something for granted*. »
+- Claude retrouve la carte par un mot qu'elle contient. S'il en trouve plusieurs, il me demande laquelle.
+- Il vérifie la carte modifiée comme une nouvelle carte (DeepL pour une langue, faits et source pour un sujet, doublons), me relit l'avant et l'après, et attend ma confirmation explicite.
+- Il me prévient quand la modification d'une face remet la progression de la carte à zéro ; modifier seulement le contexte la conserve.
+- Claude ne propose jamais de lui-même de corriger une carte, même pendant une révision : seulement quand je le demande. La suppression reste sur le web.
