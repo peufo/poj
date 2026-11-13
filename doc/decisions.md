@@ -2,6 +2,14 @@
 
 Décisions prises **et rejetées**, avec leur raison. Les plus récentes en haut.
 
+## 2026-11-13 — Notifications de révision par Web Push
+
+**Décision :** Poj prévient qu'une révision attend par des notifications Web Push, via l'app web installée en PWA, avec un seuil de cartes prêtes réglable par utilisateur. Voir [story/notifications-revision.md](story/notifications-revision.md).
+
+**Remplace :** « pas de notification » (2026-10-29, [story/ajout-quotidien.md](story/ajout-quotidien.md)), qui reposait sur la série supprimée le 2026-11-06.
+
+**Rejeté :** dégeler l'app iOS pour des notifications natives (« App iOS gelée », 2026-10-24, reste en vigueur).
+
 ## 2026-11-06 — Suppression de `daily_goals` : le retour arrière n'est plus garanti
 
 **Décision :** la table `daily_goals` part en une seule migration, en même temps que le code qui la lisait. C'est une exception assumée à la règle de [deploiement.md](deploiement.md) (« une version antérieure doit rester compatible avec le schéma ») : une image antérieure interroge cette table sur toutes les pages connectées, et répondrait 500. Revenir en arrière demanderait de recréer la table à la main. L'historique des objectifs de chaque utilisateur est perdu sans retour.
