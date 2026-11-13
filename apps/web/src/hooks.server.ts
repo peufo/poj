@@ -1,6 +1,7 @@
-import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { building } from '$app/env';
 import { auth } from '#lib/server/auth.js';
+import { startReviewReminders } from '#lib/server/push/scheduler.js';
 import { handleCsrf } from '#lib/server/web/csrf.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import * as z from 'zod';
@@ -21,3 +22,9 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 
 // Le CSRF passe en premier : un envoi refusé ne doit atteindre ni la session ni Better Auth.
 export const handle: Handle = sequence(handleCsrf, handleBetterAuth);
+
+// Rappels de révision : une boucle par processus, lancée au démarrage du serveur (pas pendant
+// l'analyse de `vite build`).
+export const init: ServerInit = () => {
+	if (!building) startReviewReminders();
+};

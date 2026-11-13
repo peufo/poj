@@ -33,6 +33,7 @@ push sur main → GitHub Actions : tests → image ghcr.io/peufo/poj:main → we
    - `DATABASE_URL` : l'URL interne de la base ;
    - `BETTER_AUTH_SECRET` : `openssl rand -base64 32`, à garder dans un gestionnaire de mots de passe et à ne plus changer ensuite (il signe les sessions et chiffre les clés JWKS) ;
    - `DEEPL_API_KEY` (facultative ; `:fx` pour le plan gratuit) ;
+   - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` et `VAPID_SUBJECT` (facultatives, les trois ou aucune) : les [notifications de révision](#notifications-de-révision). Les clés viennent de `bunx web-push generate-vapid-keys`, la clé privée va dans le gestionnaire de mots de passe ; `VAPID_SUBJECT` est un contact, `mailto:…` ou `https:…`. Ne plus changer les clés une fois en service : les appareils abonnés devraient réactiver les notifications ;
    - `PROTOCOL_HEADER=x-forwarded-proto` (facultative, voir [`ORIGIN`](#points-propres-à-poj)).
 4. **Domaine :** `poj.ch`, HTTPS activé (Let's Encrypt), port du conteneur `3000`.
 5. **Webhook :** copier l'URL de l'onglet Deployments dans le secret GitHub.
@@ -52,6 +53,17 @@ Un enregistrement `A` (et `AAAA` si le VPS a une IPv6) de `poj.ch` vers le VPS, 
 - **Brancher Claude :** sur claude.ai, ajouter un connecteur personnalisé d'URL `https://poj.ch/mcp`. Claude s'enregistre (DCR), puis redirige vers `/login` et `/oauth/consent` : on se connecte et on accepte le consentement. Voir [specs/mcp.md](specs/mcp.md).
 - **Pare-feu :** si l'accès entrant est filtré, autoriser les IP d'Anthropic, `160.79.104.0/21`.
 - **Retour arrière :** déployer un tag `sha-<court>` dans Dokploy. Les migrations ne sont pas annulées : une version antérieure doit rester compatible avec le schéma. Exception : une image antérieure à la suppression de `daily_goals` (2026-11-06) ne fonctionne plus sans recréer la table, voir [decisions.md](decisions.md).
+
+## Notifications de révision
+
+Voir [story/notifications-revision.md](story/notifications-revision.md). L'envoi tourne dans le processus de l'app, sans cron ni service de plus.
+
+- **Boucle :** au démarrage du serveur (hook `init` de `hooks.server.ts`), et seulement si les trois variables VAPID sont renseignées, un tour part tout de suite, puis 5 min après la fin du précédent (`lib/server/push/scheduler.ts`). Une notification part donc au plus 5 min après le franchissement du seuil.
+- **Un tour :** pour chaque compte qui a au moins un appareil abonné, les cartes prêtes sont comparées à son seuil. Au franchissement, `notification_settings.threshold_reached_at` est posé et la notification part vers chaque appareil ; sous le seuil, la colonne revient à nul. Un abonnement que le service push déclare expiré (404 ou 410) est supprimé. Si aucun appareil n'a pu être joint, le franchissement est retenté au tour suivant.
+- **Plusieurs processus :** seul celui qui pose `threshold_reached_at` envoie. Deux réplicas, ou un redéploiement où l'ancien et le nouveau conteneur se chevauchent, ne doublent donc pas les notifications. Un seul réplica dans Dokploy reste conseillé : chaque réplica refait le même travail.
+- **Sortant :** l'app joint les services push des navigateurs en HTTPS (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `*.push.apple.com`, `*.notify.windows.com`), et aucune autre adresse.
+- **Journaux :** un refus du service push s'affiche en `Push service <hôte> responded <statut>`, une panne de compte en `Review reminder failed for user <id>`. Rien n'est journalisé quand tout va bien.
+- **En dev :** avec des clés VAPID dans `apps/web/.env`, `bun run dev` envoie de vraies notifications aux appareils abonnés sur la base de dev.
 
 ## Checklist de mise en ligne
 
@@ -97,6 +109,7 @@ docker exec <conteneur> node -e "fetch('https://poj.ch/api/auth/jwks').then((r) 
 2. Déconnexion, puis `/login` avec ce compte : retour sur `/cards`.
 3. `/admin` est accessible et génère un lien d'invitation. Le révoquer aussitôt s'il ne sert qu'au test : un compte créé ne se supprime pas depuis l'interface.
 4. Avec le premier vrai testeur : son lien, ouvert en navigation privée, crée son compte, qui reçoit un 403 sur `/admin`.
+5. Notifications (si VAPID est configuré) : sur le téléphone, avec l'app installée sur l'écran d'accueil, activer les notifications sur `/settings` et régler le seuil à 1. Avec au moins une carte prête, la notification « Une révision t'attend » arrive dans les 5 min ; un toucher ouvre `/review`.
 
 ## Stack de prod en local
 

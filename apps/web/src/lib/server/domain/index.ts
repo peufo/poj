@@ -22,3 +22,5 @@ export * from './accounts/accounts.service';
 export * from './accounts/invitations.service';
 export * from './notifications/notifications.service';
 export * from './notifications/push-services';
+export type * from './notifications/push-sender';
+export * from './notifications/reminders.service';
