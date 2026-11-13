@@ -1110,6 +1110,7 @@ describe('MCP server', () => {
 				expect(instructions).toContain(
 					"aucun appel d'outil entre sa réponse et la question suivante"
 				);
+				expect(instructions).toContain('- Hésitation : une réponse hésitante');
 				expect(instructions).toContain('- Correction : après again ou hard');
 				expect(instructions).toContain('« Répète-la une fois ? »');
 				expect(instructions).toContain('jamais la carte suivante dans le même message');
@@ -1180,6 +1181,7 @@ describe('MCP server', () => {
 			expect(tools.review).toContain(
 				"aucun appel d'outil entre sa réponse et la question suivante"
 			);
+			expect(tools.review).toContain('Hésitation : une réponse hésitante');
 			expect(tools.review).toContain('Correction : après again ou hard');
 			expect(tools.review).toContain('« Répète-la une fois ? »');
 			expect(tools.review).toContain("rejoue-le à l'identique");
@@ -1248,6 +1250,7 @@ describe('MCP server', () => {
 			expect(mixed).toMatch(/^On révise\. Lance une session de révision Poj/);
 			expect(mixed).toContain('Appelle review sans deck');
 			expect(mixed).toContain("Révision, toujours une carte d'avance");
+			expect(mixed).toContain('- Hésitation : une réponse hésitante');
 			expect(mixed).toContain('- Correction : après again ou hard');
 			expect(mixed).toContain('Rien à réviser (nothing_due)');
 			expect(mixed).toContain('« on arrête »');

@@ -45,6 +45,7 @@ import {
 	FACT_CHECK,
 	FACT_RULE,
 	FACT_SOURCE,
+	HESITATION_RULE,
 	INSPIRATION_RULE,
 	isLanguage,
 	LAST_CARD_LINE,
@@ -87,6 +88,7 @@ const SHARED_RULES = [
 	INSPIRATION_RULE,
 	OFFER_RULE,
 	REVIEW_RULE,
+	HESITATION_RULE,
 	CORRECTION_RULE,
 	RATING_RULE,
 	END_RULE,
@@ -824,7 +826,7 @@ export function createPojMcpServer({
 		'review',
 		{
 			title: 'Réviser',
-			description: `Révision avec toujours une carte d'avance : renvoie deux cartes si tu n'en tiens aucune (la première à poser maintenant, l'autre à garder pour après), une sinon (la carte d'avance). Dis le prompt à l'utilisateur, mais ne lis jamais expected avant sa réponse. Le contexte n'est pas fourni ici : s'il demande un indice, appelle get_hint. Juge ensuite sa réponse avec indulgence, jamais à la lettre : la transcription vocale déforme souvent les mots étrangers ; tolère synonymes et approximations. Propose again, hard ou good ; n'utilise easy que si l'utilisateur le demande explicitement. Après un indice, le serveur plafonne la note à hard. Après good ou easy : donne la réponse attendue et la note retenue, pose aussitôt la carte que tu tiens, puis appelle review dans le même tour, avec answer (la carte répondue) et holding (la carte que tu viens de poser) : aucun appel d'outil entre sa réponse et la question suivante. ${CORRECTION_RULE} La note est enregistrée avant le choix de la carte d'avance. Si l'appel n'aboutit pas (coupure), rejoue-le à l'identique : une note n'est jamais comptée deux fois, et la carte que tu tiens reste valable. Évoque le contexte renvoyé en renforcement si c'est utile. Si rien n'est dû (nothing_due), annonce la prochaine échéance et propose de réviser en avance (ahead à true, à repasser à chaque appel) ; en fin de session, propose une fois d'ajouter une carte tirée de sa journée. Sans deck, la session mélange tous les decks : ne passe deck que si l'utilisateur en nomme un, et repasse-le à chaque appel.`,
+			description: `Révision avec toujours une carte d'avance : renvoie deux cartes si tu n'en tiens aucune (la première à poser maintenant, l'autre à garder pour après), une sinon (la carte d'avance). Dis le prompt à l'utilisateur, mais ne lis jamais expected avant sa réponse. Le contexte n'est pas fourni ici : s'il demande un indice, appelle get_hint. ${HESITATION_RULE} Juge ensuite sa réponse avec indulgence, jamais à la lettre : la transcription vocale déforme souvent les mots étrangers ; tolère synonymes et approximations. Propose again, hard ou good ; n'utilise easy que si l'utilisateur le demande explicitement. Après un indice, le serveur plafonne la note à hard. Après good ou easy : donne la réponse attendue et la note retenue, pose aussitôt la carte que tu tiens, puis appelle review dans le même tour, avec answer (la carte répondue) et holding (la carte que tu viens de poser) : aucun appel d'outil entre sa réponse et la question suivante. ${CORRECTION_RULE} La note est enregistrée avant le choix de la carte d'avance. Si l'appel n'aboutit pas (coupure), rejoue-le à l'identique : une note n'est jamais comptée deux fois, et la carte que tu tiens reste valable. Évoque le contexte renvoyé en renforcement si c'est utile. Si rien n'est dû (nothing_due), annonce la prochaine échéance et propose de réviser en avance (ahead à true, à repasser à chaque appel) ; en fin de session, propose une fois d'ajouter une carte tirée de sa journée. Sans deck, la session mélange tous les decks : ne passe deck que si l'utilisateur en nomme un, et repasse-le à chaque appel.`,
 			inputSchema: z.object({
 				answer: z
 					.object({

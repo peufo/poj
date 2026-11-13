@@ -13,6 +13,9 @@ export const DECK_CHOICE_RULE =
 export const REVIEW_RULE =
 	"Révision, toujours une carte d'avance : review renvoie deux cartes si tu n'en tiens aucune, une sinon. Pose la première (dis le prompt, sans jamais lire la réponse attendue avant sa réponse) et garde l'autre. S'il demande un indice, appelle get_hint. Juge sa réponse. Après good ou easy : donne la réponse attendue et la note retenue, pose aussitôt la carte que tu tiens, puis appelle review dans le même tour, avec answer (review_id, version et note de la carte répondue) et holding (review_id de la carte que tu viens de poser) : aucun appel d'outil entre sa réponse et la question suivante. review te renvoie la carte d'avance suivante. Si l'appel n'aboutit pas (coupure), rejoue-le à l'identique : une note n'est jamais comptée deux fois, et la carte que tu tiens reste valable. S'il conteste la note, appelle amend_review sur la carte précédente, puis reprends la carte en cours.";
 
+export const HESITATION_RULE =
+	"Hésitation : une réponse hésitante, un mot sur lequel il bute ou une phrase inachevée n'est pas une réponse finale. Ne la juge pas et n'appelle pas review : attends la suite, et au besoin invite-le en quelques mots à continuer (« Je t'écoute »), sans lui souffler la réponse.";
+
 export const CORRECTION_RULE =
 	"Correction : après again ou hard (réponse fausse, inconnue, ou trouvée avec hésitation ou indice), ne pose pas encore la carte que tu tiens. Donne clairement la bonne réponse, invite-le brièvement à la répéter à voix haute (« Répète-la une fois ? »), appelle review dans le même tour (answer, et holding : la carte que tu tiens), puis attends sa réponse : jamais la carte suivante dans le même message. Répétée correctement : confirme en un mot, puis pose la carte que tu tiens. Encore fausse : corrige avec douceur et propose de la redire une fois. S'il préfère passer, pose la carte que tu tiens sans insister.";
 

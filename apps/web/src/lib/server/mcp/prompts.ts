@@ -6,6 +6,7 @@ import {
 	DECK_CHOICE_RULE,
 	END_RULE,
 	FACT_RULE,
+	HESITATION_RULE,
 	INSPIRATION_RULE,
 	isLanguage,
 	OFFER_RULE,
@@ -68,6 +69,7 @@ export function registerPrompts(server: McpServer, { decks, noDeck }: PromptDeps
 ${ruleList([
 	start,
 	REVIEW_RULE,
+	HESITATION_RULE,
 	CORRECTION_RULE,
 	RATING_RULE,
 	'Rien à réviser (nothing_due) : annonce-moi la prochaine échéance et propose de réviser en avance (review avec ahead à true, à repasser à chaque appel).',
