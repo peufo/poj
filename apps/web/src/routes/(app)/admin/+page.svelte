@@ -3,7 +3,7 @@
 	import FormIssues from '#lib/components/form/FormIssues.svelte';
 	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
-	import { formatDate } from '#lib/format/labels.js';
+	import { formatDate, plural } from '#lib/format/labels.js';
 	import TextField from '#lib/ui/TextField.svelte';
 	import { invite, revoke } from './admin.remote';
 	import type { PageProps } from './$types';
@@ -90,6 +90,9 @@
 						<span class="truncate font-medium">{user.name}</span>
 						<span class="truncate text-xs text-ink-3">{user.email}</span>
 					</div>
+					<span class="shrink-0 text-sm text-ink-2 tabular-nums">
+						{plural(user.cardCount, 'carte')}
+					</span>
 					<span class="shrink-0 text-xs text-ink-3">
 						{user.role === 'admin' ? 'Administrateur' : 'Testeur'} · depuis le {formatDate(
 							user.createdAt

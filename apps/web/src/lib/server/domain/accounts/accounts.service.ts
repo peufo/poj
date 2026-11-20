@@ -24,12 +24,23 @@ export function createAccountsService(db: Db) {
 			return (await db.user.count()) === 0;
 		},
 
-		/** Tous les comptes, du plus ancien au plus récent (page d'administration). */
-		list() {
-			return db.user.findMany({
-				select: { id: true, name: true, email: true, role: true, createdAt: true },
+		/**
+		 * Tous les comptes, du plus ancien au plus récent (page d'administration), avec le
+		 * nombre de cartes qu'ils ont créées et pas supprimées.
+		 */
+		async list() {
+			const users = await db.user.findMany({
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					role: true,
+					createdAt: true,
+					_count: { select: { cards: { where: { deletedAt: null } } } }
+				},
 				orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
 			});
+			return users.map(({ _count, ...user }) => ({ ...user, cardCount: _count.cards }));
 		},
 
 		/** Vrai si l'utilisateur existe (`id` quelconque, pas forcément un UUID). */
