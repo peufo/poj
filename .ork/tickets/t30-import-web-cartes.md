@@ -12,6 +12,7 @@ effort:
 zones: [apps/web/src/routes/(app)/cards, apps/web/src/lib/server/domain/cards, apps/web/src/lib/server/web/schemas]
 branch:
 agent:
+paused: jusqu'à l'intégration de t34
 created: 2026-11-01
 updated: 2026-11-01
 ---
@@ -33,3 +34,4 @@ Enquête du 2026-11-01 : le plus gros des trois volets (~8-15 fichiers, sans mig
 ## Log
 - 2026-11-01 — créé pendant l'idéation de t29 : volet web reporté à plus tard.
 - 2026-11-05 — mis de côté par le développeur (priorité au comportement de Claude). [pause]
+- 2026-11-06 — le développeur le laisse en pause jusqu'à l'intégration de `t34-tapis-roulant`, dont la zone `/cards` recoupe la sienne. [pause]

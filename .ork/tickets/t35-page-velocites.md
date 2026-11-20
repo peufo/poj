@@ -12,6 +12,7 @@ effort:
 zones: [apps/web/src/routes/(app)]
 branch:
 agent:
+paused: jusqu'à l'intégration de t34
 created: 2026-11-05
 updated: 2026-11-05
 ---
@@ -30,3 +31,6 @@ Story `doc/story/tapis-roulant.md` : le passé se résume en deux vélocités su
 
 ## Log
 - 2026-11-05 — créé au découpage de la story tapis-roulant, pour plus tard. [pause]
+- 2026-11-06 — la distribution des cartes acquises quitte `/cards` avec `t34-tapis-roulant` : le développeur la veut sur une autre page. À loger ici, sauf décision contraire au lancement.
+- 2026-11-06 — le développeur le laisse en pause jusqu'à l'intégration de `t34-tapis-roulant`, dont dépend ce qu'il récupère. [pause]
+- 2026-11-06 — prévu par le plan de `t34-tapis-roulant`, à confirmer à sa validation : `MasteryBar.svelte` reste sans lecteur en attendant cette page, qui refera le calcul dans son load.
