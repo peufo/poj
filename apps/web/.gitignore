@@ -33,3 +33,6 @@ test-results
 /.impeccable/build
 /.impeccable/hook.cache.json
 /.impeccable/config.local.json
+
+# now (overlay)
+.now/runtime/
