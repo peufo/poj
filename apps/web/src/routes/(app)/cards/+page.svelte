@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Belt from '#lib/components/Belt.svelte';
-	import Velocities from '#lib/components/Velocities.svelte';
 	import ActivityGrid from '#lib/components/ActivityGrid.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
 	import DeckChips from '#lib/components/DeckChips.svelte';
@@ -21,6 +20,7 @@
 	const cardsHref = $derived(deck ? resolve(`cards?deck=${deck.id}`) : resolve('cards'));
 	const newCardHref = $derived(deck ? resolve(`cards/new?deck=${deck.id}`) : resolve('cards/new'));
 	const reviewHref = $derived(deck ? resolve(`review?deck=${deck.id}`) : resolve('review'));
+	const statsHref = $derived(deck ? resolve(`stats?deck=${deck.id}`) : resolve('stats'));
 	const face = $derived(deck && faces(deck));
 	const hasCards = $derived(data.totalCards > 0);
 
@@ -40,16 +40,7 @@
 <svelte:head><title>{deck?.name ?? 'Cartes'} · Poj</title></svelte:head>
 
 <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-10 md:px-8">
-	{#if hasCards}
-		<!-- Ce qui vient, tout en haut : le tapis, puis le passé en deux chiffres. -->
-		<div class="flex flex-col gap-3 pt-3 md:pt-8">
-			<Belt {...data.belt} now={data.now} {reviewHref} />
-			<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
-			<ActivityGrid days={data.activity} />
-		</div>
-	{/if}
-
-	<PageHeader title={deck?.name ?? 'Cartes'} count={data.totalCards} flush={hasCards}>
+	<PageHeader title={deck?.name ?? 'Cartes'} count={data.totalCards}>
 		{#snippet actions()}
 			{#if deck}
 				<Button href={resolve(`decks/${deck.id}/edit`)} icon="pencil" size="sm">
@@ -76,6 +67,15 @@
 			<Button href={newCardHref} variant="primary" icon="plus">Créer une carte</Button>
 		</div>
 	{:else}
+		<!-- Sous l'en-tête : le passé (l'année d'activité, les autres chiffres sont sur la page
+		     des statistiques), puis ce qui vient (le tapis). -->
+		<div class="flex flex-col gap-3">
+			<div class="rounded-2xl bg-surface p-4 md:p-5">
+				<ActivityGrid days={data.activity} moreHref={statsHref} />
+			</div>
+			<Belt {...data.belt} now={data.now} {reviewHref} />
+		</div>
+
 		<section aria-label="Liste des cartes" class="flex flex-col gap-2">
 			<form
 				method="get"

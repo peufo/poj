@@ -10,7 +10,7 @@ import {
 } from './helpers';
 
 // Formulaires des cartes : création et doublon, bouton DeepL, modification et
-// avertissement de réinitialisation, suppression. Vélocités de la liste.
+// avertissement de réinitialisation, suppression. Vélocités de la page des statistiques.
 
 test.beforeEach(async ({ page }) => signIn(page));
 
@@ -76,12 +76,12 @@ test('deletes a card after confirmation', async ({ page }) => {
 
 test('shows the velocities, naming their scope on a single deck', async ({ page }) => {
 	await createSubjectDeck(page);
-	await open(page, '/cards');
+	await open(page, '/stats');
 	const velocities = page.getByRole('region', { name: 'Vélocités' });
 	await expect(velocities.getByText(/répétitions? par jour/)).toBeVisible();
 	await expect(velocities.getByText(/cartes? mûres?/)).toBeVisible();
 	await expect(velocities.getByText('Tous les decks')).toHaveCount(0);
 
-	await open(page, `/cards?deck=${await languageDeckId(page)}`);
+	await open(page, `/stats?deck=${await languageDeckId(page)}`);
 	await expect(velocities.getByText('Tous les decks')).toBeVisible();
 });

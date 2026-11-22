@@ -19,7 +19,7 @@
 	const reps = $derived(Math.round(repsPerDay * 10) / 10);
 </script>
 
-<section aria-label="Vélocités" class="flex flex-col gap-3 rounded-2xl bg-surface p-4 md:p-5">
+<section aria-label="Vélocités" class="flex flex-col gap-3">
 	<div class="grid grid-cols-2 gap-4">
 		<div>
 			<p class="text-lg font-semibold tabular-nums">{decimal.format(reps)}</p>
