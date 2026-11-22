@@ -10,9 +10,9 @@
 		if (path.startsWith('/review')) return 'review';
 		if (path === '/cards/new') return 'new';
 		if (path === '/decks/new') return 'new-deck';
-		if (path.startsWith('/connect')) return 'connect';
-		// Administration et réglages : hors des onglets, aucun n'est actif.
-		if (path.startsWith('/admin') || path.startsWith('/settings')) return undefined;
+		// Administration, réglages et connexion de Claude : hors des onglets, aucun n'est actif.
+		if (['/admin', '/settings', '/connect'].some((prefix) => path.startsWith(prefix)))
+			return undefined;
 		return 'cards';
 	});
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import FormIssues from '#lib/components/form/FormIssues.svelte';
 	import FormSuccess from '#lib/components/form/FormSuccess.svelte';
@@ -220,5 +221,18 @@
 				</div>
 			</form>
 		{/if}
+	</section>
+
+	<section class="flex flex-col gap-4 border-t border-line pt-6" aria-labelledby="claude-title">
+		<div class="flex flex-col gap-1">
+			<h2 id="claude-title" class="text-lg font-semibold text-ink">Claude</h2>
+			<p class="text-sm text-ink-2">
+				Ajoute Poj comme connecteur dans Claude pour créer et consulter tes cartes, et réviser en
+				discussion instantanée.
+			</p>
+		</div>
+		<div>
+			<Button href={resolve('connect')} icon="claude">Connecter Claude</Button>
+		</div>
 	</section>
 </div>

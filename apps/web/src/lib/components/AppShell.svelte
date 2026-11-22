@@ -11,7 +11,7 @@
 	//
 	// La barre latérale liste chaque deck sous son nom ; la barre d'onglets garde un seul
 	// onglet « Cartes », les decks s'y choisissent en haut de `/cards`.
-	type Section = 'review' | 'cards' | 'new' | 'new-deck' | 'connect';
+	type Section = 'review' | 'cards' | 'new' | 'new-deck';
 	type Props = {
 		current?: Section;
 		dueCount?: number;
@@ -72,14 +72,6 @@
 		href: shownDeck ? resolve(`cards/new?deck=${shownDeck}`) : resolve('cards/new'),
 		active: current === 'new'
 	});
-	const connect = $derived<Item>({
-		key: 'connect',
-		label: 'Connecter Claude',
-		short: 'Claude',
-		icon: 'claude',
-		href: resolve('connect'),
-		active: current === 'connect'
-	});
 
 	const sidebar = $derived<Item[]>([
 		review,
@@ -100,8 +92,7 @@
 			icon: 'deck-plus',
 			href: resolve('decks/new'),
 			active: current === 'new-deck'
-		},
-		connect
+		}
 	]);
 
 	const tabs = $derived<Item[]>([
@@ -114,8 +105,7 @@
 			href: resolve('cards'),
 			active: current === 'cards'
 		},
-		newCard,
-		connect
+		newCard
 	]);
 </script>
 
@@ -195,7 +185,7 @@
 			aria-label="Navigation principale"
 			class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-canvas/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl backdrop-saturate-150 md:hidden"
 		>
-			<ul class="mx-auto grid h-16 max-w-md grid-cols-4">
+			<ul class="mx-auto grid h-16 max-w-md grid-cols-3">
 				{#each tabs as item (item.key)}
 					<li>
 						<a
