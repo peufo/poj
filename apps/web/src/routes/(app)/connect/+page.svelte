@@ -40,8 +40,9 @@
 			<li class="flex gap-3">
 				<span
 					class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent-text tabular-nums"
-					>{i + 1}</span
 				>
+					{i + 1}
+				</span>
 				<div class="flex flex-col gap-1">
 					<h2 class="font-semibold">{step.title}</h2>
 					<p class="text-sm text-ink-2">{step.body}</p>

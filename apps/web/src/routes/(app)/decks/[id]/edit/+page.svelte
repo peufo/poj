@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import DeckForm from '#lib/components/DeckForm.svelte';
 	import DeleteConfirm from '#lib/components/DeleteConfirm.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
@@ -7,7 +8,7 @@
 
 	let { data }: PageProps = $props();
 
-	const back = $derived({ href: `/cards?deck=${data.deck.id}`, label: data.deck.name });
+	const back = $derived({ href: resolve(`cards?deck=${data.deck.id}`), label: data.deck.name });
 	const cardCount = $derived(data.nav.decks.find((d) => d.id === data.deck.id)?.cardCount ?? 0);
 	const deleteMessage = $derived(
 		`« ${data.deck.name} » sera supprimé. ` +

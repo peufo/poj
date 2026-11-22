@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import { logout } from '#lib/remote/logout.remote.js';
 	import Icon, { type IconName } from '#lib/ui/Icon.svelte';
 	import Wordmark from './Wordmark.svelte';
@@ -41,7 +43,7 @@
 		label: string;
 		short: string;
 		icon: IconName;
-		href: string;
+		href: ResolvedPathname;
 		active: boolean;
 		count?: number;
 		/** Compteur mis en avant (révisions dues). */
@@ -50,14 +52,13 @@
 
 	const onlyDeck = $derived(decks.length === 1 ? decks[0] : undefined);
 	const shownDeck = $derived(activeDeck ?? onlyDeck?.id ?? null);
-	const deckQuery = $derived(shownDeck ? `?deck=${shownDeck}` : '');
 
 	const review = $derived<Item>({
 		key: 'review',
 		label: 'Réviser',
 		short: 'Réviser',
 		icon: 'review',
-		href: '/review',
+		href: resolve('review'),
 		active: current === 'review',
 		count: dueCount,
 		accent: true
@@ -68,7 +69,7 @@
 		short: 'Nouvelle',
 		icon: 'plus',
 		// La carte ira dans le deck affiché.
-		href: `/cards/new${deckQuery}`,
+		href: shownDeck ? resolve(`cards/new?deck=${shownDeck}`) : resolve('cards/new'),
 		active: current === 'new'
 	});
 	const connect = $derived<Item>({
@@ -76,7 +77,7 @@
 		label: 'Connecter Claude',
 		short: 'Claude',
 		icon: 'claude',
-		href: '/connect',
+		href: resolve('connect'),
 		active: current === 'connect'
 	});
 
@@ -87,7 +88,7 @@
 			label: deck.name,
 			short: deck.name,
 			icon: 'cards' as const,
-			href: `/cards?deck=${deck.id}`,
+			href: resolve(`cards?deck=${deck.id}`),
 			active: current === 'cards' && shownDeck === deck.id,
 			count: deck.cardCount
 		})),
@@ -97,7 +98,7 @@
 			label: 'Nouveau deck',
 			short: 'Deck',
 			icon: 'deck-plus',
-			href: '/decks/new',
+			href: resolve('decks/new'),
 			active: current === 'new-deck'
 		},
 		connect
@@ -110,7 +111,7 @@
 			label: 'Cartes',
 			short: 'Cartes',
 			icon: 'cards',
-			href: '/cards',
+			href: resolve('cards'),
 			active: current === 'cards'
 		},
 		newCard,
@@ -123,7 +124,7 @@
 	<aside
 		class="sticky top-(--chrome-top,0px) hidden h-[calc(100dvh-var(--chrome-top,0px))] flex-col gap-6 border-r border-line bg-surface px-3 py-4 md:flex"
 	>
-		<a href="/cards" class="self-start rounded-md px-2 py-1"><Wordmark /></a>
+		<a href={resolve('cards')} class="self-start rounded-md px-2 py-1"><Wordmark /></a>
 		<nav aria-label="Navigation principale" class="min-h-0 overflow-y-auto">
 			<ul class="flex flex-col gap-0.5">
 				{#each sidebar as item (item.key)}
@@ -149,8 +150,10 @@
 										item.accent && item.count > 0
 											? 'rounded-full bg-accent px-1.5 py-px font-semibold text-on-accent'
 											: 'text-ink-3'
-									]}>{item.count}</span
+									]}
 								>
+									{item.count}
+								</span>
 							{/if}
 						</a>
 					</li>
@@ -163,11 +166,11 @@
 				class="mt-auto flex flex-col gap-1 border-t border-line pt-3"
 			>
 				<span class="truncate px-2.5 text-xs text-ink-3">{user.email}</span>
-				<a href="/settings" class={footerItem}>
+				<a href={resolve('settings')} class={footerItem}>
 					<Icon name="settings" size={17} class="text-ink-3" />Réglages
 				</a>
 				{#if user.isAdmin}
-					<a href="/admin" class={footerItem}>
+					<a href={resolve('admin')} class={footerItem}>
 						<Icon name="user" size={17} class="text-ink-3" />Administration
 					</a>
 				{/if}
@@ -208,8 +211,9 @@
 								{#if item.accent && item.count}
 									<span
 										class="absolute -top-1.5 left-[calc(100%-0.5rem)] min-w-[1.125rem] rounded-full bg-accent px-1 text-center text-[0.6875rem] leading-[1.125rem] font-semibold text-on-accent tabular-nums ring-2 ring-canvas"
-										>{item.count}<span class="sr-only"> dues</span></span
 									>
+										{item.count}<span class="sr-only"> dues</span>
+									</span>
 								{/if}
 							</span>
 							{item.short}

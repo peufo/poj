@@ -173,9 +173,9 @@
 				class="flex flex-col gap-3"
 			>
 				<div class="flex flex-col gap-1.5">
-					<label for="ready-threshold" class="text-sm font-medium text-ink"
-						>Seuil de cartes prêtes</label
-					>
+					<label for="ready-threshold" class="text-sm font-medium text-ink">
+						Seuil de cartes prêtes
+					</label>
 					<input
 						id="ready-threshold"
 						name={threshold.as('number').name}

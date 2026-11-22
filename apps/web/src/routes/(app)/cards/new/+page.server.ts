@@ -9,6 +9,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 	const from = explicit ? deck : null;
 	return {
 		selectedDeck: deck?.id ?? null,
-		back: from ? { href: `/cards?deck=${from.id}`, label: from.name } : null
+		from: from ? { id: from.id, name: from.name } : null
 	};
 };

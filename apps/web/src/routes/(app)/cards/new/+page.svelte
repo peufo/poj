@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import CardForm from '#lib/components/CardForm.svelte';
 	import SelectField from '#lib/ui/SelectField.svelte';
@@ -14,7 +15,11 @@
 	let deckId = $state(data.selectedDeck ?? '');
 	const deck = $derived(data.nav.decks.find((d) => d.id === deckId) ?? null);
 	const deckOptions = $derived(data.nav.decks.map((d) => ({ value: d.id, label: d.name })));
-	const back = $derived(data.back ?? { href: '/cards', label: 'Cartes' });
+	const back = $derived(
+		data.from
+			? { href: resolve(`cards?deck=${data.from.id}`), label: data.from.name }
+			: { href: resolve('cards'), label: 'Cartes' }
+	);
 </script>
 
 <svelte:head><title>Nouvelle carte · Poj</title></svelte:head>

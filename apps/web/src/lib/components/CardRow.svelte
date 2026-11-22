@@ -1,11 +1,12 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import DueChip from './DueChip.svelte';
 	import { faces, type DeckFaces } from '#lib/format/decks.js';
 	import type { Direction } from '#lib/format/labels.js';
 
 	type ReviewSummary = { direction: Direction; due: Date; isNew: boolean };
 	type Props = {
-		href: string;
+		href: ResolvedPathname;
 		sideA: string;
 		sideB: string;
 		deck: DeckFaces;

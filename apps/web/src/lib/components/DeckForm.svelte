@@ -1,4 +1,5 @@
 <script lang="ts" generics="Mode extends 'create' | 'edit'">
+	import type { ResolvedPathname } from '$app/types';
 	import { languageDeckName, languageName, type DeckFormValues } from '#lib/format/decks.js';
 	import { capitalize, plural } from '#lib/format/labels.js';
 	import { issueOf } from '#lib/ui/field.js';
@@ -28,7 +29,7 @@
 		form: Forms[Mode];
 		values: DeckFormValues;
 		/** Sans lien d'annulation (premier deck : il n'y a nulle part où revenir). */
-		cancelHref?: string;
+		cancelHref?: ResolvedPathname;
 		/** En modification : limite de nouvelles cartes par jour en vigueur, et ses bornes. */
 		newCards?: { perDay: number; min: number; max: number };
 	};
@@ -194,9 +195,9 @@
 
 	{#if perDay && newCards}
 		<div class="flex flex-col gap-1.5">
-			<label for="new-cards-per-day" class="text-sm font-medium text-ink"
-				>Nouvelles cartes par jour</label
-			>
+			<label for="new-cards-per-day" class="text-sm font-medium text-ink">
+				Nouvelles cartes par jour
+			</label>
 			<input
 				id="new-cards-per-day"
 				name={perDay.as('number').name}

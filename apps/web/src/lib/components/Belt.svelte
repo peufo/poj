@@ -4,6 +4,7 @@
 	import { cubicIn, cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import type { TransitionConfig } from 'svelte/transition';
+	import type { ResolvedPathname } from '$app/types';
 	import Button from '#lib/ui/Button.svelte';
 	import {
 		BELT_HEIGHT,
@@ -53,7 +54,7 @@
 		forecast: ForecastMark[];
 		/** Heure du chargement. */
 		now: Date;
-		reviewHref: string;
+		reviewHref: ResolvedPathname;
 	};
 
 	let { stock, ready, tokens, forecast, now, reviewHref }: Props = $props();
@@ -371,8 +372,10 @@
 			{#each BELT_STOPS.filter((s) => s.major) as { delayMs, position, label } (delayMs)}
 				<span
 					class="absolute -translate-x-1/2 whitespace-nowrap"
-					style:left="calc({BELT_MARGIN}px + (100% - {BELT_MARGIN}px) * {position})">{label}</span
+					style:left="calc({BELT_MARGIN}px + (100% - {BELT_MARGIN}px) * {position})"
 				>
+					{label}
+				</span>
 			{/each}
 		</div>
 		<input

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { ResolvedPathname } from '$app/types';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	// En-tête d'écran : retour éventuel, grand titre (style iOS), actions à droite.
@@ -9,7 +10,7 @@
 		title: string;
 		/** Complément discret du titre (ex. le nombre de cartes). */
 		count?: number;
-		back?: { href: string; label: string };
+		back?: { href: ResolvedPathname; label: string };
 		compact?: boolean;
 		/** Sous d'autres blocs, pas en haut de l'écran : sans le retrait du haut. */
 		flush?: boolean;
@@ -20,7 +21,7 @@
 	let { title, count, back, compact = false, flush = false, actions, children }: Props = $props();
 </script>
 
-{#snippet backLink(link: { href: string; label: string })}
+{#snippet backLink(link: { href: ResolvedPathname; label: string })}
 	<a
 		href={link.href}
 		class="-ml-1.5 inline-flex h-9 items-center gap-0.5 self-start rounded-md pr-2 text-[0.9375rem] font-medium text-accent-text hover:underline"
@@ -46,9 +47,9 @@
 		>
 			<h1 class="text-2xl font-bold tracking-tight">
 				{title}
-				{#if count !== undefined}<span class="ml-1 font-semibold text-ink-3 tabular-nums"
-						>{count}</span
-					>{/if}
+				{#if count !== undefined}<span class="ml-1 font-semibold text-ink-3 tabular-nums">
+						{count}
+					</span>{/if}
 			</h1>
 			{#if actions}<div class="flex shrink-0 items-center gap-2">{@render actions()}</div>{/if}
 		</div>

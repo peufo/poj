@@ -1,6 +1,7 @@
 import { page, userEvent } from 'vitest/browser';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { resolve } from '$app/paths';
 import type { ComponentProps } from 'svelte';
 import Belt from './Belt.svelte';
 
@@ -32,7 +33,7 @@ const props = (overrides: Partial<ComponentProps<typeof Belt>> = {}) => ({
 	tokens,
 	forecast,
 	now,
-	reviewHref: '/review',
+	reviewHref: resolve('review'),
 	...overrides
 });
 
@@ -53,7 +54,10 @@ describe('Belt', () => {
 	beforeEach(() => localStorage.clear());
 
 	it('shows the ready and waiting cards under the belt, and links to the review', async () => {
-		render(Belt, props({ stock: 182, ready: readyCards(10), reviewHref: '/review?deck=x' }));
+		render(
+			Belt,
+			props({ stock: 182, ready: readyCards(10), reviewHref: resolve('review?deck=x') })
+		);
 
 		await expect.element(page.getByText('10', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('prêtes')).toBeVisible();

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	// Decks en puces, au téléphone où la barre latérale n'existe pas : « Tous » (à partir
@@ -23,23 +24,27 @@
 		{#if decks.length > 1}
 			<li>
 				<a
-					href="/cards"
+					href={resolve('cards')}
 					aria-current={active === null ? 'page' : undefined}
-					class={[chip, chipState(active === null)]}>Tous</a
+					class={[chip, chipState(active === null)]}
 				>
+					Tous
+				</a>
 			</li>
 		{/if}
 		{#each decks as deck (deck.id)}
 			<li>
 				<a
-					href="/cards?deck={deck.id}"
+					href={resolve(`cards?deck=${deck.id}`)}
 					aria-current={active === deck.id ? 'page' : undefined}
-					class={[chip, chipState(active === deck.id)]}>{deck.name}</a
+					class={[chip, chipState(active === deck.id)]}
 				>
+					{deck.name}
+				</a>
 			</li>
 		{/each}
 		<li>
-			<a href="/decks/new" class={[chip, chipState(false)]}>
+			<a href={resolve('decks/new')} class={[chip, chipState(false)]}>
 				<Icon name="plus" size={15} />Nouveau deck
 			</a>
 		</li>

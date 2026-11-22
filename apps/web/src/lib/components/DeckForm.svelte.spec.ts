@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { resolve } from '$app/paths';
 import { NEW_DECK_VALUES } from '#lib/format/decks.js';
 import DeckForm from './DeckForm.svelte';
 import type { DeckEditForm, NewDeckForm } from '#lib/server/web/deck-form.js';
@@ -94,7 +95,7 @@ describe('DeckForm', () => {
 			form: fakeForm<DeckEditForm>(),
 			mode: 'edit',
 			values: { ...NEW_DECK_VALUES, name: 'Anglais', languageB: 'en-GB' },
-			cancelHref: '/cards?deck=d1'
+			cancelHref: resolve('cards?deck=d1')
 		});
 
 		await expect.element(page.getByLabelText('Nom')).not.toBeInTheDocument();
@@ -112,7 +113,7 @@ describe('DeckForm', () => {
 			form: fakeForm<DeckEditForm>(),
 			mode: 'edit',
 			values: { ...NEW_DECK_VALUES, kind: 'subject', name: 'Capitales', languageB: '' },
-			cancelHref: '/cards?deck=d1'
+			cancelHref: resolve('cards?deck=d1')
 		});
 
 		const name = page.getByLabelText('Nom');

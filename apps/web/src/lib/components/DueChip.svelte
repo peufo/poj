@@ -33,6 +33,7 @@
 	<Icon name="arrow-right" size={12} class="opacity-70" />
 	<span aria-hidden="true" class="font-semibold tracking-wide">{dir.target}</span>
 	<span class="opacity-40" aria-hidden="true">·</span>
-	<span><span class="sr-only">{label.long}</span><span aria-hidden="true">{label.short}</span></span
-	>
+	<span>
+		<span class="sr-only">{label.long}</span><span aria-hidden="true">{label.short}</span>
+	</span>
 </span>

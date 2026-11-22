@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
+	import type { ResolvedPathname } from '$app/types';
 	import Icon, { type IconName } from './Icon.svelte';
 
 	type Props = Omit<HTMLButtonAttributes, 'class'> & {
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 		size?: 'sm' | 'md' | 'lg';
 		/** Rend un lien plutôt qu'un bouton. */
-		href?: string;
+		href?: ResolvedPathname;
 		icon?: IconName;
 		trailingIcon?: IconName;
 		loading?: boolean;

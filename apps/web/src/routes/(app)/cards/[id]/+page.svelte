@@ -111,8 +111,10 @@
 					>
 						<time
 							datetime={log.at.toISOString()}
-							class="text-sm text-ink tabular-nums sm:text-ink-2">{formatDateTime(log.at)}</time
+							class="text-sm text-ink tabular-nums sm:text-ink-2"
 						>
+							{formatDateTime(log.at)}
+						</time>
 						<span class="justify-self-end sm:order-last"><RatingPill rating={log.rating} /></span>
 						<span class="text-sm text-ink-2">{directionLabel(log.direction, card.deck)}</span>
 						<span

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { resolve } from '$app/paths';
 	import FormIssues from '#lib/components/form/FormIssues.svelte';
 	import FormSuccess from '#lib/components/form/FormSuccess.svelte';
 	import SubmitButton from '#lib/components/form/SubmitButton.svelte';
@@ -43,7 +44,9 @@
 	// Paramètres de la session, gardés par les liens (les formulaires gardent ceux de la page).
 	const deckQuery = $derived(data.session ? `deck=${data.session.id}&` : '');
 	const query = $derived(`${deckQuery}${data.ahead ? 'ahead=1&' : ''}`);
-	const cardsHref = $derived(data.session ? `/cards?deck=${data.session.id}` : '/cards');
+	const cardsHref = $derived(
+		data.session ? resolve(`cards?deck=${data.session.id}`) : resolve('cards')
+	);
 	// Faces présentée et attendue : leur langue (attribut `lang`), `null` pour un sujet.
 	const sides = $derived(current && directionFaces(current.direction, current.deck));
 
@@ -149,9 +152,9 @@
 					<p class="flex items-center gap-1.5 text-sm font-medium text-ink-3">
 						{directionLabel(current.direction, current.deck)}
 						{#if current.isNew}
-							<span class="rounded-sm bg-accent-soft px-1.5 text-xs font-semibold text-accent-text"
-								>nouvelle</span
-							>
+							<span class="rounded-sm bg-accent-soft px-1.5 text-xs font-semibold text-accent-text">
+								nouvelle
+							</span>
 						{/if}
 					</p>
 
@@ -254,9 +257,9 @@
 						Prochaine révision {describeDue(next.due, data.now)
 							.long}{#if !isSameDay(next.due, data.now)},
 							{formatWeekday(next.due)}{/if}&nbsp;:
-						<span class="text-ink" lang={directionFaces(next.direction, next.deck).from.lang}
-							>{next.prompt}</span
-						>{endsWithPunctuation(next.prompt) ? '' : '.'}
+						<span class="text-ink" lang={directionFaces(next.direction, next.deck).from.lang}>
+							{next.prompt}
+						</span>{endsWithPunctuation(next.prompt) ? '' : '.'}
 					</p>
 				{:else if data.waiting > 0}
 					<p class="max-w-[50ch] text-ink-2">
@@ -276,9 +279,9 @@
 			</div>
 			<div class="flex flex-col gap-2 sm:flex-row">
 				{#if data.upcoming}
-					<Button href="/review?{query}ahead=1" variant="primary" size="lg" icon="clock"
-						>Réviser en avance</Button
-					>
+					<Button href={resolve(`review?${query}ahead=1`)} variant="primary" size="lg" icon="clock">
+						Réviser en avance
+					</Button>
 				{/if}
 				<Button size="lg" href={cardsHref}>Voir les cartes</Button>
 			</div>

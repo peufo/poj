@@ -1,5 +1,7 @@
 <script lang="ts" generics="Mode extends 'create' | 'edit'">
 	import type { Snippet } from 'svelte';
+	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import { exampleFor, faces, type DeckView, type Face } from '#lib/format/decks.js';
 	import Button from '#lib/ui/Button.svelte';
 	import Notice from '#lib/ui/Notice.svelte';
@@ -46,7 +48,7 @@
 		context?: string;
 		/** Texte enregistré, en modification : un écart réinitialise la progression. */
 		original?: { sideA: string; sideB: string };
-		cancelHref: string;
+		cancelHref: ResolvedPathname;
 		/** Champs en tête du formulaire (ex. le choix du deck). */
 		header?: Snippet;
 	};
@@ -249,16 +251,16 @@ face. Pas de second avis DeepL pour un sujet. -->
 			title="Une carte a déjà {face[deck.duplicateSide === 'sideA' ? 'a' : 'b'].same}"
 		>
 			<a
-				href="/cards/{duplicate.id}"
+				href={resolve(`cards/${duplicate.id}`)}
 				class="font-medium text-ink underline decoration-line-strong hover:decoration-ink"
 			>
 				<span lang={face.b.lang}>{duplicate.sideB}</span> ·
 				<span lang={face.a.lang}>{duplicate.sideA}</span>
 			</a>
 			{#if duplicate.context}<span class="block">{duplicate.context}</span>{/if}
-			<span class="mt-1 block"
-				>Dans un autre contexte, une même expression peut avoir un autre sens.</span
-			>
+			<span class="mt-1 block">
+				Dans un autre contexte, une même expression peut avoir un autre sens.
+			</span>
 		</Notice>
 	{/if}
 

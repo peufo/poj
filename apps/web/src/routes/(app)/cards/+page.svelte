@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Belt from '#lib/components/Belt.svelte';
 	import Velocities from '#lib/components/Velocities.svelte';
@@ -16,7 +17,9 @@
 	let { data }: PageProps = $props();
 	// Deck affiché, `null` pour tous les decks : ses liens gardent `?deck=`.
 	const deck = $derived(data.deck);
-	const deckQuery = $derived(deck ? `?deck=${deck.id}` : '');
+	const cardsHref = $derived(deck ? resolve(`cards?deck=${deck.id}`) : resolve('cards'));
+	const newCardHref = $derived(deck ? resolve(`cards/new?deck=${deck.id}`) : resolve('cards/new'));
+	const reviewHref = $derived(deck ? resolve(`review?deck=${deck.id}`) : resolve('review'));
 	const face = $derived(deck && faces(deck));
 	const hasCards = $derived(data.totalCards > 0);
 
@@ -28,7 +31,7 @@
 		timer = setTimeout(() => {
 			const q = value.trim();
 			const params = new URLSearchParams(deck ? { deck: deck.id, q } : { q });
-			goto(q ? `?${params}` : `/cards${deckQuery}`, { replace: true, reset: false });
+			goto(q ? resolve(`cards?${params}`) : cardsHref, { replace: true, reset: false });
 		}, delay);
 	}
 </script>
@@ -39,7 +42,7 @@
 	{#if hasCards}
 		<!-- Ce qui vient, tout en haut : le tapis, puis le passé en deux chiffres. -->
 		<div class="flex flex-col gap-3 pt-3 md:pt-8">
-			<Belt {...data.belt} now={data.now} reviewHref="/review{deckQuery}" />
+			<Belt {...data.belt} now={data.now} {reviewHref} />
 			<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
 		</div>
 	{/if}
@@ -47,11 +50,11 @@
 	<PageHeader title={deck?.name ?? 'Cartes'} count={data.totalCards} flush={hasCards}>
 		{#snippet actions()}
 			{#if deck}
-				<Button href="/decks/{deck.id}/edit" icon="pencil" size="sm">Modifier le deck</Button>
+				<Button href={resolve(`decks/${deck.id}/edit`)} icon="pencil" size="sm">
+					Modifier le deck
+				</Button>
 			{/if}
-			<Button href="/cards/new{deckQuery}" icon="plus" size="sm" class="max-md:hidden"
-				>Nouvelle carte</Button
-			>
+			<Button href={newCardHref} icon="plus" size="sm" class="max-md:hidden">Nouvelle carte</Button>
 			<!-- Au téléphone, la barre latérale (et sa déconnexion) n'existe pas. -->
 			<AccountMenu email={data.user.email} isAdmin={data.user.isAdmin} class="md:hidden" />
 		{/snippet}
@@ -68,7 +71,7 @@
 					? '.'
 					: ' dans les deux sens.'}
 			</p>
-			<Button href="/cards/new{deckQuery}" variant="primary" icon="plus">Créer une carte</Button>
+			<Button href={newCardHref} variant="primary" icon="plus">Créer une carte</Button>
 		</div>
 	{:else}
 		<section aria-label="Liste des cartes" class="flex flex-col gap-2">
@@ -111,7 +114,7 @@
 				<ul>
 					{#each data.cards as c (c.id)}
 						<CardRow
-							href="/cards/{c.id}"
+							href={resolve(`cards/${c.id}`)}
 							sideA={c.sideA}
 							sideB={c.sideB}
 							deck={c.deck}
@@ -128,10 +131,8 @@
 						d'origine.
 					</p>
 					<div class="flex gap-2">
-						<Button size="sm" href="/cards{deckQuery}">Effacer la recherche</Button>
-						<Button size="sm" variant="ghost" icon="plus" href="/cards/new{deckQuery}"
-							>Créer la carte</Button
-						>
+						<Button size="sm" href={cardsHref}>Effacer la recherche</Button>
+						<Button size="sm" variant="ghost" icon="plus" href={newCardHref}>Créer la carte</Button>
 					</div>
 				</div>
 			{/if}
