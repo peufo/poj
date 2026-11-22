@@ -5,7 +5,7 @@ import Page from './+page.svelte';
 
 describe('/settings', () => {
 	it('says notifications are unavailable without VAPID keys', async () => {
-		render(Page, { data: { notifications: null } } as never);
+		await render(Page, { data: { notifications: null } } as never);
 
 		await expect.element(page.getByText('Notifications indisponibles')).toBeInTheDocument();
 		await expect
@@ -15,7 +15,7 @@ describe('/settings', () => {
 	});
 
 	it('shows the threshold of the account when notifications are available', async () => {
-		render(Page, {
+		await render(Page, {
 			data: {
 				notifications: {
 					vapidPublicKey:

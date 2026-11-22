@@ -54,7 +54,7 @@ describe('Belt', () => {
 	beforeEach(() => localStorage.clear());
 
 	it('shows the ready and waiting cards under the belt, and links to the review', async () => {
-		render(
+		await render(
 			Belt,
 			props({ stock: 182, ready: readyCards(10), reviewHref: resolve('review?deck=x') })
 		);
@@ -69,7 +69,7 @@ describe('Belt', () => {
 	});
 
 	it('draws the ready cards in their box only, not on the belt', async () => {
-		const { container } = render(Belt, props({ ready: readyCards(3) }));
+		const { container } = await render(Belt, props({ ready: readyCards(3) }));
 		const tape = container.querySelector('[role="presentation"]');
 		assert.exists(tape);
 
@@ -79,14 +79,14 @@ describe('Belt', () => {
 	});
 
 	it('leaves the waiting box out without new cards', async () => {
-		render(Belt, props({ ready: readyCards(1) }));
+		await render(Belt, props({ ready: readyCards(1) }));
 
 		await expect.element(page.getByText('prête', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('neuve')).not.toBeInTheDocument();
 	});
 
 	it('reads the cards to review up to a stop, from the keyboard', async () => {
-		render(Belt, props({ ready: readyCards(10) }));
+		await render(Belt, props({ ready: readyCards(10) }));
 		const slider = page.getByRole('slider', { name: "Cartes à réviser d'ici une date" });
 
 		const estimate = (rate: string) =>
@@ -96,7 +96,7 @@ describe('Belt', () => {
 			.toHaveAttribute('aria-valuetext', `11 cartes d'ici 1 j${estimate('2')}`);
 		slider.element().focus();
 		await expect.element(slider).toHaveFocus();
-		await expect.element(page.getByText("d'ici 1 j")).toBeVisible();
+		await expect.element(page.getByText("d'ici 1 j", { exact: false })).toBeVisible();
 
 		await userEvent.keyboard('{ArrowRight}');
 		await expect
@@ -110,7 +110,7 @@ describe('Belt', () => {
 	});
 
 	it('places the line where the belt is touched', async () => {
-		const { container } = render(Belt, props());
+		const { container } = await render(Belt, props());
 		const tape = container.querySelector('[role="presentation"]');
 		assert.exists(tape);
 
@@ -130,12 +130,12 @@ describe('Belt', () => {
 	});
 
 	it('presents the forecast as an estimate, and leaves it out without reviews', async () => {
-		const shown = render(Belt, props({ ready: readyCards(1) }));
+		const shown = await render(Belt, props({ ready: readyCards(1) }));
 		await expect.element(page.getByText('≈ révisions par jour')).toBeVisible();
 		await shown.unmount();
 
 		const empty = forecast.map((point) => ({ ...point, perDay: 0 }));
-		render(Belt, props({ ready: readyCards(1), forecast: empty }));
+		await render(Belt, props({ ready: readyCards(1), forecast: empty }));
 		await expect.element(page.getByText('≈ révisions par jour')).not.toBeInTheDocument();
 	});
 
@@ -148,7 +148,7 @@ describe('Belt', () => {
 		const falls = watchFalls();
 		const visit = props({ ready: ['x', 'y'] });
 
-		const first = render(Belt, visit);
+		const first = await render(Belt, visit);
 		// `x` était sur le tapis : il tombe, et la boîte ne le compte qu'une fois arrivé.
 		await expect.poll(() => falls).toEqual([{ id: 'x', box: '1prête' }]);
 		await expect.poll(readyBox).toBe('2prêtes');
@@ -156,7 +156,7 @@ describe('Belt', () => {
 		await first.unmount();
 
 		// Sans changement depuis, rien ne bouge.
-		render(Belt, visit);
+		await render(Belt, visit);
 		await expect.poll(readyBox).toBe('2prêtes');
 		expect(falls).toHaveLength(1);
 	});
@@ -164,7 +164,7 @@ describe('Belt', () => {
 	it('drops a card into the box as it reaches the end of the belt, page open', async () => {
 		const start = new Date();
 		const falls = watchFalls();
-		const { container } = render(
+		const { container } = await render(
 			Belt,
 			props({ tokens: [{ id: 'z', dueAt: start.getTime() + 400, level: 1 }], now: start })
 		);

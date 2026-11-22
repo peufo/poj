@@ -15,7 +15,7 @@ const sidebar = () => page.getByRole('navigation', { name: 'Navigation principal
 describe('AppShell', () => {
 	it('lists each deck by its name and card count, in place of « Cartes »', async () => {
 		await page.viewport(1280, 800);
-		render(AppShell, { current: 'cards', decks: [english, capitals], dueCount: 4, children });
+		await render(AppShell, { current: 'cards', decks: [english, capitals], dueCount: 4, children });
 
 		const nav = sidebar();
 		await expect
@@ -39,7 +39,7 @@ describe('AppShell', () => {
 
 	it('marks the deck shown, and creates the new card in it', async () => {
 		await page.viewport(1280, 800);
-		render(AppShell, {
+		await render(AppShell, {
 			current: 'cards',
 			decks: [english, capitals],
 			activeDeck: 'd2',
@@ -57,7 +57,7 @@ describe('AppShell', () => {
 
 	it('treats a single deck as the deck shown', async () => {
 		await page.viewport(1280, 800);
-		render(AppShell, { current: 'cards', decks: [english], children });
+		await render(AppShell, { current: 'cards', decks: [english], children });
 
 		await expect
 			.element(sidebar().getByRole('link', { name: 'Français → Anglais 25' }))
@@ -66,7 +66,7 @@ describe('AppShell', () => {
 
 	it('keeps a single « Cartes » tab on the phone', async () => {
 		await page.viewport(390, 844);
-		render(AppShell, { current: 'cards', decks: [english, capitals], children });
+		await render(AppShell, { current: 'cards', decks: [english, capitals], children });
 
 		const tabs = page.getByRole('navigation', { name: 'Navigation principale' }).last();
 		await expect

@@ -34,7 +34,11 @@ function expectBefore(first: Element, then: Element) {
 
 describe('DeckForm', () => {
 	it('asks for the two languages of a language deck, both directions checked', async () => {
-		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+		await render(DeckForm, {
+			form: fakeForm<NewDeckForm>(),
+			mode: 'create',
+			values: NEW_DECK_VALUES
+		});
 
 		await expect.element(page.getByRole('radio', { name: /Langue/ })).toBeChecked();
 		await expect.element(page.getByLabelText('Langue connue')).toHaveValue('fr');
@@ -46,7 +50,11 @@ describe('DeckForm', () => {
 	});
 
 	it('names a language deck after its learned language, without a name field', async () => {
-		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+		await render(DeckForm, {
+			form: fakeForm<NewDeckForm>(),
+			mode: 'create',
+			values: NEW_DECK_VALUES
+		});
 
 		await expect.element(page.getByLabelText('Nom')).not.toBeVisible();
 		await page.getByLabelText('Langue apprise').selectOptions('fi');
@@ -56,7 +64,11 @@ describe('DeckForm', () => {
 	});
 
 	it('asks for the kind first, then the name of a subject', async () => {
-		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+		await render(DeckForm, {
+			form: fakeForm<NewDeckForm>(),
+			mode: 'create',
+			values: NEW_DECK_VALUES
+		});
 
 		await page.getByRole('radio', { name: /Sujet/ }).click();
 
@@ -67,7 +79,11 @@ describe('DeckForm', () => {
 	});
 
 	it('switches to the faces of a subject, Question / Réponse, one way by default', async () => {
-		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+		await render(DeckForm, {
+			form: fakeForm<NewDeckForm>(),
+			mode: 'create',
+			values: NEW_DECK_VALUES
+		});
 
 		await page.getByRole('radio', { name: /Sujet/ }).click();
 
@@ -80,7 +96,11 @@ describe('DeckForm', () => {
 	});
 
 	it('keeps the directions chosen by hand when the kind changes', async () => {
-		render(DeckForm, { form: fakeForm<NewDeckForm>(), mode: 'create', values: NEW_DECK_VALUES });
+		await render(DeckForm, {
+			form: fakeForm<NewDeckForm>(),
+			mode: 'create',
+			values: NEW_DECK_VALUES
+		});
 		const both = page.getByRole('checkbox', { name: /Réviser dans les deux sens/ });
 
 		await both.click();
@@ -91,7 +111,7 @@ describe('DeckForm', () => {
 	});
 
 	it('does not offer to change the kind or the languages of a saved deck', async () => {
-		render(DeckForm, {
+		await render(DeckForm, {
 			form: fakeForm<DeckEditForm>(),
 			mode: 'edit',
 			values: { ...NEW_DECK_VALUES, name: 'Anglais', languageB: 'en-GB' },
@@ -109,7 +129,7 @@ describe('DeckForm', () => {
 	});
 
 	it('shows the kind of a saved subject before its name', async () => {
-		render(DeckForm, {
+		await render(DeckForm, {
 			form: fakeForm<DeckEditForm>(),
 			mode: 'edit',
 			values: { ...NEW_DECK_VALUES, kind: 'subject', name: 'Capitales', languageB: '' },

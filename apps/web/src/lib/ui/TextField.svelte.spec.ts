@@ -7,7 +7,7 @@ describe('TextField', () => {
 	it.each([false, true])(
 		'offers no autofill on a content field, browser or password manager (multiline: %s)',
 		async (multiline) => {
-			render(TextField, { label: 'Nom', name: 'name', multiline });
+			await render(TextField, { label: 'Nom', name: 'name', multiline });
 			const field = page.getByLabelText('Nom');
 
 			await expect.element(field).toHaveAttribute('autocomplete', 'off');
@@ -17,7 +17,12 @@ describe('TextField', () => {
 	);
 
 	it('keeps the autofill asked for by an auth field', async () => {
-		render(TextField, { label: 'Email', name: 'email', type: 'email', autocomplete: 'email' });
+		await render(TextField, {
+			label: 'Email',
+			name: 'email',
+			type: 'email',
+			autocomplete: 'email'
+		});
 		const field = page.getByLabelText('Email');
 
 		await expect.element(field).toHaveAttribute('autocomplete', 'email');

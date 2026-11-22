@@ -5,7 +5,7 @@ import Page from './+page.svelte';
 
 describe('/connect', () => {
 	it('shows the connector url, the three steps and the free plan limit', async () => {
-		render(Page, {
+		await render(Page, {
 			data: { connectorUrl: 'https://poj.test/mcp' }
 		} as never);
 

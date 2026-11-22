@@ -5,13 +5,13 @@ import Wordmark from './Wordmark.svelte';
 
 describe('Wordmark', () => {
 	it('is named poj for assistive technologies', async () => {
-		render(Wordmark);
+		await render(Wordmark);
 
 		await expect.element(page.getByRole('img', { name: 'poj' })).toBeVisible();
 	});
 
 	it('scales to the requested height, keeping its proportions', async () => {
-		render(Wordmark, { size: 28 });
+		await render(Wordmark, { size: 28 });
 		const logo = page.getByRole('img', { name: 'poj' });
 
 		await expect.element(logo).toHaveAttribute('height', '28');
