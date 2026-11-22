@@ -4,6 +4,7 @@
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Belt from '#lib/components/Belt.svelte';
 	import Velocities from '#lib/components/Velocities.svelte';
+	import ActivityGrid from '#lib/components/ActivityGrid.svelte';
 	import CardRow from '#lib/components/CardRow.svelte';
 	import DeckChips from '#lib/components/DeckChips.svelte';
 	import AccountMenu from '#lib/components/AccountMenu.svelte';
@@ -44,6 +45,7 @@
 		<div class="flex flex-col gap-3 pt-3 md:pt-8">
 			<Belt {...data.belt} now={data.now} {reviewHref} />
 			<Velocities {...data.velocities} allDecks={deck !== null && data.nav.decks.length > 1} />
+			<ActivityGrid days={data.activity} />
 		</div>
 	{/if}
 

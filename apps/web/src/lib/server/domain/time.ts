@@ -86,3 +86,14 @@ export function formatRelative(date: Date, now = new Date()): string {
 	if (Math.abs(months) < 12) return relative.format(months, 'month');
 	return relative.format(Math.round(diff / (365.25 * DAY)), 'year');
 }
+
+/** Jour civil de `date` dans le fuseau, au format `AAAA-MM-JJ`. */
+export function calendarDate(date: Date, timeZone = TIME_ZONE): string {
+	const { year, month, day } = localParts(date, timeZone);
+	return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** Jour de la semaine d'une date `AAAA-MM-JJ`, du lundi (0) au dimanche (6). */
+export function weekdayOf(date: string): number {
+	return (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+}

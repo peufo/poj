@@ -5,6 +5,7 @@ import { translator } from '#lib/server/deepl/index.js';
 import type { DeckSummary, DeckView } from '#lib/format/decks.js';
 import {
 	createAccountsService,
+	createActivityService,
 	createCardsService,
 	createInvitationsService,
 	createDecksService,
@@ -22,6 +23,7 @@ import { idSchema } from './schemas/fields';
 // Services du domaine partagés par les pages web (origine `web`). `accounts`, sans origine,
 // sert aussi à `/mcp`.
 export const accounts = createAccountsService(db);
+export const activity = createActivityService(db);
 export const cards = createCardsService(db);
 export const invitations = createInvitationsService(db, hashPassword);
 export const decks = createDecksService(db);

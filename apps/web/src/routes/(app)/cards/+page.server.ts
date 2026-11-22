@@ -2,6 +2,7 @@ import { presentations } from '#lib/server/domain/index.js';
 import { beltPosition } from '#lib/format/belt.js';
 import { masteryOf } from '#lib/format/mastery.js';
 import {
+	activity,
 	cards,
 	deckParam,
 	decks,
@@ -19,14 +20,16 @@ export const load: PageServerLoad = async (event) => {
 	const { q: query } = cardsSearchSchema.parse(Object.fromEntries(url.searchParams));
 	const now = new Date();
 	// Le deck de `?deck=` : liste, recherche, tapis et révision ne portent que sur lui ; sans
-	// lui, sur tous (le seul deck s'il n'y en a qu'un). Les vélocités restent globales.
+	// lui, sur tous (le seul deck s'il n'y en a qu'un), comme l'activité. Les vélocités restent
+	// globales.
 	const scope = { deckId: deckParam(url) };
 
-	const [owned, all, belt, velocities] = await Promise.all([
+	const [owned, all, belt, velocities, days] = await Promise.all([
 		decks.list(ownerId),
 		cards.list(ownerId, scope),
 		cards.belt(ownerId, now, scope),
-		reviews.velocities(ownerId, now)
+		reviews.velocities(ownerId, now),
+		activity.daily(ownerId, now, scope)
 	]);
 	const { deck } = deckInScope(url, owned.map(deckSummary));
 	const listed = query ? await cards.list(ownerId, { ...scope, query }) : all;
@@ -53,6 +56,8 @@ export const load: PageServerLoad = async (event) => {
 			}))
 		},
 		velocities,
+		/** Ajouts et réponses jour par jour, sur l'année écoulée. */
+		activity: days,
 		/** Deck affiché, `null` pour tous les decks. */
 		deck,
 		cards: listed.map((card) => ({
