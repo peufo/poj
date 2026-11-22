@@ -1,6 +1,6 @@
 // Envoi Web Push : chiffrement du message (aes128gcm) et en-têtes VAPID par `web-push`,
 // requête par `fetch`. https://www.rfc-editor.org/rfc/rfc8030
-import webpush from 'web-push';
+import { generateRequestDetails } from 'web-push';
 import type { PushSender } from '#lib/server/domain/index.js';
 
 /** Identité VAPID du serveur : clés en base64url, contact `mailto:` ou `https:`. */
@@ -23,7 +23,7 @@ export function createWebPushSender(vapid: Vapid, fetchFn: typeof fetch = fetch)
 		async send({ endpoint, p256dh, auth }, message) {
 			const host = URL.parse(endpoint)?.host ?? endpoint;
 			try {
-				const { method, headers, body } = webpush.generateRequestDetails(
+				const { method, headers, body } = generateRequestDetails(
 					{ endpoint, keys: { p256dh, auth } },
 					JSON.stringify(message),
 					{

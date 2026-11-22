@@ -1,9 +1,9 @@
 import { createECDH, randomBytes } from 'node:crypto';
 import { assert, describe, expect, it } from 'vitest';
-import webpush from 'web-push';
+import { generateVAPIDKeys } from 'web-push';
 import { createWebPushSender } from './web-push';
 
-const vapid = { ...webpush.generateVAPIDKeys(), subject: 'mailto:admin@poj.ch' };
+const vapid = { ...generateVAPIDKeys(), subject: 'mailto:admin@poj.ch' };
 
 /** Abonnement d'un navigateur : clé publique P-256 et secret d'authentification, en base64url. */
 function browserSubscription(endpoint = 'https://fcm.googleapis.com/fcm/send/abc') {
