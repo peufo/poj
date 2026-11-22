@@ -25,6 +25,9 @@ describe('ActivityGrid', () => {
 				page.getByRole('button', { name: 'lundi 29 décembre 2025 : 0 carte ajoutée, 0 révision' })
 			)
 			.toBeInTheDocument();
+		// La fin de la semaine en cours est à venir : dessinée, mais sans case à consulter.
+		expect(page.getByRole('button', { name: /^jeudi 8 janvier/ }).query()).toBeNull();
+		expect(page.getByRole('button').all()).toHaveLength(days.length);
 	});
 
 	it('starts on today, moves by day with the arrows and shows the focused day', async () => {
