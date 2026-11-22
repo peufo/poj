@@ -61,10 +61,8 @@ describe('Belt', () => {
 			props({ stock: 182, ready: readyCards(10), reviewHref: resolve('review?deck=x') })
 		);
 
-		await expect.element(page.getByText('10', { exact: true })).toBeVisible();
-		await expect.element(page.getByText('prêtes')).toBeVisible();
-		await expect.element(page.getByText('182', { exact: true })).toBeVisible();
-		await expect.element(page.getByText('neuves')).toBeVisible();
+		await expect.element(page.getByText('10 prêtes', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('182 neuves', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Réviser' }))
 			.toHaveAttribute('href', '/review?deck=x');
@@ -83,7 +81,7 @@ describe('Belt', () => {
 	it('leaves the waiting box out without new cards', async () => {
 		await render(Belt, props({ ready: readyCards(1) }));
 
-		await expect.element(page.getByText('prête', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('1 prête', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('neuve')).not.toBeInTheDocument();
 	});
 

@@ -60,11 +60,11 @@
 	let { stock, ready, tokens, forecast, now, reviewHref }: Props = $props();
 
 	const fills = ['fill-level-0', 'fill-level-1', 'fill-level-2', 'fill-level-3'];
-	/** Marques d'une boîte : trois colonnes de 7 px, sur sa hauteur utile. */
+	/** Marques d'une boîte : trois colonnes de 7 px, sur sa hauteur utile (boîte à la hauteur du bouton). */
 	const PILE_WIDTH = 20;
-	const PILE_HEIGHT = 44;
-	/** Marge intérieure de la boîte, sous et à gauche de sa pile (`pb-1.5`, `pl-1.5`), en px. */
-	const BOX_INSET = 6;
+	const PILE_HEIGHT = 28;
+	/** Contour et marge intérieure de la boîte, sous et à gauche de sa pile (`border`, `pb-1.5`, `pl-1.5`), en px. */
+	const BOX_INSET = 7;
 	const FALL_MS = 220;
 	/** Le dernier état vu du tapis, dans ce navigateur. */
 	const SEEN_KEY = 'poj:belt-seen';
@@ -401,10 +401,11 @@
 		/>
 	</div>
 
-	<div class="flex items-end gap-1.5">
+	<!-- Boîtes et bouton en colonnes égales, sur toute la largeur. -->
+	<div class="grid auto-cols-fr grid-flow-col gap-1.5">
 		{@render box(inBox, 'prête', 'prêtes', inBox > 0 ? 'ready' : 'empty')}
 		{#if stock > 0}{@render box(stock, 'neuve', 'neuves', 'waiting')}{/if}
-		<Button href={reviewHref} variant="primary" class="ml-auto">Réviser</Button>
+		<Button href={reviewHref} variant="primary">Réviser</Button>
 	</div>
 </section>
 
@@ -421,14 +422,22 @@
 	<p
 		{@attach kind === 'waiting' ? null : asReadyBox}
 		class={[
-			'flex h-14 items-end gap-1.5 pr-2 pb-1.5 pl-1.5',
-			kind === 'ready' && 'rounded-b-lg bg-accent-soft text-accent-text',
-			kind === 'empty' && 'rounded-b-lg border border-t-0 border-line-strong text-ink-3',
-			kind === 'waiting' && 'rounded-lg bg-hover text-ink-2'
+			// Un compteur, pas un bouton : un contour, sans fond. Texte centré, comme le bouton
+			// voisin ; la pile reste dans le coin bas gauche (`BOX_INSET`).
+			'relative flex h-10 items-center justify-center rounded-lg border px-3.5',
+			'text-[0.9375rem] font-medium whitespace-nowrap tabular-nums',
+			kind === 'ready' && 'border-accent/50 text-accent-text',
+			kind === 'empty' && 'border-line-strong text-ink-3',
+			kind === 'waiting' && 'border-line-strong text-ink-2'
 		]}
 	>
 		{#if count > 0}
-			<svg width={PILE_WIDTH} height={PILE_HEIGHT} aria-hidden="true">
+			<svg
+				width={PILE_WIDTH}
+				height={PILE_HEIGHT}
+				aria-hidden="true"
+				class="absolute bottom-1.5 left-1.5"
+			>
 				<path
 					d={pilePath(pile, PILE_HEIGHT, { outline })}
 					class={kind === 'ready'
@@ -439,9 +448,7 @@
 				/>
 			</svg>
 		{/if}
-		<span class="flex flex-col self-center">
-			<span class="text-[0.9375rem] leading-5 font-semibold tabular-nums">{count}</span>
-			<span class="text-[0.6875rem] leading-4">{count > 1 ? many : one}</span>
-		</span>
+		{count}
+		{count > 1 ? many : one}
 	</p>
 {/snippet}
