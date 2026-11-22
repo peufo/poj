@@ -202,12 +202,18 @@
 		)
 	);
 
-	/** Lecture d'un cran : où il est, combien de cartes d'ici là, et le rythme estimé à ce moment. */
+	/**
+	 * Lecture d'un cran : où il est, combien de cartes d'ici là, et le rythme estimé à ce moment
+	 * (à partir d'un jour seulement, où commence l'estimation).
+	 */
 	function readingAt(index: number) {
 		const { position, label } = stopAt(index);
 		const cards = counts[index] ?? readyNow.length;
-		const rate = formatRate(rateAt(forecast, position));
-		const text = `${plural(cards, 'carte')} d'ici ${label}, environ ${rate} révisions par jour à ce moment, estimation`;
+		const perDay = rateAt(forecast, position);
+		const rate = perDay === null ? null : formatRate(perDay);
+		const text =
+			`${plural(cards, 'carte')} d'ici ${label}` +
+			(rate === null ? '' : `, environ ${rate} révisions par jour à ce moment, estimation`);
 		return { label, cards, rate, x: xOf(position), text };
 	}
 
@@ -244,7 +250,9 @@
 			>
 				<span class="font-semibold text-accent-text">{plural(reading.cards, 'carte')}</span>
 				d'ici {reading.label}
-				<span class="font-normal text-ink-2">· ≈ {reading.rate}/j</span>
+				{#if reading.rate !== null}
+					<span class="font-normal text-ink-2">· ≈ {reading.rate}/j</span>
+				{/if}
 			</p>
 		{:else if curve}
 			<p class="absolute top-0 right-0 flex items-center gap-1.5 text-xs leading-5 text-ink-3">

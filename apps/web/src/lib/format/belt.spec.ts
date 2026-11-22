@@ -6,6 +6,7 @@ import {
 	MARK_SIZES,
 	arrivals,
 	beltPosition,
+	DAY_POSITION,
 	cardsByStop,
 	forecastPath,
 	formatRate,
@@ -28,15 +29,21 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 describe('beltPosition', () => {
-	it('spreads delays on a log axis, from ten minutes to two years', () => {
+	it('spreads delays on a log axis, from ten minutes to two years, the first day halved', () => {
 		const span = Math.log(BELT_END_MS / (10 * MINUTE));
 		expect(beltPosition(10 * MINUTE)).toBe(0);
 		expect(beltPosition(BELT_END_MS)).toBe(1);
-		// Une décade de plus, la même distance : 10 → 100 min comme 100 → 1 000 min.
-		const decade = beltPosition(100 * MINUTE);
-		expect(beltPosition(1000 * MINUTE)).toBeCloseTo(2 * decade);
-		expect(beltPosition(HOUR)).toBeCloseTo(Math.log(6) / span);
-		expect(beltPosition(DAY)).toBeCloseTo(Math.log(144) / span);
+		// La première journée prend la moitié de la place que l'axe log lui donnerait.
+		expect(beltPosition(DAY)).toBeCloseTo(Math.log(144) / span / 2);
+		expect(DAY_POSITION).toBeCloseTo(beltPosition(DAY));
+		// De part et d'autre, un facteur égal, une même distance : 1 → 2 h comme 2 → 4 h, et
+		// 1 → 10 j comme 10 → 100 j.
+		expect(beltPosition(4 * HOUR) - beltPosition(2 * HOUR)).toBeCloseTo(
+			beltPosition(2 * HOUR) - beltPosition(HOUR)
+		);
+		expect(beltPosition(100 * DAY) - beltPosition(10 * DAY)).toBeCloseTo(
+			beltPosition(10 * DAY) - beltPosition(DAY)
+		);
 	});
 
 	it('keeps imminent and very distant cards at the ends', () => {
@@ -212,7 +219,10 @@ describe('forecast curve', () => {
 	it('reads the estimate of the nearest point', () => {
 		expect(rateAt(points, 0.1)).toBe(100);
 		expect(rateAt(points, 0.6)).toBe(25);
-		expect(rateAt([], 0.5)).toBe(0);
+		expect(rateAt([], 0.5)).toBeNull();
+		// L'estimation commence à son premier point.
+		expect(rateAt(points.slice(1), 0.4)).toBeNull();
+		expect(rateAt(points.slice(1), 0.5)).toBe(25);
 	});
 
 	it('scales the curve on its own peak, by square root', () => {

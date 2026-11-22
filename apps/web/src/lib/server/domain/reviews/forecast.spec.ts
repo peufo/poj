@@ -1,6 +1,6 @@
 import { fsrs, Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
-import { beltPosition } from '../../../format/belt';
+import { beltPosition, DAY_POSITION } from '../../../format/belt';
 import { DAY } from '../time';
 import {
 	FORECAST_HORIZON_MS,
@@ -14,7 +14,6 @@ import { emptyState, simulateReviews, TARGET_RETENTION, toFsrsCard } from './sch
 
 const now = new Date('2026-01-05T08:00:00Z');
 const later = (ms: number) => new Date(now.getTime() + ms);
-const HOUR = 60 * 60 * 1000;
 
 /** Un sens neuf, présenté à `start`. */
 const fresh = (id: string, start = now): ForecastSense => ({ id, state: emptyState(now), start });
@@ -43,29 +42,22 @@ describe('simulateReviews', () => {
 });
 
 describe('forecast', () => {
-	it('gives one point per step of the belt axis, up to two years', () => {
+	it('gives one point per step of the belt axis, from one day to two years', () => {
 		const delays = forecastDelays();
 		expect(delays).toHaveLength(FORECAST_POINTS);
+		expect(delays[0]).toBeCloseTo(DAY);
 		expect(delays.at(-1)).toBeCloseTo(FORECAST_HORIZON_MS);
-		// Les points tombent à intervalles réguliers sur l'axe du tapis.
+		// Les points tombent à intervalles réguliers sur l'axe du tapis, à partir d'un jour.
 		delays.forEach((delay, i) => {
-			expect(beltPosition(delay)).toBeCloseTo(i / (FORECAST_POINTS - 1));
+			expect(beltPosition(delay)).toBeCloseTo(
+				DAY_POSITION + ((1 - DAY_POSITION) * i) / (FORECAST_POINTS - 1)
+			);
 		});
 	});
 
 	it('is the same from one call to the next', () => {
 		const senses = [fresh('a'), fresh('b', later(3 * DAY))];
 		expect(forecast(senses, now)).toEqual(forecast(senses, now));
-	});
-
-	it('gives the pace of the coming day before twelve hours, flat', () => {
-		const points = forecast([fresh('a')], now);
-		const firstDay = points.filter((p) => p.delayMs < 12 * HOUR);
-		expect(firstDay.length).toBeGreaterThan(10);
-		expect(new Set(firstDay.map((p) => p.perDay)).size).toBe(1);
-		// Une carte neuve : sa présentation, puis les étapes d'apprentissage de la journée.
-		const { length: today } = simulateReviews(emptyState(now), now, later(DAY), () => false);
-		expect(firstDay[0]?.perDay).toBeCloseTo(today);
 	});
 
 	it('brings each direction back, again and again, over two years', () => {

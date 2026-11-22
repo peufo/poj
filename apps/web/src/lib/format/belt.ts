@@ -1,5 +1,5 @@
 // Le tapis de `/cards` (doc/story/tapis-roulant.md) : un axe logarithmique continu, de dix
-// minutes à deux ans, où chaque carte en route est une marque. Fonctions pures, partagées
+// minutes à deux ans (la première journée resserrée de moitié), où chaque carte en route est une marque. Fonctions pures, partagées
 // par le load (positions) et le composant (marques, crans, lecture).
 import { formatInterval } from './due';
 import type { MasteryLevel } from './mastery';
@@ -17,15 +17,29 @@ export const BELT_HEIGHT = 72;
 /** Marge à gauche du tapis, où les cartes tombent dans la boîte des prêtes, en px. */
 export const BELT_MARGIN = 18;
 
-/**
- * Position sur l'axe (0 : dix minutes ou moins, 1 : deux ans et plus) d'une présentation dans
- * `delayMs`.
- */
-export function beltPosition(delayMs: number): number {
+/** Position sur un axe logarithmique simple, de dix minutes (0) à deux ans (1). */
+function logPosition(delayMs: number): number {
 	const position =
 		Math.log(Math.max(delayMs, BELT_START_MS) / BELT_START_MS) /
 		Math.log(BELT_END_MS / BELT_START_MS);
 	return Math.min(1, position);
+}
+
+const DAY_LOG = logPosition(DAY);
+/**
+ * Position d'un jour sur le tapis : la moitié de ce que l'axe logarithmique lui donnerait. La
+ * première journée (étapes d'apprentissage) se resserre, les jours et les mois s'étalent.
+ */
+export const DAY_POSITION = DAY_LOG / 2;
+
+/**
+ * Position sur l'axe (0 : dix minutes ou moins, 1 : deux ans et plus) d'une présentation dans
+ * `delayMs`. Logarithmique de part et d'autre d'un jour, avec deux pentes.
+ */
+export function beltPosition(delayMs: number): number {
+	const position = logPosition(delayMs);
+	if (position <= DAY_LOG) return (position / DAY_LOG) * DAY_POSITION;
+	return DAY_POSITION + ((position - DAY_LOG) / (1 - DAY_LOG)) * (1 - DAY_POSITION);
 }
 
 /** Un cran du tapis : une durée ronde, où s'accroche la ligne. */
@@ -310,15 +324,18 @@ export interface ForecastMark {
 	perDay: number;
 }
 
-/** Révisions estimées par jour au point de l'estimation le plus proche de `position`. */
-export function rateAt(points: readonly ForecastMark[], position: number): number {
-	let best: ForecastMark | undefined;
+/**
+ * Révisions estimées par jour au point de l'estimation le plus proche de `position` ; `null`
+ * avant le premier point (l'estimation commence à un jour) ou sans point.
+ */
+export function rateAt(points: readonly ForecastMark[], position: number): number | null {
+	const [first] = points;
+	if (!first || position < first.position - 1e-9) return null;
+	let best = first;
 	for (const point of points) {
-		if (!best || Math.abs(point.position - position) < Math.abs(best.position - position)) {
-			best = point;
-		}
+		if (Math.abs(point.position - position) < Math.abs(best.position - position)) best = point;
 	}
-	return best?.perDay ?? 0;
+	return best.perDay;
 }
 
 /**

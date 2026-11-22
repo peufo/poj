@@ -3,6 +3,7 @@ import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { resolve } from '$app/paths';
 import type { ComponentProps } from 'svelte';
+import { DAY_POSITION } from '#lib/format/belt.js';
 import Belt from './Belt.svelte';
 
 const HOUR = 3_600_000;
@@ -22,9 +23,10 @@ const readyBox = () =>
 		.querySelector('[aria-label="Tapis des révisions"] > div:last-child > p')
 		?.textContent.replace(/\s+/g, '') ?? '';
 
+// L'estimation commence à un jour.
 const forecast = [
-	{ position: 0, perDay: 4 },
-	{ position: 0.5, perDay: 2 },
+	{ position: DAY_POSITION, perDay: 4 },
+	{ position: 0.6, perDay: 2 },
 	{ position: 1, perDay: 0.3 }
 ];
 const props = (overrides: Partial<ComponentProps<typeof Belt>> = {}) => ({
@@ -93,15 +95,20 @@ describe('Belt', () => {
 			`, environ ${rate} révisions par jour à ce moment, estimation`;
 		await expect
 			.element(slider)
-			.toHaveAttribute('aria-valuetext', `11 cartes d'ici 1 j${estimate('2')}`);
+			.toHaveAttribute('aria-valuetext', `11 cartes d'ici 1 j${estimate('4')}`);
 		slider.element().focus();
 		await expect.element(slider).toHaveFocus();
 		await expect.element(page.getByText("d'ici 1 j", { exact: false })).toBeVisible();
 
-		await userEvent.keyboard('{ArrowRight}');
+		// Avant un jour, pas d'estimation.
+		await userEvent.keyboard('{ArrowLeft}');
+		await expect.element(slider).toHaveAttribute('aria-valuetext', "11 cartes d'ici 12 h");
+		await expect.element(page.getByText('/j', { exact: false })).not.toBeInTheDocument();
+
+		await userEvent.keyboard('{ArrowRight}{ArrowRight}');
 		await expect
 			.element(slider)
-			.toHaveAttribute('aria-valuetext', `12 cartes d'ici 2 j${estimate('2')}`);
+			.toHaveAttribute('aria-valuetext', `12 cartes d'ici 2 j${estimate('4')}`);
 		await userEvent.keyboard('{End}');
 		await expect
 			.element(slider)
