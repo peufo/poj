@@ -1,4 +1,3 @@
-import { now } from 'now-overlay/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -24,7 +23,6 @@ export default defineConfig(({ mode }) => ({
 	// Vitest lance ses propres serveurs, sur ses propres ports.
 	...(!process.env.VITEST && appServers(mode)),
 	plugins: [
-		now(),
 		tailwindcss(),
 		sveltekit({
 			compilerOptions: {
