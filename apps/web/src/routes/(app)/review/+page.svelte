@@ -75,8 +75,22 @@
 		if ((await submit()) && !answer.result?.replayed) answered += 1;
 	});
 
+	// Confirmation d'une correction : quelques secondes, et seulement sous la note corrigée
+	// (`amend.result` reste défini jusqu'au prochain envoi).
+	const AMEND_NOTICE_MS = 4000;
+	let amendNotice: { reviewId: string; unchanged: boolean } | null = $state(null);
+	let amendNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => () => clearTimeout(amendNoticeTimer));
+
 	const amendEnhanced = amend.enhance(async ({ submit }) => {
-		if (await submit()) amending = false;
+		const reviewId = last?.reviewId;
+		if (!(await submit())) return;
+		amending = false;
+		if (!reviewId || !amend.result) return;
+		amendNotice = { reviewId, unchanged: amend.result.unchanged };
+		clearTimeout(amendNoticeTimer);
+		amendNoticeTimer = setTimeout(() => (amendNotice = null), AMEND_NOTICE_MS);
 	});
 
 	/** Raccourcis clavier des notes, une fois la réponse affichée. */
@@ -319,12 +333,14 @@
 				Corriger <Kbd>Z</Kbd>
 			</Button>
 		</div>
-		{#if amend.result}
-			<FormSuccess>
-				{amend.result.unchanged
-					? `Note inchangée : c’était déjà ${ratingLabels[last.rating]}.`
-					: `Note corrigée : ${ratingLabels[last.rating]}.`}
-			</FormSuccess>
+		{#if amendNotice?.reviewId === last.reviewId}
+			<div out:fade={{ duration: 160 }}>
+				<FormSuccess>
+					{amendNotice.unchanged
+						? `Note inchangée : c’était déjà ${ratingLabels[last.rating]}.`
+						: `Note corrigée : ${ratingLabels[last.rating]}.`}
+				</FormSuccess>
+			</div>
 		{/if}
 	{/if}
 {/snippet}
