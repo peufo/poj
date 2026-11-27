@@ -15,7 +15,7 @@ La documentation du projet est en français.
 Depuis la racine (délèguent à `@poj/web` via `bun --filter`) :
 
 ```sh
-bun run dev                 # http://localhost:5173 (docs API : /api/docs)
+bun run dev                 # démarre Postgres si besoin, puis http://localhost:5173 (docs API : /api/docs)
 bun run check               # svelte-check (types), puis tsc pour le service worker
 bun run lint                # prettier --check + eslint
 bun run test                # Vitest : projets "client" (navigateur) et "server" (node)
@@ -23,7 +23,7 @@ bun run db:start            # Postgres Docker (compose.yaml racine), port 5433
 bun run db:migrate          # prisma migrate dev
 bun run stack:up            # image de prod en local (profil Compose `prod`), http://localhost:3000
 bun run stack:stop          # arrête app et proxy (jamais `docker compose down` : il arrête aussi db)
-bun run sandbox             # sandbox:reset, puis l'app sur http://localhost:5174 branchée sur poj_sandbox
+bun run sandbox             # Postgres si besoin, sandbox:reset, puis l'app sur http://localhost:5174 branchée sur poj_sandbox
 bun run sandbox:reset       # recrée poj_sandbox (migrations) et charge la seed
 bun run sandbox:seed        # recharge seulement la seed (vide d'abord toutes les tables)
 bun run worktree:setup      # dans un worktree : bases et ports propres, écrits dans son apps/web/.env

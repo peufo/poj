@@ -19,6 +19,12 @@ services:
       POSTGRES_DB: local
     volumes:
       - pgdata:/var/lib/postgresql
+    # `up --wait db` (`dev`, `sandbox`, `db:start`) attend que Postgres accepte les connexions.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -q -U root -d local']
+      interval: 1s
+      timeout: 5s
+      retries: 30
 
   # Crée la base `poj` si elle manque. Un script de `docker-entrypoint-initdb.d` ne
   # s'exécuterait que sur un volume neuf.
